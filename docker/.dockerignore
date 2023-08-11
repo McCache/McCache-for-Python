@@ -1,0 +1,7 @@
+log/
+logs/
+Dockerfile
+docker-compose*
+.dockerignore
+*.bat
+*.sh
