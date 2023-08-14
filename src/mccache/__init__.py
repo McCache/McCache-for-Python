@@ -475,34 +475,36 @@ t1.start()
 #t3 = threading.Thread(target=_listener ,daemon=True)
 #t3.start()
 
-if __name__ == "__main__":
-    logger.setLevel(logging.DEBUG)
-    c = getCache()
-    bgn = time.time()
-    time.sleep( 1 )
-    end = time.time()
-    while (end - bgn) < (duration*60):   # Seconds.
-        time.sleep( random.randint(1 ,16)/10.0 )
-        key = int((time.time_ns() /100) %entries)
-        opc = random.randint(0 ,10)
-        match opc:
-            case 0:
-                if  key in cache:
-                    # Evict cache.
-                    del cache[key]
-            case 1|2:
-                if  key not in cache:
-                    # Insert cache.
-                    cache[key] = datetime.datetime.utcnow()
-            case 3|4|5|6:
-                if  key in cache:
-                    # Update cache.
-                    cache[key] = datetime.datetime.utcnow()
-            case _:
-                # Look up cache.
-                _ = cache.get( key ,None )
-        end = time.time()
-    time.sleep(3)
+#   if __name__ == "__main__":
+#       duration = 1
+#       entries = 10
+#       logger.setLevel(logging.DEBUG)
+#       cache = getCache()
+#       bgn = time.time()
+#       time.sleep( 1 )
+#       end = time.time()
+#       while (end - bgn) < (duration*60):   # Seconds.
+#           time.sleep( random.randint(1 ,16)/10.0 )
+#           key = int((time.time_ns() /100) %entries)
+#           opc = random.randint(0 ,10)
+#           match opc:
+#               case 0:
+#                   if  key in cache:
+#                       # Evict cache.
+#                       del cache[key]
+#               case 1|2:
+#                   if  key not in cache:
+#                       # Insert cache.
+#                       cache[key] = datetime.datetime.utcnow()
+#               case 3|4|5|6:
+#                   if  key in cache:
+#                       # Update cache.
+#                       cache[key] = datetime.datetime.utcnow()
+#               case _:
+#                   # Look up cache.
+#                   _ = cache.get( key ,None )
+#           end = time.time()
+#       time.sleep(3)
 
 
 # The MIT License (MIT)
