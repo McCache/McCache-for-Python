@@ -50,9 +50,11 @@ IF NOT EXIST  log (MD log) ELSE (DEL /q log\*)
 
 :: Bring up the cluster of containers and wait until we are done exercising the cache.
 ::
+ECHO Starting the test cluster.
 ::%CONTAINER_EXE% up
 
 :: Wait for the test run to be completed in the cluster and test the output log.
+ECHO Run test using the output log from the cluster.
 ::pytest -q .
 
 :EOF_SCRIPT
