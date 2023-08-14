@@ -30,14 +30,14 @@ There are 3 levels of optimism on the cache notification.  They are:
     * Changes to local cache shall propagate an eviction to the other member's local cache.
         - Without an entry in the member's local cache ,they have to re-fetch it from persistance storage, which should be the freshest.
     *`Total Time to Live` cache algorithmn.  Default is 15 minutes.
-    * Multicast out 4 messages at 0, 10 ,20 ,30 ms apart
+    * Multicast out 4 messages at 0, 10 ,30 ms apart
 
 ### 2. NEUTRAL (default):
     * No acknowledgement is required from the other members.
     * Changes to local cache will propagate an update to the other member's local cache.
         - Members with an existing local entry shall update their own local cache.
     *`Least Recently Used` cache algorithmn.
-    * Multicast out 3 messages at 0 ,10 ,20 ms apart.
+    * Multicast out 3 messages at 0 ,10 ms apart.
 
 ### 3. OPTIMISIC:
     * No acknowledgement is required from the other members.
@@ -45,7 +45,7 @@ There are 3 levels of optimism on the cache notification.  They are:
         - All members shall update their own local cache with the multicasted change.
         - Increased size of cache for more objects.
     *`Least Recently Used` cache algorithmn.
-    * Multicast out 2 message at 0 ,10 ms apart.
+    * Multicast out 2 message at 0 ms apart.
 """
 __app__     = "McCache"
 __author__  = "Edward Lau<elau1004@netscape.net>"
@@ -82,7 +82,7 @@ class OpCode(Enum):
     DEL = 'DEL'     # Member requesting the group to evict the cache entry.
 #   ERR = 'ERR'     # Member announcing an error to the group.
     INI = 'INI'     # Member announcing its initialization to the group.
-#   INQ = 'INQ'     # Member inquiring about a cache entry from the group.
+    INQ = 'INQ'     # Member inquiring about a cache entry from the group.
     NEW = 'NEW'     # New member annoucement to join the group.
 #   NOP = 'NOP'     # No operation.
 #   PST = 'PST'     # Post?
@@ -379,21 +379,22 @@ def _multicaster() -> None:
             if  logger.level == logging.DEBUG:
                 logger.debug(f"Im:{SOURCE_ADD} Msg:{msg}" ,extra=LOG_EXTRA)
             
+            if  _config.op_level <= McCacheLevel.PESSIMISTIC:
+                # Need to be acknowledged.
+                if (nms ,key ,tsm) not in _mcPending:
+                    _mcPending[(nms ,key ,tsm)] = val
+
             # UDP is not reliable.  Send 2 messages.
             sock.sendto( pkl ,(_config.mc_gip ,_config.mc_port))
-            time.sleep(0.01)    # 10 msec.
             sock.sendto( pkl ,(_config.mc_gip ,_config.mc_port))
 
             if  _config.op_level <= McCacheLevel.NEUTRAL:
-                time.sleep(0.02)    # 20 msec.
+                time.sleep(0.01)    # 10 msec.
                 sock.sendto( pkl ,(_config.mc_gip ,_config.mc_port))
             if  _config.op_level <= McCacheLevel.PESSIMISTIC:
                 time.sleep(0.03)    # 30 msec.
                 sock.sendto( pkl ,(_config.mc_gip ,_config.mc_port))
 
-                # Need to be acknowledged.
-                if (nms ,key ,tsm) not in _mcPending:
-                    _mcPending[(nms ,key ,tsm)] = val
         except  Exception as ex:
             logger.error(ex)
 
@@ -450,10 +451,15 @@ def _listener() -> None:
                             mcc.__delitem__( key ,False )
                     case OpCode.PUT.value | OpCode.UPD.value:
                         mcc.__setitem__( key ,val ,False )
-                    case OpCode.QRY.value:
+                    case OpCode.INQ.value:
                         if  logger.level == logging.DEBUG:
-                            c = sorted( mcc.items() ,lambda item: item[0] )
-                            msg = (SOURCE_ADD ,opc ,tsm ,nms ,None ,None ,c)
+                            if  key is  None:
+                                c = sorted( mcc.items() ,lambda item: item[0] )
+                                msg = (SOURCE_ADD ,opc ,None ,nms ,None ,None ,c)
+                            else:
+                                val = mcc.get( key ,None )
+                                crc = base64.a85encode(hashlib.md5( val ).digest() ,foldspaces=True).decode()
+                                msg = (SOURCE_ADD ,opc ,None ,nms ,key ,crc ,None)
                             logger.debug(f"Im:{SOURCE_ADD} Msg:{msg}" ,extra=LOG_EXTRA)
                     case _:
                         pass
@@ -472,20 +478,29 @@ t1.start()
 if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
     c = getCache()
-    end = 0
-    start = time.time()
-    while (end - start) < 20:   # 10 seconds.
-        sec = random.randint(1 ,9)/10.0
-        time.sleep(sec)
-        key = int((time.time_ns() % 1000) / 100)
-        opc = random.randint(0 ,9)
+    bgn = time.time()
+    time.sleep( 1 )
+    end = time.time()
+    while (end - bgn) < (duration*60):   # Seconds.
+        time.sleep( random.randint(1 ,16)/10.0 )
+        key = int((time.time_ns() /100) %entries)
+        opc = random.randint(0 ,10)
         match opc:
-            case 0|1:
-                if  key in c:
-                    del c[key]
+            case 0:
+                if  key in cache:
+                    # Evict cache.
+                    del cache[key]
+            case 1|2:
+                if  key not in cache:
+                    # Insert cache.
+                    cache[key] = datetime.datetime.utcnow()
+            case 3|4|5|6:
+                if  key in cache:
+                    # Update cache.
+                    cache[key] = datetime.datetime.utcnow()
             case _:
-                c[key] = datetime.datetime.utcnow()
-                c.clear()
+                # Look up cache.
+                _ = cache.get( key ,None )
         end = time.time()
     time.sleep(3)
 

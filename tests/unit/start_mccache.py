@@ -37,7 +37,7 @@ mc.logger.info(f"Start testing with: Random seed={rndseed:3} Duration={duration:
 
 while (end - bgn) < (duration*60):   # Seconds.
     time.sleep( random.randint(1 ,16)/10.0 )
-    key = int((time.time_ns() % 1000)/ entries)
+    key = int((time.time_ns() /100) %entries)
     opc = random.randint(0 ,10)
     match opc:
         case 0:
@@ -53,9 +53,10 @@ while (end - bgn) < (duration*60):   # Seconds.
                 # Update cache.
                 cache[key] = datetime.datetime.utcnow()
         case _:
-            pass
+            # Look up cache.
+            _ = cache.get( key ,None )
     end = time.time()
 
 c = sorted( cache.items() ,lambda item: item[0] )
-mc.logger.debug(f"Im:{mid} Msg:{(mc.OpCode.QRY.name ,time.time_ns() ,cache.name ,None ,c)}" ,extra=mc.LOG_XTR)
+mc.logger.debug(f"Im:{mid} Msg:{(mc.OpCode.QRY.name ,None ,cache.name ,None ,c)}" ,extra=mc.LOG_XTR)
 mc.logger.info(f"Done  testing.")
