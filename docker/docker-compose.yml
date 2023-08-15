@@ -16,7 +16,7 @@ services:
     volumes:
       # .:/home/mccache/tests
       - ./log:/var/log/mccache
-    command: sleep 60m
+    command: sleep 15s
 
   node02:
     build:  .
@@ -32,7 +32,7 @@ services:
     volumes:
       # .:/home/mccache/tests
       - ./log:/var/log/mccache
-    command: sleep 60m
+    command: sleep 15s
 
   node03:
     build:  .
@@ -48,7 +48,7 @@ services:
     volumes:
       # .:/home/mccache/tests
       - ./log:/var/log/mccache
-    command: sleep 60m
+    command: sleep 15s
 
   node04:
     build:  .
@@ -64,7 +64,7 @@ services:
     volumes:
       # .:/home/mccache/tests
       - ./log:/var/log/mccache
-    command: sleep 60m
+    command: sleep 15s
 
   node05:
     build:  .
@@ -80,4 +80,4 @@ services:
     volumes:
       # .:/home/mccache/tests
       - ./log:/var/log/mccache
-    command: sleep 60m
+    command: sleep 15s

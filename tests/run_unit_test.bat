@@ -1,6 +1,6 @@
 :: SEE: https://ss64.com/nt/syntax-variables.html
 :: Change the following to ECHO ON to trace the execution.
-@ECHO OFF
+@ECHO ON
 
 :: Check if either podman or docker is installed.
 ::
@@ -31,15 +31,15 @@ FOR /f "tokens=*" %%v in ('powershell get-date -format "{_yyyyMMdd_HHmmU}"') DO 
 ECHO Running McCache unit test with envar RUN_TIMESTAMP: %RUN_TIMESTAMP%
 ECHO:
 
-:: The following are CLI input parameter you can use to parse out the script information.
-ECHO From Dir:     %CD%
-ECHO Script:       %0
-ECHO Full path:    %~f0
-ECHO Drive:        %~d0
-ECHO Path:         %~p0
-ECHO Filename:     %~n0
-ECHO Extension:    %~x0
-ECHO:
+:: The following are CLI input parameter you can use to parse out the script name information.
+:: ECHO From Dir:     %CD%
+:: ECHO Script:       %0
+:: ECHO Full path:    %~f0
+:: ECHO Drive:        %~d0
+:: ECHO Path:         %~p0
+:: ECHO Filename:     %~n0
+:: ECHO Extension:    %~x0
+:: ECHO:
 
 :: Change over to the directory where this script resides.
 PUSHD %~p0
@@ -51,7 +51,9 @@ IF NOT EXIST  log (MD log) ELSE (DEL /q log\*)
 :: Bring up the cluster of containers and wait until we are done exercising the cache.
 ::
 ECHO Starting the test cluster.
-::%CONTAINER_EXE% up
+PUSHD ..\Docker
+%CONTAINER_EXE% up
+POPD
 
 :: Wait for the test run to be completed in the cluster and test the output log.
 ECHO Run test using the output log from the cluster.
