@@ -240,9 +240,9 @@ class _Cache():
         super().__setitem__( key ,value )
 
         if  multicast:
-            if  _config.op_level == McCacheLevel.OPTIMISTIC:    # Distribute the cache entry to remote members.
+            if  _config.op_level == McCacheLevel.OPTIMISTIC.value:  # Distribute the cache entry to remote members.
                 _mcQueue.put((OpCode.PUT.name ,time.time_ns() ,self.name ,key ,value))
-            elif _config.op_level == McCacheLevel.NEUTRAL:      # Update remote member's cache entry if exist.
+            elif _config.op_level == McCacheLevel.NEUTRAL.value:    # Update remote member's cache entry if exist.
                 _mcQueue.put((OpCode.UPD.name ,time.time_ns() ,self.name ,key ,value))
             else:   # Evict the remote member's cache entry.
                 _mcQueue.put((OpCode.DEL.name ,time.time_ns() ,self.name ,key ,None))
@@ -369,8 +369,9 @@ def _multicaster() -> None:
             key = msg[3]    # Key
             val = msg[4]    # Value
             crc = None
-            if _config.op_level >= McCacheLevel.NEUTRAL:
-                crc = base64.a85encode(hashlib.md5( val ).digest() ,foldspaces=True).decode()
+            if _config.op_level >= McCacheLevel.NEUTRAL.value and val is not None:
+                pkl = pickle.dumps( val )
+                crc = base64.a85encode( hashlib.md5( pkl ).digest() ,foldspaces=True).decode()
             if _config.op_level == McCacheLevel.PESSIMISTIC:
                 val = None
             msg = (SOURCE_ADD ,opc ,tsm ,nms ,key ,crc ,None)   # TODO: Use the 'val'.
@@ -379,7 +380,7 @@ def _multicaster() -> None:
             if  logger.level == logging.DEBUG:
                 logger.debug(f"Im:{SOURCE_ADD} Msg:{msg}" ,extra=LOG_EXTRA)
             
-            if  _config.op_level <= McCacheLevel.PESSIMISTIC:
+            if  _config.op_level <= McCacheLevel.PESSIMISTIC.value:
                 # Need to be acknowledged.
                 if (nms ,key ,tsm) not in _mcPending:
                     _mcPending[(nms ,key ,tsm)] = val
@@ -388,10 +389,10 @@ def _multicaster() -> None:
             sock.sendto( pkl ,(_config.mc_gip ,_config.mc_port))
             sock.sendto( pkl ,(_config.mc_gip ,_config.mc_port))
 
-            if  _config.op_level <= McCacheLevel.NEUTRAL:
+            if  _config.op_level <= McCacheLevel.NEUTRAL.value:
                 time.sleep(0.01)    # 10 msec.
                 sock.sendto( pkl ,(_config.mc_gip ,_config.mc_port))
-            if  _config.op_level <= McCacheLevel.PESSIMISTIC:
+            if  _config.op_level <= McCacheLevel.PESSIMISTIC.value:
                 time.sleep(0.03)    # 30 msec.
                 sock.sendto( pkl ,(_config.mc_gip ,_config.mc_port))
 
@@ -475,36 +476,37 @@ t1.start()
 #t3 = threading.Thread(target=_listener ,daemon=True)
 #t3.start()
 
-#   if __name__ == "__main__":
-#       duration = 1
-#       entries = 10
-#       logger.setLevel(logging.DEBUG)
-#       cache = getCache()
-#       bgn = time.time()
-#       time.sleep( 1 )
-#       end = time.time()
-#       while (end - bgn) < (duration*60):   # Seconds.
-#           time.sleep( random.randint(1 ,16)/10.0 )
-#           key = int((time.time_ns() /100) %entries)
-#           opc = random.randint(0 ,10)
-#           match opc:
-#               case 0:
-#                   if  key in cache:
-#                       # Evict cache.
-#                       del cache[key]
-#               case 1|2:
-#                   if  key not in cache:
-#                       # Insert cache.
-#                       cache[key] = datetime.datetime.utcnow()
-#               case 3|4|5|6:
-#                   if  key in cache:
-#                       # Update cache.
-#                       cache[key] = datetime.datetime.utcnow()
-#               case _:
-#                   # Look up cache.
-#                   _ = cache.get( key ,None )
-#           end = time.time()
-#       time.sleep(3)
+if __name__ == "__main__":
+    duration = 1
+    entries = 10
+    logger.setLevel(logging.DEBUG)
+    cache = getCache()
+    bgn = time.time()
+    time.sleep( 1 )
+    end = time.time()
+    #while (end - bgn) < (duration*60):   # Seconds.
+    for _ in range(0,60):
+        time.sleep( random.randint(1 ,16)/10.0 )
+        key = int((time.time_ns() /100) %entries)
+        opc = random.randint(0 ,20)
+        match opc:
+            case 0:
+                if  key in cache:
+                    # Evict cache.
+                    del cache[key]
+            case 1|2|3:
+                if  key not in cache:
+                    # Insert cache.
+                    cache[key] = datetime.datetime.utcnow()
+            case 4|5|6|7:
+                if  key in cache:
+                    # Update cache.
+                    cache[key] = datetime.datetime.utcnow()
+            case _:
+                # Look up cache.
+                _ = cache.get( key ,None )
+        end = time.time()
+    time.sleep(3)
 
 
 # The MIT License (MIT)
