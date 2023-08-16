@@ -9,6 +9,7 @@ cachetools = ">=5.3"
 [dev-packages]
 podman-compose  = ">=1.0"
 pytest = ">=7.4"
+build = "*"
 
 [requires]
 python_version = "3.11"
