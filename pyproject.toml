@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "McCache"
+version = "0.0.1"
+authors = [
+  { name="Edward Lau", email="elau1004@netscape.net" },
+  { name="Daniel Escobar", email="daniel.escobar1037@gmail.com" },
+]
+description = "McCache-for-Python"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/McCache/McCache-for-Python"
+"Bug Tracker" = "https://github.com/McCache/McCache-for-Python/issues"
