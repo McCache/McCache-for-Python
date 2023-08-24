@@ -28,6 +28,10 @@ SET CONTAINER_EXE=docker-compose
 ::
 FOR /f "tokens=*" %%v in ('powershell get-date -format "{_yyyyMMdd_HHmmU}"') DO SET RUN_TIMESTAMP=%%v
 
+:: Setup the variable RUN_MAX_KEYS to be passed into teh container composer.
+SET RUN_MAX_KEYS=30
+
+
 ECHO Running McCache unit test with envar RUN_TIMESTAMP: %RUN_TIMESTAMP%
 ECHO:
 
@@ -57,7 +61,7 @@ POPD
 
 :: Wait for the test run to be completed in the cluster and test the output log.
 ECHO Run test using the output log from the cluster.
-::pytest -q .
+pytest -q .
 
 :EOF_SCRIPT
 POPD

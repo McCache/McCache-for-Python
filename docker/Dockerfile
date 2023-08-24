@@ -13,15 +13,15 @@
 #   SEE: https://dzone.com/articles/podman-compose-vs-docker-compose
 #
 
-#RG         IMAGE_VERSION=latest
-ARG         IMAGE_VERSION=slim
+ARG         IMAGE_VERSION=latest
+#RG         IMAGE_VERSION=slim
 FROM        python:${IMAGE_VERSION}
 
 ENV         USRGRP=mccache
 ENV         LANG    C.UTF-8
 
 RUN         apt-get update
-#UN         apt-get install -y  iproute2  vim
+RUN         apt-get install -y  iproute2  vim
 RUN         pip     install     pipenv
 
 # Setup mccache user workspace.

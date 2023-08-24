@@ -7,77 +7,72 @@ services:
     container_name: mccache01
     environment:
       - MCCACHE_LEVEL=5         # Neutral
-      - MCCACHE_DEBUG_FILE=/home/mccache/tests/log/mccache/debug${RUN_TIMESTAMP}.log
-      - MCCACHE_MAX_ENTRIES=10
+      - MCCACHE_DEBUG_FILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
+      - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
       - MCCACHE_RANDOM_SEED=1
-      - MCCACHE_RUN_DURATION=3  # Minutes
+      - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-    #network_mode: host
+      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d [%(levelname)s] %(message)s
     volumes:
-      # .:/home/mccache/tests
-      - ./log:/var/log/mccache
-    command: sleep 15s
+      - ./log:/home/mccache/log
+    command: sleep 15m
 
   node02:
     build:  .
     container_name: mccache02
     environment:
       - MCCACHE_LEVEL=5         # Neutral
-      - MCCACHE_DEBUG_FILE=/home/mccache/tests/log/mccache/debug${RUN_TIMESTAMP}.log
-      - MCCACHE_MAX_ENTRIES=10
+      - MCCACHE_DEBUG_FILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
+      - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
       - MCCACHE_RANDOM_SEED=2
-      - MCCACHE_RUN_DURATION=3  # Minutes
+      - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-    #network_mode: host
+      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d [%(levelname)s] %(message)s
     volumes:
-      # .:/home/mccache/tests
-      - ./log:/var/log/mccache
-    command: sleep 15s
+      - ./log:/home/mccache/log
+    command: sleep 15m
 
   node03:
     build:  .
     container_name: mccache03
     environment:
       - MCCACHE_LEVEL=5         # Neutral
-      - MCCACHE_DEBUG_FILE=/home/mccache/tests/log/mccache/debug${RUN_TIMESTAMP}.log
-      - MCCACHE_MAX_ENTRIES=10
+      - MCCACHE_DEBUG_FILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
+      - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
       - MCCACHE_RANDOM_SEED=3
-      - MCCACHE_RUN_DURATION=3  # Minutes
+      - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-    #network_mode: host
+      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d [%(levelname)s] %(message)s
     volumes:
-      # .:/home/mccache/tests
-      - ./log:/var/log/mccache
-    command: sleep 15s
+      - ./log:/home/mccache/log
+    command: sleep 15m
 
   node04:
     build:  .
     container_name: mccache04
     environment:
       - MCCACHE_LEVEL=5         # Neutral
-      - MCCACHE_DEBUG_FILE=/home/mccache/tests/log/mccache/debug${RUN_TIMESTAMP}.log
-      - MCCACHE_MAX_ENTRIES=10
+      - MCCACHE_DEBUG_FILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
+      - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
       - MCCACHE_RANDOM_SEED=4
-      - MCCACHE_RUN_DURATION=3  # Minutes
+      - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-    #network_mode: host
+      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d [%(levelname)s] %(message)s
     volumes:
-      # .:/home/mccache/tests
-      - ./log:/var/log/mccache
-    command: sleep 15s
+      - ./log:/home/mccache/log
+    command: sleep 15m
 
   node05:
     build:  .
     container_name: mccache05
     environment:
       - MCCACHE_LEVEL=5         # Neutral
-      - MCCACHE_DEBUG_FILE=/home/mccache/tests/log/mccache/debug${RUN_TIMESTAMP}.log
-      - MCCACHE_MAX_ENTRIES=10
+      - MCCACHE_DEBUG_FILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
+      - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
       - MCCACHE_RANDOM_SEED=5
-      - MCCACHE_RUN_DURATION=3  # Minutes
+      - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-    #network_mode: host
+      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d [%(levelname)s] %(message)s
     volumes:
-      # .:/home/mccache/tests
-      - ./log:/var/log/mccache
-    command: sleep 15s
+      - ./log:/home/mccache/log
+    command: sleep 15m

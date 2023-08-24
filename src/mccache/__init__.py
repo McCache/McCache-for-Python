@@ -122,8 +122,13 @@ _mcIPAdd = {
 
 ipv4: str = socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]
 ipV4: str = "".join([hex(int(g)).removeprefix("0x").zfill(2) for g in ipv4.split(".")])    # Uppercase "V"
-ipv6: str = socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET6)[0][4][0]
-ipV6: str = ipv6.replace(':' ,'')   # Uppercase "V"
+ipv6: str = None
+ipV6: str = None
+try:
+    ipv6: str = socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET6)[0][4][0]
+    ipV6: str = ipv6.replace(':' ,'')   # Uppercase "V"
+except Exception:
+    pass
 
 SOURCE_ADD = f"{ipv4}:{os.getpid()}"
 LOG_FORMAT = f"%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d.%(thread)05d)[%(levelname)s {__app__}] %(message)s"
@@ -138,7 +143,6 @@ class McCache_Config():
     mc_gip: str = '224.0.0.3'   # Unassigned multi-cast IP.
     mc_port: int = 4000         # Unofficial port.  Was Diablo II game.
     mc_hops: int = 1            # Only local subnet.
-    mc_transport: int = None    # Network transaport. UDP or TCP.
     max_size: int = 2048        # Entries.
     op_level: int = McCacheLevel.NEUTRAL.value
     debug_log: str = None       # Full pathname of the log file.
@@ -146,6 +150,10 @@ class McCache_Config():
 
 _config = McCache_Config()
 
+try:
+    LOG_FORMAT = os.environ['MCCACHE_LOG_FORMAT']
+except:
+    pass
 try:
     _config.ttl = int(os.environ['MCCACHE_TTL'])
 except:
@@ -206,7 +214,7 @@ finally:
 #
 logger = logging.getLogger('mccache')   # McCache specific logger.
 logger.propagate = False
-logger.setLevel(logging.INFO)
+logger.setLevel( logging.INFO )
 _hdlr = logging.StreamHandler()
 _fmtr = logging.Formatter(fmt=LOG_FORMAT ,datefmt='%Y%m%d%a %H%M%S' ,defaults=LOG_EXTRA)
 _hdlr.setFormatter(_fmtr)
@@ -355,10 +363,20 @@ def _multicaster() -> None:
                         * Key
                         * Value
     """    
-    logger.debug(f"{SOURCE_ADD}\t{OpCode.NEW.value}\t{time.time_ns()}\t{None}\tMcCache broadcaster is ready." ,extra=LOG_EXTRA)
+    addrinfo = socket.getaddrinfo(_config.mc_gip, None)[0]
 
-    sock = socket.socket( socket.AF_INET ,socket.SOCK_DGRAM ,socket.IPPROTO_UDP )
-    sock.setsockopt( socket.IPPROTO_IP ,socket.IP_MULTICAST_TTL ,_config.mc_hops )
+    sock = socket.socket(addrinfo[0], socket.SOCK_DGRAM)
+
+    # Set Time-to-live (optional)
+    ttl_bin = struct.pack('@i', _config.mc_hops)
+    if  addrinfo[0] == socket.AF_INET: # IPv4
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl_bin)
+    else:
+        sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, ttl_bin)
+
+    # Keep the format consistent to make it easy  for the test to parse.
+    msg = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache broadcaster is ready.')
+    logger.debug(f"Im:{SOURCE_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
 
     while True:
         try:
@@ -374,11 +392,11 @@ def _multicaster() -> None:
                 crc = base64.a85encode( hashlib.md5( pkl ).digest() ,foldspaces=True).decode()
             if _config.op_level == McCacheLevel.PESSIMISTIC:
                 val = None
-            msg = (SOURCE_ADD ,opc ,tsm ,nms ,key ,crc ,None)   # TODO: Use the 'val'.
+            msg = (opc ,tsm ,nms ,key ,crc ,None)   # TODO: Use the 'val'.
             pkl = pickle.dumps( msg )   # Serialized out the tuple.
 
             if  logger.level == logging.DEBUG:
-                logger.debug(f"Im:{SOURCE_ADD} Msg:{msg}" ,extra=LOG_EXTRA)
+                logger.debug(f"Im:{SOURCE_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
             
             if  _config.op_level <= McCacheLevel.PESSIMISTIC.value:
                 # Need to be acknowledged.
@@ -399,49 +417,64 @@ def _multicaster() -> None:
         except  Exception as ex:
             logger.error(ex)
 
+
 def _housekeeper() -> None:
     """
     Background house keeping thread.
     """
     _mcQueue.put((OpCode.NEW.name ,time.time_ns() ,None ,None ,None))
-    logger.debug(f"Im:{SOURCE_ADD}\t{OpCode.NEW.value}\t{time.time_ns()}\t{None}\tMcCache housekeeper is ready." ,extra=LOG_EXTRA)
+
+    # Keep the format consistent to make it easy  for the test to parse.
+    msg = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache housekeeper is ready.')
+    logger.debug(f"Im:{SOURCE_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
+
+    # TODO: Acknowledge the sender if required.
 
 def _listener() -> None:
     """
     Listen in the group for new cache operation from all members.
     """
-    logger.debug(f"Im:{SOURCE_ADD}\t{OpCode.NEW.value}\t{time.time_ns()}\t{None}\tMcCache listener is ready." ,extra=LOG_EXTRA)
-
     # socket.AF_INET:           IPv4
     # socket.SOL_SOCKET:        The socket layer itself.
     # socket.IPPROTO_IP:        Value is 0 which is the default and creates a socket that will receive only IP packet.
     # socket.INADDR_ANY:        Binds the socket to all available local interfaces.
     # socket.SO_REUSEADDR:      Tells the kernel to reuse a local socket in TIME_WAIT state ,without waiting for its natural timeout to expire.
     # socket.IP_ADD_MEMBERSHIP: This tells the system to receive packets on the network whose destination is the group address (but not its own)
-    #
-    mreq = struct.pack( '4sl' ,socket.inet_aton(_config.mc_gip) ,socket.INADDR_ANY )
+ 
+    addrinfo = socket.getaddrinfo(_config.mc_gip, None)[0]
 
-    sock = socket.socket( socket.AF_INET    ,socket.SOCK_DGRAM        ,socket.IPPROTO_UDP )
-    sock.setsockopt(      socket.SOL_SOCKET ,socket.SO_REUSEADDR      ,1)
-    sock.setsockopt(      socket.IPPROTO_IP ,socket.IP_ADD_MEMBERSHIP ,mreq )
-    sock.bind((_config.mc_gip ,_config.mc_port))
+    sock = socket.socket(addrinfo[0], socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(('', _config.mc_port))    # It need empty string.  If not it will throw an "The requested address is not valid in its context" exception.
+
+    group_bin = socket.inet_pton(addrinfo[0], addrinfo[4][0])
+    # Join multicast group
+    if  addrinfo[0] == socket.AF_INET: # IPv4
+        mreq = group_bin + struct.pack('=I', socket.INADDR_ANY)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+    else:
+        mreq = group_bin + struct.pack('@I', 0)
+        sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
+
+    # Keep the format consistent to make it easy  for the test to parse.
+    msg = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache listener is ready.')
+    logger.debug(f"Im:{SOURCE_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
 
     while True:
         try:
-            pkl = sock.recv( 4096 )
+            pkl, sender = sock.recvfrom( 4096 )
             msg = pickle.loads( pkl )   # De-Serialized in the tuple.
             if  logger.level == logging.DEBUG:
-                logger.debug(f"Im:{SOURCE_ADD} Msg:{msg}" ,extra=LOG_EXTRA)
+                logger.debug(f"Im:{SOURCE_ADD}\tFr:{sender}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
-            src = msg[0]    # Source address
-            opc = msg[1]    # Op Code
-            tsm = msg[2]    # Timestamp
-            nms = msg[3]    # Namespace
-            key = msg[4]    # Key
-            crc = msg[5]    # CRC
-            val = msg[6]    # Value
+            opc = msg[0]    # Op Code
+            tsm = msg[1]    # Timestamp
+            nms = msg[2]    # Namespace
+            key = msg[3]    # Key
+            crc = msg[4]    # CRC
+            val = msg[5]    # Value
 
-            if  src != SOURCE_ADD:  # Not receiving my own messages.
+            if  sender != ipv4:  # Ignore my own messages.
                 mcc = getCache( nms )
                 match opc:
                     case OpCode.ACK.value:
@@ -456,12 +489,12 @@ def _listener() -> None:
                         if  logger.level == logging.DEBUG:
                             if  key is  None:
                                 c = sorted( mcc.items() ,lambda item: item[0] )
-                                msg = (SOURCE_ADD ,opc ,None ,nms ,None ,None ,c)
+                                msg = (opc ,None ,nms ,None ,None ,c)
                             else:
                                 val = mcc.get( key ,None )
-                                crc = base64.a85encode(hashlib.md5( val ).digest() ,foldspaces=True).decode()
-                                msg = (SOURCE_ADD ,opc ,None ,nms ,key ,crc ,None)
-                            logger.debug(f"Im:{SOURCE_ADD} Msg:{msg}" ,extra=LOG_EXTRA)
+                                crc = base64.a85encode( hashlib.md5( val ).digest() ,foldspaces=True).decode()
+                                msg = (opc ,None ,nms ,key ,crc ,None)
+                            logger.debug(f"Im:{SOURCE_ADD}\tFr:{SOURCE_ADD}\tMsg:{msg}" ,extra=LOG_EXTRA)
                     case _:
                         pass
         except  Exception as ex:
@@ -473,12 +506,12 @@ t1 = threading.Thread(target=_multicaster ,daemon=True)
 t1.start()
 #t2 = threading.Thread(target=_housekeeper ,daemon=True)
 #t2.start()
-#t3 = threading.Thread(target=_listener ,daemon=True)
-#t3.start()
+t3 = threading.Thread(target=_listener ,daemon=True)
+t3.start()
 
 if __name__ == "__main__":
     duration = 1
-    entries = 10
+    entries = 20
     logger.setLevel(logging.DEBUG)
     cache = getCache()
     bgn = time.time()
@@ -510,7 +543,7 @@ if __name__ == "__main__":
 
 
 # The MIT License (MIT)
-# Copyright (c) 2023 Edward Lau
+# Copyright (c) 2023 McCache authors.
 # 
 # Permission is hereby granted ,free of charge ,to any person obtaining a copy
 # of this software and associated documentation files (the "Software") ,to deal
