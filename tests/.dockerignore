@@ -3,5 +3,5 @@ logs/
 Dockerfile
 docker-compose*
 .dockerignore
-*.bat
-*.sh
+run*test.bat
+run*test.sh

@@ -12,10 +12,11 @@ services:
       - MCCACHE_RANDOM_SEED=1
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d [%(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
     volumes:
       - ./log:/home/mccache/log
     command: sleep 15m
+#   command: ./append.sh
 
   node02:
     build:  .
@@ -27,10 +28,11 @@ services:
       - MCCACHE_RANDOM_SEED=2
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d [%(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
     volumes:
       - ./log:/home/mccache/log
     command: sleep 15m
+#   command: ./append.sh
 
   node03:
     build:  .
@@ -42,10 +44,11 @@ services:
       - MCCACHE_RANDOM_SEED=3
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d [%(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
     volumes:
       - ./log:/home/mccache/log
     command: sleep 15m
+#   command: ./append.sh
 
   node04:
     build:  .
@@ -57,10 +60,11 @@ services:
       - MCCACHE_RANDOM_SEED=4
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d [%(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
     volumes:
       - ./log:/home/mccache/log
     command: sleep 15m
+#   command: ./append.sh
 
   node05:
     build:  .
@@ -72,7 +76,8 @@ services:
       - MCCACHE_RANDOM_SEED=5
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d [%(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
     volumes:
       - ./log:/home/mccache/log
     command: sleep 15m
+#   command: ./append.sh

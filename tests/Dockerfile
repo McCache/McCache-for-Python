@@ -33,6 +33,7 @@ RUN         mkdir   -p  /var/log/${USRGRP}  \
         &&  chown   -R  ${USRGRP}:${USRGRP} /var/log/${USRGRP}
 RUN         mkdir   -p  /home/${USRGRP}/log \
         &&  chown   -R  ${USRGRP}:${USRGRP} /home/${USRGRP}
+RUN         chmod   +x  /home/${USRGRP}/append.sh
 
 # Get Python project dependencies ready.
 #

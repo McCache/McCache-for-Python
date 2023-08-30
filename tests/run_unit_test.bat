@@ -1,6 +1,6 @@
 :: SEE: https://ss64.com/nt/syntax-variables.html
 :: Change the following to ECHO ON to trace the execution.
-@ECHO ON
+@ECHO OFF
 
 :: Check if either podman or docker is installed.
 ::
@@ -26,10 +26,43 @@ SET CONTAINER_EXE=docker-compose
 
 :: Setup the variable RUN_TIMESTAMP to be passed into the container composer.
 ::
-FOR /f "tokens=*" %%v in ('powershell get-date -format "{_yyyyMMdd_HHmmU}"') DO SET RUN_TIMESTAMP=%%v
+FOR /f "tokens=*" %%v IN ('powershell get-date -format "{_yyyyMMdd_HHmmU}"') DO SET RUN_TIMESTAMP=%%v
 
-:: Setup the variable RUN_MAX_KEYS to be passed into teh container composer.
+:: Parse the command line parameters with the following format:
+:: run_unit_test.bat [ key1 val1 [key2 val2 [key3 val3 [...]]]]
+:: where the case insensitive keys:
+::  MAX_KEYS
+::  RUN_MINS
+
+:: Setup the variable RUN_MAX_KEYS to be passed into the container composer.
 SET RUN_MAX_KEYS=30
+
+:: Setup the variable RUN_MINUTES  to be passed into the container composer.
+SET RUN_MINUTES=3
+
+:: Start of CLI.
+:SOF_CLI
+IF  /I "MAX_KEYS"=="%1" GOTO :SET_MAX_KEYS
+IF  /I "RUN_MINS"=="%1" GOTO :SET_RUN_MINS
+IF  /I         ""=="%1" GOTO :EOF_CLI
+
+ECHO Invalid parameter value.  Try the following:
+ECHO    %0  [MAX_KEYS ###] [RUN_MINS ###]
+GOTO :EOF_SCRIPT
+
+:SET_MAX_KEYS
+SET RUN_MAX_KEYS=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+:SET_RUN_MINS
+SET RUN_MINUTES=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+:: End of CLI.
+:EOF_CLI
 
 
 ECHO Running McCache unit test with envar RUN_TIMESTAMP: %RUN_TIMESTAMP%
@@ -55,9 +88,7 @@ IF NOT EXIST  log (MD log) ELSE (DEL /q log\*)
 :: Bring up the cluster of containers and wait until we are done exercising the cache.
 ::
 ECHO Starting the test cluster.
-PUSHD ..\Docker
 %CONTAINER_EXE% up
-POPD
 
 :: Wait for the test run to be completed in the cluster and test the output log.
 ECHO Run test using the output log from the cluster.
