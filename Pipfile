@@ -27,7 +27,7 @@ hatch = ">=1.7.0"               # The backend build tool.
 build = ">=0.10.0"              # The frontend build tool.
 
 [requires]
-python_version = ">=3.10"       # McCahe uses Switch Statement.
+python_version = ">=3.10"       # McCache uses 'switch' Statement.
 
 [scripts]
 helloworld = "python -c \"print('Hello World. Ran from: pipenv run helloworld')\""
