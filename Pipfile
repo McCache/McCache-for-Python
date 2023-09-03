@@ -3,13 +3,34 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
 
-[packages]
-cachetools = ">=5.3"
+[[source]]
+url = "https://testpypi.org/simple"
+verify_ssl = true
+name = "testpypi"
 
-[dev-packages]
-podman-compose  = ">=1.0"
-pytest = ">=7.4"
-build = "*"
+[packages]
+
+[dev-packages]                  # As of 2023-09-04.
+cachetools = ">=5.3.0"          # McCache is build from this library.
+pre-commit = ">=3.4.0"          # Git pre-commit hook.
+podman-compose = ">=1.0.6"      # Use podman to launch 'docker-compose.yml' file.
+pyupgrade = ">=3.10.1"          # Upgrade to modern Python syntax.
+darglint = ">=1.8.1"            # Docstring linter expect docstring formatted suing Google Python Style Guide.
+bandit = ">=1.7.5"              # Security issues scanner.
+isort = ">=5.12.0"              # Sort the imports.
+mypy = ">=1.5.1"                # Static type checker for Python.
+blue = ">=0.9.1"                # Less uncompromising code formatter compared to 'black'.
+ruff = ">=0.0.287"              # Extremely fast Python linter.
+vulture = ">=2.9.1"             # Dead code scanner.
+pytest = ">=7.4.0"              # Unit testing framework.
+hatch = ">=1.7.0"               # The backend build tool.
+build = ">=0.10.0"              # The frontend build tool.
 
 [requires]
-python_version = "3.11"
+python_version = ">=3.10"       # McCahe uses Switch Statement.
+
+[scripts]
+helloworld = "python -c \"print('Hello World. Ran from: pipenv run helloworld')\""
+unittest   = "./tests/run_tests"
+minitest   = "./tests/run_tests  MAX_KEYS 10   RUN_MINS 1"
+loadtest   = "./tests/run_tests  MAX_KEYS 100  RUN_MINS 10"
