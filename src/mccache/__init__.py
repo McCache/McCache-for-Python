@@ -2,7 +2,7 @@
 #
 """
 This is a distributed application cache build on top of the `cachetools` package.  SEE: https://pypi.org/project/cachetools/
-It uses UDP multicasting hence the name "Multi-Cast Cache", playfully abbreviated to "McCache".
+It uses UDP multicasting is used as the transport hence the name "Multi-Cast Cache", playfully abbreviated to "McCache".
 
 When an object is insert/update an object into the cache, it is assumed that the instance shall be the latest.
 McCache default behaviour is to notify all member in the cluster of this update and the other members shall evict their entry in their local cache.
@@ -21,23 +21,24 @@ This tool can be a good fit if your use cases meet most of the following guideli
     5. Changes to the cache objects are not "frequent".
     6. Size of the value to be cache is "smaller" than the ethernet MTU (< 1472 bytes).
     7. Your load balancer could be configured to support "sticky" session.
+    8. Security is "delegated" to the moat around your compute environment.
 
-Having stated the above, you need to quantify the above guidelines to match your use case.
+Having stated the above, you need to quantify the above loose guidelines to match your use case.
+
 There are 3 levels of optimism on the cache notification.  They are:
-
 ### 1. PESSIMISTIC:
     * All communication will required acknowledgement.
     * Changes to local cache shall propagate an eviction to the other member's local cache.
         - Without an entry in the member's local cache ,they have to re-fetch it from persistance storage, which should be the freshest.
     *`Total Time to Live` cache algorithmn.  Default is 15 minutes.
-    * Multicast out 4 messages at 0, 10 ,30 ms apart
+    * Multicast out 4 messages at 0, 1 ,3 ms apart
 
 ### 2. NEUTRAL (default):
     * No acknowledgement is required from the other members.
     * Changes to local cache will propagate an update to the other member's local cache.
         - Members with an existing local entry shall update their own local cache.
     *`Least Recently Used` cache algorithmn.
-    * Multicast out 3 messages at 0 ,10 ms apart.
+    * Multicast out 3 messages at 0 ,1 ms apart.
 
 ### 3. OPTIMISIC:
     * No acknowledgement is required from the other members.
@@ -47,17 +48,12 @@ There are 3 levels of optimism on the cache notification.  They are:
     *`Least Recently Used` cache algorithmn.
     * Multicast out 2 message at 0 ms apart.
 """
-__app__     = "McCache"
-__author__  = "Edward Lau<elau1004@netscape.net>"
-__version__ = "0.1.0"
-__date__    = "2023-07-01"
-
+import atexit
 import base64
-import collections  # For cachetools.
-import datetime
-import functools    # For cachetools.
+import collections
+import functools
 import hashlib
-import heapq        # For cachetools.
+import heapq
 import logging
 import os
 import pickle
@@ -68,21 +64,26 @@ import struct
 import threading
 import time
 
-import cachetools
-
+#
 from dataclasses import dataclass
 from enum import Enum
+from struct import pack, unpack
 
+from __about__ import __app__, __version__  # noqa   Use by hatch to build.
 
 # Cachetools section.
-
-# McCache classes cloned from cachetools package version 5.3.1.
-# Tried subclassing to overwrite:
+#
+# Classes copied from cachetools package version 5.3.1 by Thomas Kemmer.
+# Licensed under The MIT License (MIT)
+# I tried subclassing to overwrite:
 #   __setitem__()
 #   __delitem__()
 #
-# but encountered the issue where some of the value are set to None.  Did not encounter this issue using a straight cachetools package.
-#
+# but encountered the issue where some of the value are set to None.
+# Did not encounter this issue using a straight cachetools package.
+# In the interest of time, I just copy cachetools classes over and tweaked them.
+
+# fmt: off
 class _DefaultSize:
     __slots__ = ()
 
@@ -103,8 +104,6 @@ class Cache(collections.abc.MutableMapping):
 
     __size = _DefaultSize()
 
-    __name:str = None
-
     def __init__(self, maxsize, getsizeof=None):
         if getsizeof:
             self.getsizeof = getsizeof
@@ -113,6 +112,7 @@ class Cache(collections.abc.MutableMapping):
         self.__data = dict()
         self.__currsize = 0
         self.__maxsize = maxsize
+        self.__name:str = None  # McCache addition.
 
     def __repr__(self):
         return f"{self.__class__.__name__}({repr(self.__data)} ,maxsize={self.__maxsize} ,currsize={self.__currsize}))"
@@ -123,7 +123,7 @@ class Cache(collections.abc.MutableMapping):
         except KeyError:
             return self.__missing__(key)
 
-    def __setitem__(self, key, value, multicast:bool = True):
+    def __setitem__(self, key, value, multicast = True):    # noqa: RUF100 FBT002  McCache
         maxsize = self.__maxsize
         size = self.getsizeof(value)
         if size > maxsize:
@@ -148,7 +148,7 @@ class Cache(collections.abc.MutableMapping):
             else:   # Evict the remote member's cache entry.
                 _mcQueue.put((OpCode.DEL.name ,time.time_ns() ,self.name ,key ,None))
 
-    def __delitem__(self, key, multicast:bool = True):
+    def __delitem__(self, key, multicast = True):   # noqa: RUF100 FBT002  McCache
         size = self.__size.pop(key)
         del self.__data[key]
         self.__currsize -= size
@@ -223,15 +223,15 @@ class FIFOCache(Cache):
         Cache.__init__(self, maxsize, getsizeof)
         self.__order = collections.OrderedDict()
 
-    def __setitem__(self, key, value, cache_setitem=Cache.__setitem__):
-        cache_setitem(self, key, value)
+    def __setitem__(self, key, value, multicast = True):    # noqa: RUF100 FBT002  McCache
+        super().__setitem__(self, key, value, multicast)
         try:
             self.__order.move_to_end(key)
         except KeyError:
             self.__order[key] = None
 
-    def __delitem__(self, key, cache_delitem=Cache.__delitem__):
-        cache_delitem(self, key)
+    def __delitem__(self, key, multicast = True):  # noqa: RUF100 FBT002  McCache
+        super().__delitem__(self, key, multicast)
         del self.__order[key]
 
     def popitem(self):
@@ -257,12 +257,12 @@ class LFUCache(Cache):
             self.__counter[key] -= 1
         return value
 
-    def __setitem__(self, key, value, cache_setitem=Cache.__setitem__):
-        cache_setitem(self, key, value)
+    def __setitem__(self, key, value, multicast = True):    # noqa: RUF100 FBT002  McCache
+        super().__setitem__(self, key, value, multicast)
         self.__counter[key] -= 1
 
-    def __delitem__(self, key, cache_delitem=Cache.__delitem__):
-        cache_delitem(self, key)
+    def __delitem__(self, key, multicast = True):   # noqa: RUF100 FBT002  McCache
+        super().__delitem__(self, key, multicast)
         del self.__counter[key]
 
     def popitem(self):
@@ -288,12 +288,12 @@ class LRUCache(Cache):
             self.__update(key)
         return value
 
-    def __setitem__(self, key, value, cache_setitem=Cache.__setitem__):
-        cache_setitem(self, key, value)
+    def __setitem__(self, key, value, multicast = True):    # noqa: RUF100 FBT002  McCache
+        super().__setitem__( key ,value ,multicast )
         self.__update(key)
 
-    def __delitem__(self, key, cache_delitem=Cache.__delitem__):
-        cache_delitem(self, key)
+    def __delitem__(self, key, multicast = True):   # noqa: RUF100 FBT002  McCache
+        super().__delitem__(key, multicast)
         del self.__order[key]
 
     def popitem(self):
@@ -325,12 +325,12 @@ class MRUCache(Cache):
             self.__update(key)
         return value
 
-    def __setitem__(self, key, value, cache_setitem=Cache.__setitem__):
-        cache_setitem(self, key, value)
+    def __setitem__(self, key, value, multicast = True):    # noqa: RUF100 FBT002  McCache
+        super().__setitem__(self, key, value, multicast)
         self.__update(key)
 
-    def __delitem__(self, key, cache_delitem=Cache.__delitem__):
-        cache_delitem(self, key)
+    def __delitem__(self, key, multicast = True):   # noqa: RUF100 FBT002  McCache
+        super().__delitem__(self, key, multicast)
         del self.__order[key]
 
     def popitem(self):
@@ -492,10 +492,10 @@ class TTLCache(_TimedCache):
         else:
             return cache_getitem(self, key)
 
-    def __setitem__(self, key, value, cache_setitem=Cache.__setitem__):
+    def __setitem__(self, key, value, multicast = True):    # noqa: RUF100 FBT002  McCache
         with self.timer as time:
             self.expire(time)
-            cache_setitem(self, key, value)
+            super().__setitem__(self, key, value, multicast)
         try:
             link = self.__getlink(key)
         except KeyError:
@@ -507,8 +507,8 @@ class TTLCache(_TimedCache):
         link.prev = prev = root.prev
         prev.next = root.prev = link
 
-    def __delitem__(self, key, cache_delitem=Cache.__delitem__):
-        cache_delitem(self, key)
+    def __delitem__(self, key, multicast = True):  # noqa: RUF100 FBT002  McCache
+        super().__delitem__(self, key, multicast)
         link = self.__links.pop(key)
         link.unlink()
         if not (self.timer() < link.expires):
@@ -616,13 +616,13 @@ class TLRUCache(_TimedCache):
         else:
             return cache_getitem(self, key)
 
-    def __setitem__(self, key, value, cache_setitem=Cache.__setitem__):
+    def __setitem__(self, key, value, multicast = True):   # noqa: RUF100 FBT002  McCache
         with self.timer as time:
             expires = self.__ttu(key, value, time)
             if not (time < expires):
                 return  # skip expired items
             self.expire(time)
-            cache_setitem(self, key, value)
+            super().__setitem__(self, key, value, multicast)
         # removing an existing item would break the heap structure, so
         # only mark it as removed for now
         try:
@@ -632,10 +632,10 @@ class TLRUCache(_TimedCache):
         self.__items[key] = item = TLRUCache._Item(key, expires)
         heapq.heappush(self.__order, item)
 
-    def __delitem__(self, key, cache_delitem=Cache.__delitem__):
+    def __delitem__(self, key, multicast = True):  # noqa: RUF100 FBT002  McCache
         with self.timer as time:
             # no self.expire() for performance reasons, e.g. self.clear() [#67]
-            cache_delitem(self, key)
+            super().__delitem__(self, key, multicast)
         item = self.__items.pop(key)
         item.removed = True
         if not (time < item.expires):
@@ -688,9 +688,19 @@ class TLRUCache(_TimedCache):
         value = self.__items[key]
         self.__items.move_to_end(key)
         return value
+# fmt: on
 
 
 # McCache Section.
+
+class EnableMultiCast(Enum):
+    YES = True      # Multicast out the change.
+    NO  = False     # Do not multicast out the change.  This is the default.
+
+class SocketWorker(Enum):
+    SENDER = True   # The sender of a message.
+    LISTEN = False  # The listener for messages.
+
 
 class McCacheLevel(Enum):
     PESSIMISTIC = 3 # Something out there is going to screw you.  Requires acknowledgement.  Evict the caches.
@@ -715,100 +725,94 @@ class OpCode(Enum):
 
 
 @dataclass
-class McCache_Config():
-    ttl: int  = 900             # Total Time to Live in seconds for a cached entry.
+class McCacheConfig:
+    mtu: int = 1472             # Maximum Transmission Unit of your network packet payload.  Ethernet frame is 1500 minus header.  SEE: https://www.youtube.com/watch?v=Od5SEHEZnVU
+    ttl: int = 900              # Total Time to Live in seconds for a cached entry.
     mc_gip: str = '224.0.0.3'   # Unassigned multi-cast IP.
     mc_port: int = 4000         # Unofficial port.  Was Diablo II game.
     mc_hops: int = 1            # Only local subnet.
     max_size: int = 2048        # Entries.
     op_level: int = McCacheLevel.NEUTRAL.value
-    debug_log: str = None       # Full pathname of the log file.
+    debug_log: str = 'log/debug.log'          # Full pathname of the log file.
     house_keeping_slots: str = '5,8,13,21,55' # Periods for first 5 slots: Very frequent ,Frequent ,Normal ,Slow ,Very slow.
 
 
 # Module initialization.
 #
-_lock = threading.RLock()   # Module-level lock for serializing access to shared data.
-_mcCacheDict = {}   # Private dict to segregate the cache namespace.
-_mcPending = {}     # Pending acknowledgement inpessivemistic mode. Use 'cachetools.TTLCache' instead.
-_mcMember = {}      # Members in the group.  ID/Timestamp.
-_mcQueue = queue.Queue()
+_lock = threading.RLock()               # Module-level lock for serializing access to shared data.
+_mcCacheDict: dict[str ,Cache] = {}     # Private dict to segregate the cache namespace.
+_mcPending: dict[tuple ,dict] = {}      # Pending acknowledgement in pessimistic mode.
+_mcMember: dict[str ,int] = {}          # Members in the group.  ID/Timestamp.
+_mcQueue: queue.Queue = queue.Queue()
 _mcIPAdd = {
     224: {
         0: {
             # Local Network.
-            0:  set({3 ,26 ,255}).union({d for d in range(69 ,101)}).union({d for d in range(122 ,150)}).union({d for d in range(151 ,251)}),
+            0:  {3 ,26 ,255}.union({range(69 ,101)}).union({range(122 ,150)}).union({range(151 ,251)}),
             # Adhoc Block I.
-            2:  set({0}).union({d for d in range(18 ,64)}),
-            6:  set({d for d in range(145 ,161)}).union({d for d in range(152 ,192)}),
-            12: set({d for d in range(136 ,256)}),
-            17: set({d for d in range(128 ,256)}),
-            20: set({d for d in range(208 ,256)}),
-            21: set({d for d in range(128 ,256)}),
-            23: set({d for d in range(182 ,192)}),
-            245:set({d for d in range(0   ,256)}),
+            2:  {0}.union({range(18 ,64)}),
+            6:  {range(145 ,161)}.union({range(152 ,192)}),
+            12: {range(136 ,256)},
+            17: {range(128 ,256)},
+            20: {range(208 ,256)},
+            21: {range(128 ,256)},
+            23: {range(182 ,192)},
+            245:{range(0   ,256)},
             # TODO: Adhoc Block II.
             # TODO: Adhoc Block III.
         },
     }
 }
 
-ipv4: str = socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]
-ipV4: str = "".join([hex(int(g)).removeprefix("0x").zfill(2) for g in ipv4.split(".")])    # Uppercase "V"
-ipv6: str = None
-ipV6: str = None
+# Setup normal and short IP addresses for logging and other use.
+LOG_EXTRA = {'ipv4': None ,'ipV4': None ,'ipv6': None ,'ipV6': None}    # Extra fields for the logger message.
+LOG_EXTRA['ipv4'] = socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]
+LOG_EXTRA['ipV4'] = "".join([hex(int(g)).removeprefix("0x").zfill(2) for g in LOG_EXTRA['ipv4'].split(".")])
 try:
-    ipv6: str = socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET6)[0][4][0]
-    ipV6: str = ipv6.replace(':' ,'')   # Uppercase "V"
-except Exception:
+    LOG_EXTRA['ipv6'] = socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET6)[0][4][0]
+    LOG_EXTRA['ipV6'] = LOG_EXTRA['ipv6'].replace(':' ,'')
+except socket.gaierror:
     pass
-
-SOURCE_ADD = f"{ipv4}:{os.getpid()}"
-LOG_FORMAT = f"%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d.%(thread)05d)[%(levelname)s {__app__}] %(message)s"
-LOG_EXTRA = {'ipv4': ipV4 ,'ipV4': ipV4 ,'ipv6': ipv6 ,'ipV6': ipV6}    # Extra fields for the logger mesage.
+LOG_FORMAT = f"%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d.%(thread)05d)[%(levelname)s {__app__}@%(lineno)d] %(message)s"
+SRC_IP_ADD = f"{LOG_EXTRA['ipv4']}:{os.getpid()}"   # Source IP address.
 logger = logging.getLogger()    # Root logger.
-
 
 # Configure McCache.
 #
-_config = McCache_Config()
+_config = McCacheConfig()
 
-try:
+if 'MCCACHE_LOG_FORMAT' in os.environ:
     LOG_FORMAT = os.environ['MCCACHE_LOG_FORMAT']
-except:
-    pass
-try:
+
+if 'MCCACHE_DEBUG_FILE' in os.environ:
+    _config.debug_log = os.environ['MCCACHE_DEBUG_FILE']
+
+if 'MCCACHE_SLOTS' in os.environ:
+    _config.house_keeping_slots = os.environ['MCCACHE_SLOTS']
+
+if 'MCCACHE_MTU' in os.environ and isinstance(os.environ['MCCACHE_MTU'] ,int):
+    _config.mtu = int(os.environ['MCCACHE_MTU'])
+
+if 'MCCACHE_TTL' in os.environ and isinstance(os.environ['MCCACHE_TTL'] ,int):
     _config.ttl = int(os.environ['MCCACHE_TTL'])
-except:
-    pass
-try:
+
+if 'MCCACHE_LEVEL' in os.environ and isinstance(os.environ['MCCACHE_LEVEL'] ,int):
     _config.op_level = int(os.environ['MCCACHE_LEVEL'])
     if  _config.op_level == McCacheLevel.PESSIMISTIC:
         _config.max_size =  1024
     if  _config.op_level == McCacheLevel.OPTIMISTIC:
         _config.max_size =  4096
-except:
-    pass
-try:
+
+if 'MCCACHE_MAXSIZE' in os.environ and isinstance(os.environ['MCCACHE_MAXSIZE'] ,int):
     _config.max_size = int(os.environ['MCCACHE_MAXSIZE'])
-except:
-    pass
-try:
-    _config.house_keeping_slots = int(os.environ['MCCACHE_SLOTS'])
-except:
-    pass
-try:
-    _config.debug_log = os.environ['MCCACHE_DEBUG_FILE']
-except:
-    pass
-try:
+
+if 'MCCACHE_MULTICAST_HOPS' in os.environ and isinstance(os.environ['MCCACHE_MULTICAST_HOPS'] ,int):
     _config.mc_hops = int(os.environ['MCCACHE_MULTICAST_HOPS'])
-except:
-    pass
+
 _ip = None
 try:
     # SEE: https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml
-    if 'MCCACHE_MULTICAST_IP' in os.environ['MCCACHE_MULTICAST_IP']:
+    if 'MCCACHE_MULTICAST_IP' in os.environ:
         if ':' not in os.environ['MCCACHE_MULTICAST_IP']:
             _config.mc_gip  = os.environ['MCCACHE_MULTICAST_IP']
         else:
@@ -816,15 +820,15 @@ try:
             _config.mc_port = int(os.environ['MCCACHE_MULTICAST_IP'].split(':')[1])
 
         _ip = [int(d) for d in _config.mc_gip.split(".")]
-        if  len(_ip) != 4 or _ip[0] != 224:
-            raise ValueError("{_mcCache_gip} is an invalid multicast IP address!")
+        if  len(_ip) != 4 or _ip[0] != 224: # noqa: PLR2004
+            raise ValueError(f"{_config.mc_gip} is an invalid multicast IP address! SEE: https://tinyurl.com/4cymemdf") # noqa: EM102
 
         if  not(_ip[0] in _mcIPAdd and \
                 _ip[1] in _mcIPAdd[_ip[0]] and \
                 _ip[2] in _mcIPAdd[_ip[0]][_ip[1]] and \
                 _ip[3] in _mcIPAdd[_ip[0]][_ip[1]][_ip[2]]
             ):
-            raise ValueError("{_mcCache_gip} is an unavailable multicast IP address! See: https://tinyurl.com/4cymemdf")
+            raise ValueError(f"{_config.mc_gip} is an unavailable multicast IP address! SEE: https://tinyurl.com/4cymemdf") # noqa: EM102
 except KeyError:
     pass
 except ValueError as ex:
@@ -854,7 +858,7 @@ logger.info(f"Setting: (level: {_config.op_level} ,size: {_config.max_size}) ,tt
 
 # Public methods.
 #
-def getCache(name: str = None ,cache: Cache = None) -> Cache:
+def get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
     """
     Return a cache with the specified name ,creating it if necessary.
     If no name is specified ,return the default TLRUCache or LRUCache cache depending on the optimism setting.
@@ -869,37 +873,184 @@ def getCache(name: str = None ,cache: Cache = None) -> Cache:
     """
     if  name:
         if  not isinstance( name ,str ):
-            raise TypeError('A cache name must be a string!')
+            raise TypeError('The cache name must be a string!') # noqa: EM101
     else:
         name = 'default'
     if  cache:
         if  not isinstance( cache ,Cache ):
-            raise TypeError(f"Cache name '{name}' is not of type McCache.Cache!")
+            raise TypeError(f"Cache name '{name}' is not of type McCache.Cache!")   # noqa: EM102
     try:
         _lock.acquire()
         if  name in _mcCacheDict:
             cache = _mcCacheDict[ name ]
-        else:
-            if  not cache:
-                # This will be the default type of cache for McCache.
-                if _config.op_level == McCacheLevel.PESSIMISTIC:
-                    cache = TLRUCache( maxsize=_config.max_size ,ttl=_config.ttl )
-                else:
-                    cache = LRUCache( maxsize=_config.max_size )
+
+        if  not cache:
+            # This will be the default type of cache for McCache.
+            if _config.op_level == McCacheLevel.PESSIMISTIC:
+                cache = TLRUCache( maxsize=_config.max_size ,ttl=_config.ttl )
+            else:
+                cache = LRUCache( maxsize=_config.max_size )
+            _mcCacheDict[ name ] = cache
 
             if  cache.name is None:
-                cache.name = name
-                _mcQueue.put((OpCode.INI.name ,time.time_ns() ,cache.name ,None ,None))
-
-            _mcCacheDict[ name ] = cache
+                cache.setname( name )
     finally:
         _lock.release()
 
     return cache
 
 
+# Private utilities methods.
+#
+def __get_socket(is_sender: SocketWorker) -> socket.socket:
+    """Get a configured socket for either the sender or receiver.
+
+    Args:
+        is_Sender   A switch to pick the socket to be configire for either sender or receiver.
+
+    Return:
+        socket      A configured socket ready to be used.
+    """
+    # socket.AF_INET:           IPv4
+    # socket.SOL_SOCKET:        The socket layer itself.
+    # socket.IPPROTO_IP:        Value is 0 which is the default and creates a socket that will receive only IP packet.
+    # socket.INADDR_ANY:        Binds the socket to all available local interfaces.
+    # socket.SO_REUSEADDR:      Tells the kernel to reuse a local socket in TIME_WAIT state ,without waiting for its natural timeout to expire.
+    # socket.IP_ADD_MEMBERSHIP: This tells the system to receive packets on the network whose destination is the group address (but not its own)
+
+    addrinfo = socket.getaddrinfo( _config.mc_gip ,None )[0]
+    sock = socket.socket( addrinfo[0] ,socket.SOCK_DGRAM )
+    if  is_sender.value:
+        # Set Time-to-live (optional)
+        ttl_bin = struct.pack('@i' ,_config.mc_hops)
+        if  addrinfo[0] == socket.AF_INET:  # IPv4
+            sock.setsockopt( socket.IPPROTO_IP   ,socket.IP_MULTICAST_TTL ,ttl_bin )
+        else:
+            sock.setsockopt( socket.IPPROTO_IPV6 ,socket.IPV6_MULTICAST_HOPS ,ttl_bin )
+    else:
+        sock.setsockopt( socket.SOL_SOCKET ,socket.SO_REUSEADDR ,1 )
+        sock.bind(('' ,_config.mc_port))    # It need empty string or it will throw an "The requested address is not valid in its context" exception.
+
+        group_bin = socket.inet_pton( addrinfo[0] ,addrinfo[4][0] )
+        # Join multicast group
+        if  addrinfo[0] == socket.AF_INET:  # IPv4
+            mreq = group_bin + struct.pack('@I' ,socket.INADDR_ANY )
+            sock.setsockopt( socket.IPPROTO_IP  ,socket.IP_ADD_MEMBERSHIP ,mreq )
+        else:
+            mreq = group_bin + struct.pack('@I' ,0)
+            sock.setsockopt( socket.IPPROTO_IPV6 ,socket.IPV6_JOIN_GROUP ,mreq )
+
+    return  sock
+
+
+def _make_pending_value( bdata: bytes ,frame_size: int ,members: dict ) -> {}:
+    """Make a dictionary entry for management of communication acknowledgement.
+
+    Each payload chunk is prefixed with a 4 bytes of header defined as follow:
+        Header:
+            Magic:      1 byte
+            Version:    1 byte
+            Sequence:   1 byte zero offset.
+            Fragments:  1 byte
+
+    Args:
+        bdata       Binary data.
+        frame_size  The size of the usuable ethernet frame (minus the IP header)
+
+    Return:
+        A dictionary of the following structure:
+        {
+            'value':    list(), # Ordered list of fragments.
+            'members':  {
+                ip: set()       # Set of unacknowledge chunks for the given IP key.
+            }
+        }
+    """
+    frg_size = frame_size - 4   # 4 bytes of McCache payload header.
+    fragmnts = len( bdata ) / frg_size
+    if  len( bdata ) % frg_size != 0:
+        fragmnts += 1
+
+    return {'value': [
+                pack('@BBBB' ,246 ,1 ,i ,fragmnts ) +                           # Header (4 bytes)
+                bdata[i : i+frg_size] for i in range(0 ,len(bdata) ,frg_size)   # Payload
+            ],
+            'members': {
+                ip: {range(0 ,fragmnts)} for ip in members.keys()
+            }
+        }
+
+def _send_fragment( sock:socket.socket ,fragment: bytes ):
+    """Send a payload fragment.
+
+    Args:
+        socket      A configure socket to send out of.
+        fragment    A fragment of binary data.
+    """
+    # UDP is not reliable therefore send 2 packets.
+    sock.sendto( fragment ,(_config.mc_gip ,_config.mc_port))
+    sock.sendto( fragment ,(_config.mc_gip ,_config.mc_port))
+
+    if  McCacheLevel.NEUTRAL.value >= _config.op_level:
+        time.sleep(0.001)    # 1 msec.
+        sock.sendto( fragment ,(_config.mc_gip ,_config.mc_port))
+    if  McCacheLevel.PESSIMISTIC.value >= _config.op_level:
+        time.sleep(0.003)    # 3 msec.
+        sock.sendto( fragment ,(_config.mc_gip ,_config.mc_port))
+
+def _decode_message( msg: tuple ,sender: str ):
+    opc = msg[0]    # Op Code
+    tsm = msg[1]    # Timestamp
+    nms = msg[2]    # Namespace
+    key = msg[3]    # Key
+    crc = msg[4]    # CRC
+    val = msg[5]    # Value
+    frm = sender    # From
+
+    mcc = get_cache( nms )
+    match opc:
+        case OpCode.ACK.value:
+            if (nms ,key ,tsm) in _mcPending:
+                # TODO: Finish this.
+                if  frm in _mcPending[(nms ,key ,tsm)]['members']:
+                    del _mcPending[(nms ,key ,tsm)]['members'][ frm ]
+                if  len(_mcPending[(nms ,key ,tsm)]['members']) == 0:
+                    del _mcPending[(nms ,key ,tsm)]
+        case OpCode.BYE.value:
+            if  frm in _mcMember:
+                del _mcMember[ frm ]
+        case OpCode.DEL.value:
+            if  key in mcc:
+                mcc.__delitem__( key ,EnableMultiCast.NO.value )
+        case OpCode.PUT.value | OpCode.UPD.value:
+            mcc.__setitem__( key ,val ,EnableMultiCast.NO.value )
+        case OpCode.INQ.value:
+            if  logger.level == logging.DEBUG:
+                # NOTE: Don't dump the raw data out for security reason.
+                if  key is  None:
+                    keys = list(mcc.keys())
+                    keys.sort()
+                    _mc = {k: base64.a85encode( hashlib.md5( pickle.dumps( mcc[k] )).digest() ,foldspaces=True).decode() for k in keys} # noqa: S324
+                    msg = (opc ,None ,nms ,None ,None ,_mc)
+                else:
+                    val = mcc.get( key ,None )
+                    crc = base64.a85encode( hashlib.md5( pickle.dumps( val )).digest() ,foldspaces=True).decode()   # noqa: S324
+                    msg = (opc ,None ,nms ,key ,crc ,None)
+                logger.debug(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
+        case _:
+            pass
+
 # Private thread methods.
 #
+def _goodbye() -> None:
+    """
+    Shutting down of this Python process to all the members in the group.
+
+    SEE: https://docs.python.org/3.8/library/atexit.html#module-atexit
+    """
+    _mcQueue.put((OpCode.BYE.name ,time.time_ns() ,None ,None ,None))
+    time.sleep( 0.3 )
+
 def _multicaster() -> None:
     """
     Dequeue and multicast out the cache operation to all the members in the group.
@@ -911,21 +1062,22 @@ def _multicaster() -> None:
         Key:        The key in the cache.
         CRC:        Checksum of the value identified by the key.
         Value:      The cached value.
-    """    
-    addrinfo = socket.getaddrinfo(_config.mc_gip, None)[0]
 
-    sock = socket.socket(addrinfo[0], socket.SOCK_DGRAM)
-
-    # Set Time-to-live (optional)
-    ttl_bin = struct.pack('@i', _config.mc_hops)
-    if  addrinfo[0] == socket.AF_INET: # IPv4
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl_bin)
-    else:
-        sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, ttl_bin)
+    The pending acknowledgement dictionary structure is:
+        {
+            (namespace ,key, timestamp): {
+                 'value': list()    # Payload chunk(s).
+                ,'members': {
+                    ip : set()      # Unacknowledge payload chunks.
+                }
+            }
+        }
+    """
+    sock = __get_socket( SocketWorker.SENDER )
 
     # Keep the format consistent to make it easy  for the test to parse.
-    msg = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache broadcaster is ready.')
-    logger.debug(f"Im:{SOURCE_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
+    msg: tuple = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache broadcaster is ready.')
+    logger.debug(f"Im:{SRC_IP_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
 
     while True:
         try:
@@ -938,43 +1090,34 @@ def _multicaster() -> None:
             crc = None
             if _config.op_level >= McCacheLevel.NEUTRAL.value and val is not None:
                 pkl = pickle.dumps( val )
-                crc = base64.a85encode( hashlib.md5( pkl ).digest() ,foldspaces=True).decode()
+                crc = base64.a85encode( hashlib.md5( pkl ).digest() ,foldspaces=True).decode()  # noqa: S324
             if _config.op_level == McCacheLevel.PESSIMISTIC:
                 val = None
             msg = (opc ,tsm ,nms ,key ,crc ,val)
             pkl = pickle.dumps( msg )   # Serialized out the tuple.
 
             if  logger.level == logging.DEBUG:
-                logger.debug(f"Im:{SOURCE_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
-            
+                msg = (opc ,tsm ,nms ,key ,crc ,None)
+                logger.debug(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
+
             if  _config.op_level <= McCacheLevel.PESSIMISTIC.value:
                 # Need to be acknowledged.
                 if (nms ,key ,tsm) not in _mcPending:
-                    _mcPending[(nms ,key ,tsm)] = val
+                    _mcPending[(nms ,key ,tsm)] = _make_pending_value( pkl ,_config.mtu ,_mcMember )
 
-            # UDP is not reliable.  Send 2 messages.
-            sock.sendto( pkl ,(_config.mc_gip ,_config.mc_port))
-            sock.sendto( pkl ,(_config.mc_gip ,_config.mc_port))
-
-            if  _config.op_level <= McCacheLevel.NEUTRAL.value:
-                time.sleep(0.01)    # 10 msec.
-                sock.sendto( pkl ,(_config.mc_gip ,_config.mc_port))
-            if  _config.op_level <= McCacheLevel.PESSIMISTIC.value:
-                time.sleep(0.03)    # 30 msec.
-                sock.sendto( pkl ,(_config.mc_gip ,_config.mc_port))
-
-        except  Exception as ex:
+            _send_fragment( sock ,pkl )
+            if  len(pkl) > _config.mtu:
+                logger.warn(f"Payload keyed with {nms}.{key} size is {len(pkl)} maybe > {_config.mtu} bytes for MTU payload frame.")
+        except  Exception as ex:    # noqa: BLE001
             logger.error(ex)
 
 def _housekeeper() -> None:
     """
     Background house keeping thread.
     """
-    _mcQueue.put((OpCode.NEW.name ,time.time_ns() ,None ,None ,None))
-
-    # Keep the format consistent to make it easy  for the test to parse.
-    msg = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache housekeeper is ready.')
-    logger.debug(f"Im:{SOURCE_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
+    # Keep the format consistent to make it easy for the test to parse.
+    msg: tuple = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache housekeeper is ready.')
+    logger.debug(f"Im:{SRC_IP_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
 
     # TODO: Acknowledge the sender if required.
 
@@ -982,136 +1125,78 @@ def _listener() -> None:
     """
     Listen in the group for new cache operation from all members.
     """
+    myip = SRC_IP_ADD.split(':')[0]
     # socket.AF_INET:           IPv4
     # socket.SOL_SOCKET:        The socket layer itself.
     # socket.IPPROTO_IP:        Value is 0 which is the default and creates a socket that will receive only IP packet.
     # socket.INADDR_ANY:        Binds the socket to all available local interfaces.
     # socket.SO_REUSEADDR:      Tells the kernel to reuse a local socket in TIME_WAIT state ,without waiting for its natural timeout to expire.
     # socket.IP_ADD_MEMBERSHIP: This tells the system to receive packets on the network whose destination is the group address (but not its own)
- 
-    addrinfo = socket.getaddrinfo(_config.mc_gip, None)[0]
 
-    sock = socket.socket(addrinfo[0], socket.SOCK_DGRAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind(('', _config.mc_port))    # It need empty string.  If not it will throw an "The requested address is not valid in its context" exception.
+    sock = __get_socket( SocketWorker.LISTEN )
 
-    group_bin = socket.inet_pton(addrinfo[0], addrinfo[4][0])
-    # Join multicast group
-    if  addrinfo[0] == socket.AF_INET: # IPv4
-        mreq = group_bin + struct.pack('=I', socket.INADDR_ANY)
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-    else:
-        mreq = group_bin + struct.pack('@I', 0)
-        sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_JOIN_GROUP, mreq)
-
-    # Keep the format consistent to make it easy  for the test to parse.
-    msg = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache listener is ready.')
-    logger.debug(f"Im:{SOURCE_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
+    # Keep the format consistent to make it easy for the test to parse.
+    msg: tuple = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache listener is ready.')
+    logger.debug(f"Im:{SRC_IP_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
 
     while True:
         try:
-            pkl, sender = sock.recvfrom( 4096 )
-            if  logger.level == logging.DEBUG:
-                logger.debug(f"Im:{SOURCE_ADD}\tFr:{sender[0]}\tMsg:{msg}" ,extra=LOG_EXTRA)
+            pkt, sender = sock.recvfrom( 4096 )
+            frm = sender[0]
 
-            msg = pickle.loads( pkl )   # De-Serialized in the tuple.
-            opc = msg[0]    # Op Code
-            tsm = msg[1]    # Timestamp
-            nms = msg[2]    # Namespace
-            key = msg[3]    # Key
-            crc = msg[4]    # CRC
-            val = msg[5]    # Value
+            if  frm != myip:    # Ignore my own messages.
+                msg = pickle.loads( pkt )   # noqa: S301
+                opc = msg[0]    # Op Code
+                tsm = msg[1]    # Timestamp
+                nms = msg[2]    # Namespace
+                key = msg[3]    # Key
+                crc = msg[4]    # CRC
+                _   = msg[5]    # Value
 
-            if  sender[0] != ipv4:  # Ignore my own messages.
-                mcc = getCache( nms )
-                match opc:
-                    case OpCode.ACK.value:
-                        if (nms ,key ,tsm) in _mcPending:
-                            del _mcPending[(nms ,key ,tsm)]
-                    case OpCode.DEL.value:
-                        if  key in mcc:
-                            mcc.__delitem__( key ,False )
-                    case OpCode.PUT.value | OpCode.UPD.value:
-                        mcc.__setitem__( key ,val ,False )
-                    case OpCode.INQ.value:
-                        if  logger.level == logging.DEBUG:
-                            # NOTE: Don't dump the raw data out for security reason.
-                            if  key is  None:
-                                keys = list(mcc.keys())
-                                keys.sort()
-                                _mc = {k: base64.a85encode( hashlib.md5( pickle.dumps( mcc[k] )).digest() ,foldspaces=True).decode() for k in keys}
-                                msg = (opc ,None ,nms ,None ,None ,_mc)
-                            else:
-                                val = mcc.get( key ,None )
-                                crc = base64.a85encode( hashlib.md5( pickle.dumps( val )).digest() ,foldspaces=True).decode()
-                                msg = (opc ,None ,nms ,key ,crc ,None)
-                            logger.debug(f"Im:{SOURCE_ADD}\tFr:{SOURCE_ADD}\tMsg:{msg}" ,extra=LOG_EXTRA)
-                    case _:
-                        pass
-        except  Exception as ex:
+                if  logger.level == logging.DEBUG:
+                    msg = (opc ,tsm ,nms ,key ,crc ,None)
+                    logger.debug(f"Im:{SRC_IP_ADD}\tFr:{frm}\tMsg:{msg}" ,extra=LOG_EXTRA)
+
+                if  frm not in _mcMember:
+                    _mcMember[ frm ] = tsm
+
+                _decode_message( msg ,sender[0] )
+        except  Exception as ex:    # noqa: BLE001
             logger.error(ex)
 
 # Main section to start the background daemon threads.
 #
-t1 = threading.Thread(target=_multicaster ,daemon=True)
+atexit.register(_goodbye)   # SEE: https://docs.python.org/3.8/library/atexit.html#module-atexit
+
+t1 = threading.Thread(target=_multicaster ,daemon=True ,name="McCache multicaster")
 t1.start()
-t2 = threading.Thread(target=_housekeeper ,daemon=True)
+t2 = threading.Thread(target=_housekeeper ,daemon=True ,name="McCache housekeeper")
 t2.start()
-t3 = threading.Thread(target=_listener    ,daemon=True)
+t3 = threading.Thread(target=_listener    ,daemon=True ,name="McCache listener")
 t3.start()
 
-if __name__ == "__main__":
-    duration = 1
-    entries = 20
-    logger.setLevel(logging.DEBUG)
-    cache = getCache()
-    bgn = time.time()
-    time.sleep( 1 )
-    end = time.time()
-    #while (end - bgn) < (duration*60):   # Seconds.
-    for _ in range(0,60):
-        time.sleep( random.randint(1 ,10)/10.0 )
-        key = int((time.time_ns() /100) %entries)
-        opc = random.randint(0 ,10)
-        match opc:
-            case 0:
-                if  key in cache:
-                    # Evict cache.
-                    del cache[key]
-            case 1|2|3:
-                if  key not in cache:
-                    # Insert cache.
-                    cache[key] = datetime.datetime.utcnow()
-            case 4|5|6|7:
-                if  key in cache:
-                    # Update cache.
-                    cache[key] = datetime.datetime.utcnow()
-            case _:
-                # Look up cache.
-                _ = cache.get( key ,None )
-        end = time.time()
-    time.sleep(3)
 
-    keys = list(cache.keys())
-    keys.sort()
-    _mc = {k: cache[k] for k in keys}
-    msg = (OpCode.QRY.name ,None ,cache.name ,None ,None ,_mc)
-    logger.debug(f"Im:{SOURCE_ADD}\tFr:{SOURCE_ADD}\tMsg:{msg}" ,extra=LOG_EXTRA)
+if __name__ == "__main__":
+    # ONLY used during development testing.
+    import sys
+    sys.path.append(__file__[:__file__.find('src')-1])
+    sys.path.append(__file__[:__file__.find('src')+3])
+    import tests.unit.start_mccache # noqa: F401 I001
 
 
 # The MIT License (MIT)
 # Copyright (c) 2023 McCache authors.
-# 
+#
 # Permission is hereby granted ,free of charge ,to any person obtaining a copy
 # of this software and associated documentation files (the "Software") ,to deal
 # in the Software without restriction ,including without limitation the rights
 # to use ,copy ,modify ,merge ,publish ,distribute ,sublicense ,and/or sell
 # copies of the Software ,and to permit persons to whom the Software is
 # furnished to do so ,subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS" ,WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED ,INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 # MERCHANTABILITY ,FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.

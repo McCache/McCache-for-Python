@@ -15,31 +15,38 @@
 
 ARG         IMAGE_VERSION=latest
 #RG         IMAGE_VERSION=slim
+#RG         IMAGE_VERSION=3.11.4
 FROM        python:${IMAGE_VERSION}
 
 ENV         USRGRP=mccache
 ENV         LANG    C.UTF-8
 
-RUN         apt-get update
-RUN         apt-get install -y  iproute2  vim
-RUN         pip     install     pipenv
+# Dont need the following if you are using the lastest image.
+#
+#UN         apt-get update
+#UN         apt-get install -y  vim
+#UN         pip     install -U  pip
 
 # Setup mccache user workspace.
 #
-RUN         useradd -U -md  /home/${USRGRP} ${USRGRP}
+RUN         useradd -U -md                      /home/${USRGRP} ${USRGRP}
 WORKDIR     /home/${USRGRP}
-COPY    .   /home/${USRGRP}
+COPY       .                                    /home/${USRGRP}
+COPY       ./tests/unit/start_mccache.py        /home/${USRGRP}
+
 RUN         mkdir   -p  /var/log/${USRGRP}  \
         &&  chown   -R  ${USRGRP}:${USRGRP} /var/log/${USRGRP}
 RUN         mkdir   -p  /home/${USRGRP}/log \
         &&  chown   -R  ${USRGRP}:${USRGRP} /home/${USRGRP}
-RUN         chmod   +x  /home/${USRGRP}/append.sh
 
 # Get Python project dependencies ready.
 #
 USER        ${USRGRP}
-RUN         pipenv  install
-RUN         pipenv  check
+
+# Install the McCache project using pyproject.toml
+#
+# Debug why it breaks the build.
+#UN         pip         install -e .
 
 # Start the test run.
 #

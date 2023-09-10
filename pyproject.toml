@@ -1,12 +1,15 @@
 [project]
 name = "McCache"
-version = "0.0.1"
+#version = "0.0.1"
+dynamic = ["version"]
 authors = [
   { name="Edward Lau", email="elau1004@netscape.net" },
   { name="Daniel Escobar", email="daniel.escobar1037@gmail.com" },
 ]
 description = "McCache-for-Python"
 readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
 classifiers = [  #! Update me
   "Development Status :: 2 - Pre-Alpha",
   "Intended Audience :: Developers",
@@ -14,10 +17,9 @@ classifiers = [  #! Update me
   "Topic :: Software Development :: Libraries :: Python Modules",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
 ]
 
 keyword = [
@@ -37,13 +39,12 @@ keyword = [
 # SEE: https://pypa-build.readthedocs.io/en/stable/index.html
 # SEE: https://hatch.pypa.io/latest/config/build/
 
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.hatch.build.sources]
-"src/mccache" = "mccache"
+[tool.hatch.version]
+path = "src/mccache/__about__.py"
 
 [tool.hatch.build]
 include = [
@@ -59,4 +60,115 @@ exclude = [
   "CONTRIBUTING.md",
   "tests/",
 ]
+
+[tool.hatch.build.sources]
+"src/mccache" = "mccache"
+
+[[tool.hatch.envs.all.matrix]]
+python = ["3.10", "3.11", "3.12"]
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = [
+# "black>=23.1.0",
+  "blue>=0.9.1",
+  "mypy>=1.5.1",
+  "ruff>=0.0.287",
+]
+[tool.hatch.envs.lint.scripts]
+typing = "mypy --install-types --non-interactive {args:src/mccache tests}"
+style = [
+  "ruff {args:src/mccache}",
+# "black --check --diff {args:src/mccache}",
+]
+fmt = [
+# "black {args:src/mccache}",
+  "ruff --fix {args:src/mccache tests}",
+  "style",
+]
+all = [
+  "style",
+  "typing",
+]
+
+[tool.black]
+target-version = ["py310"]
+line-length = 160   # But you should exercise good judgement and keep it as short as possible.
+skip-string-normalization = true
+
+[tool.ruff]
+target-version = "py310"
+line-length = 160
+select = [
+  "A",    # flake8-builtins
+  "ARG",  # flake8-unused-arguments
+  "B",    # flake8-bugbear
+  "BLE",
+  "C",    # 
+  "C4",
+  "C90",
+  "DTZ",  # flake8-datetimez
+  "E",    # 
+  "EM",   # flake8-errmsg
+  "F",    # Pyflakes
+  "FBT",  # flake8-boolean-trap
+  "I",    # isort
+  "ICN",  # flake8-import-conventions
+  "ISC",  # flake8-implicit-str-concat
+  "N",    # pep8-naming
+  "PLC",  # 
+  "PLE",  #
+  "PLR",  #
+  "PLW",  #
+  "Q",    # flake8-quotes
+  "RET",
+  "RSE",
+  "RUF",  # Ruff-specific rules
+  "S",    # flake8-bandit
+  "T",    #
+  "TCH",
+  "TID",  # flake8-tidy-imports
+  "UP",   # pyupgrade
+  "W",    #
+  "YTT",  # flake8-2020
+]
+ignore = [
+  # Allow non-abstract empty methods in abstract base classes
+  "B027",
+
+  # Allow boolean positional values in function calls, like `dict.get(... True)`
+  #"FBT003",
+
+  # Allow mixed-case-variable-in-global-scope  
+  "N816",
+
+  # Ignore checks for possible passwords
+  #"S105", "S106", "S107",
+  
+  # Ignore bad-quotes-inline-string
+  "Q000",
+  
+  # Ignore complexity
+  #"C901", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+]
+unfixable = [
+  # Don't touch unused imports
+  "F401",
+]
+
+[tool.ruff.mccabe]
+max-complexity = 14
+
+[tool.ruff.pylint]
+max-branches = 14
+
+[tool.ruff.isort]
+known-first-party = ["mccache"]
+
+[tool.ruff.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.per-file-ignores]
+# Tests can use magic values, assertions, and relative imports
+"tests/**/*" = ["PLR2004", "S101", "TID252"]
 

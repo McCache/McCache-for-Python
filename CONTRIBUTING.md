@@ -14,38 +14,52 @@ pip    install     pipenv
 
 We use `build` to build and publish this package to [PyPi](https://pypi.org).
 ```bash
+pipenv  run hatch       build
 ```
 
 To install dependencies and prepare [`pre-commit`](https://pre-commit.com/) hooks you would need to run the following command:
 
 ```bash
-pipenv run  pre-commit  install
+pipenv  run pre-commit  install
 ```
 
 To activate your `virtualenv` run the following command:
 ```bash
-pipenv shell
+pipenv  shell
 ```
+
+## Formatting Philosophy
+We are polygot developers and we bring non-pythonic best practice to this project.
+We like PEP8 as a starting guideline but will **not** adhere to it if it makes the code harder to read.  The area where we will deviate the most are:
+* Max Line Length:
+  * We are defaulting it to 160 but we trust that you excercise good jugdement to keep it as short as possoble.
+* Whitespaces:
+  * We love it for we believe it makes the code more readable and we do not live in the 90s with small monitors.  Characters that are butted together is harder to read.
+* Commas:
+  * This is not English literature writing.  A comma is used to introduce the next term.  Therefore we have a space before the comma but no space after the comma.  If there is no next term, you will not  need a comma to seperate the terms.
+* Vertical aligment:
+  * We believe that vertical align make it easier on the eyes to pick out deltas.  A multi jagged lines require the eyes and brain to perform a lot of scans and processing creating mental fatigue.
+
+We expect you to run your changes through the `ruff` linter before you commit your changes.
 
 ## Codestyle
 
 After installation you may execute code formatting with the following commands:
 ```bash
-pipenv run pyupgrade    --exit-zero-even-if-changed --py39-plus **/*.py
-pipenv run isort        --settings-path pyproject.toml  ./src
-pipenv run blue         --config        pyproject.toml  ./src
-pipenv run ruff
-pipenv run darglint     --verbosity  2  mccache tests
+pipenv run ruff check   ./src/mccache/*.py
+```
+`ruff` documentation mentioned that it be used to replace `Flake8`, `isort`, `pydocstyle`, `yesqa`, `eradicate`, `pyupgrade`, and `autoflake`.
+Execute the following command to display all the `ruff` supported linters:
+```
+pipenv run ruff linter
 ```
 
 ### Checks
 
 You can run the following command to further check the code.
 ```bash
-pipenv run mypy         --config-file   pyproject.toml  ./src
-pipenv check
-pipenv run safety check --full-report
-pipenv run bandit -ll   --recursive     mccache tests
+pipenv run mypy         ./src/mccache/*.py
+pipenv run bandit       ./src/mccache/*.py
 pipenv run vulture
 ```
 

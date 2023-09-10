@@ -1,0 +1,51 @@
+#!/bin/env
+
+# Check if either podman or docker is installed.
+#
+
+# Setup the variable RUN_TIMESTAMP to be passed into the container composer.
+export RUN_TIMESTAMP=$(date+'_%Y%m%d_%H%M')
+
+# Parse the command line parameters with the following format:
+# run_test  [ key1 val1 [key2 val2 [key3 val3 [...]]]]
+# where the case insensitive keys:
+#   MAX_KEYS
+#   RUN_MINS
+
+# Setup the variable RUN_MAX_KEYS to be passed into the container composer.
+export RUN_MAX_KEYS=30
+
+# Setup the variable RUN_MINUTES  to be passed into the container composer.
+export RUN_MINUTES=3
+
+# Start of CLI.
+
+echo Invalid parameter value.  Try the following:
+echo    %0  '[MAX_KEYS ###] [RUN_MINS ###]'
+
+# End of CLI.
+
+
+echo Running McCache test with envar:
+echo    RUN_TIMESTAMP: ${RUN_TIMESTAMP}
+echo    RUN_MAX_KEYS:  ${RUN_MAX_KEYS}
+echo    RUN_MINUTES:   ${RUN_MINUTES}
+echo
+
+
+# Change over to the directory where this script resides.
+pushd %~p0
+
+# Create the log directory if it doesn't exist, else empty the directory before we start.
+#
+
+# Bring up the cluster of containers and wait until we are done exercising the cache.
+#
+echo Starting the test cluster.
+${CONTAINER_EXE} up
+
+# Wait for the test run to be completed in the cluster and test the output log.
+run Run test using the output log from the cluster.
+pipenv run  pytest -q .
+
+popd

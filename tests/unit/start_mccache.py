@@ -24,8 +24,12 @@ duration = 1    # One minute.
 if 'MCCACHE_RUN_DURATION' in os.environ:
     duration = int(os.environ['MCCACHE_RUN_DURATION'])  # In minutes.
 
-cache = mc.getCache()
-mid = f"{mc.ipv4}"  # My ID.
+for h in mc.logger.handlers:
+    if  h.formatter._fmt == mc.LOG_FORMAT.replace('{__app__}' ,mc.__app__):
+        h.formatter._fmt = "%(asctime)s.%(msecs)03d %(message)s"
+        h.formatter._style._fmt = "%(asctime)s.%(msecs)03d %(message)s"
+
+cache = mc.get_cache()
 bgn = time.time()
 time.sleep( 1 )
 end = time.time()
@@ -36,14 +40,14 @@ mc.logger.setLevel( logging.DEBUG ) # Enable detail logging in McCache for testi
 mc.logger.info(f"Start testing with: Random seed={rndseed:3} Duration={duration:3} min.")
 
 stats = {
+    'get': 0,
     'ins': 0,
     'upd': 0,
     'del': 0,
-    'get': 0,
 }
 while (end - bgn) < (duration*60):   # Seconds.
-    time.sleep( random.randint(1 ,10)/10.0 )
-    key = int((time.time_ns() /100) %entries)
+    time.sleep( random.randint(1 ,70)/1000.0 )
+    key = int((time.time_ns() /100)  %entries)
     opc = random.randint(0 ,13)
     match opc:
         case 0:
@@ -71,9 +75,9 @@ keys = list(cache.keys())
 keys.sort()
 ksh = {k: cache[k] for k in keys}
 msg = (mc.OpCode.QRY.name ,None ,cache.name ,None ,None ,ksh)
-mc.logger.debug(f"Im:{mid}\tFr:\tMsg:{msg}" ,extra=mc.LOG_EXTRA)
+mc.logger.debug(f"Im:{mc.SRC_IP_ADD}\tFr:{' '*len(mc.SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=mc.LOG_EXTRA)
 
 msg = (mc.OpCode.NOP.name ,None ,'Statistics' ,None ,None ,stats)
-mc.logger.debug(f"Im:{mid}\tFr:\tMsg:{msg}" ,extra=mc.LOG_EXTRA)
+mc.logger.debug(f"Im:{mc.SRC_IP_ADD}\tFr:{' '*len(mc.SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=mc.LOG_EXTRA)
 
 mc.logger.info(f"Done  testing.")

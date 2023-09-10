@@ -3,7 +3,8 @@ services:
   # Set the RUN_TIMESTAMP environment variable externally from the CLI, shell or from .env file.
   # SEE: https://docs.docker.com/compose/environment-variables/set-environment-variables/
   node01:
-    build:  .
+    build: .
+    image: mccache-img
     container_name: mccache01
     environment:
       - MCCACHE_LEVEL=5         # Neutral
@@ -19,7 +20,8 @@ services:
 #   command: ./append.sh
 
   node02:
-    build:  .
+    build: .
+    image: mccache-img
     container_name: mccache02
     environment:
       - MCCACHE_LEVEL=5         # Neutral
@@ -35,7 +37,8 @@ services:
 #   command: ./append.sh
 
   node03:
-    build:  .
+    build: .
+    image: mccache-img
     container_name: mccache03
     environment:
       - MCCACHE_LEVEL=5         # Neutral
@@ -51,7 +54,8 @@ services:
 #   command: ./append.sh
 
   node04:
-    build:  .
+    build: .
+    image: mccache-img
     container_name: mccache04
     environment:
       - MCCACHE_LEVEL=5         # Neutral
@@ -67,7 +71,8 @@ services:
 #   command: ./append.sh
 
   node05:
-    build:  .
+    build: .
+    image: mccache-img
     container_name: mccache05
     environment:
       - MCCACHE_LEVEL=5         # Neutral

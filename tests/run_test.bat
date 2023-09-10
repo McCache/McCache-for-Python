@@ -26,10 +26,10 @@ SET CONTAINER_EXE=docker-compose
 
 :: Setup the variable RUN_TIMESTAMP to be passed into the container composer.
 ::
-FOR /f "tokens=*" %%v IN ('powershell get-date -format "{_yyyyMMdd_HHmmU}"') DO SET RUN_TIMESTAMP=%%v
+FOR /f "tokens=*" %%v IN ('powershell get-date -format "{_yyyyMMdd_HHmm}"') DO SET RUN_TIMESTAMP=%%v
 
 :: Parse the command line parameters with the following format:
-:: run_unit_test.bat [ key1 val1 [key2 val2 [key3 val3 [...]]]]
+:: run_test.bat [ key1 val1 [key2 val2 [key3 val3 [...]]]]
 :: where the case insensitive keys:
 ::  MAX_KEYS
 ::  RUN_MINS
@@ -65,7 +65,10 @@ GOTO :SOF_CLI
 :EOF_CLI
 
 
-ECHO Running McCache unit test with envar RUN_TIMESTAMP: %RUN_TIMESTAMP%
+ECHO Running McCache test with envar:
+ECHO    RUN_TIMESTAMP: %RUN_TIMESTAMP%
+ECHO    RUN_MAX_KEYS:  %RUN_MAX_KEYS%
+ECHO    RUN_MINUTES:   %RUN_MINUTES%
 ECHO:
 
 :: The following are CLI input parameter you can use to parse out the script name information.
