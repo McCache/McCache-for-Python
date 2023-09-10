@@ -47,6 +47,33 @@ There are 3 levels of optimism on the cache notification.  They are:
         - Increased size of cache for more objects.
     *`Least Recently Used` cache algorithmn.
     * Multicast out 2 message at 0 ms apart.
+
+2023-09-10:
+    After thinking more about the reliability of UDP,
+    I come to the conclusion that we have to make the communication reliable.
+    I believe the market demand it.  So, the above optimistic level idea is no longer needed.
+
+    To implement a peer-to-peer communication will be a big management overhead.
+    As the cluster is coming online subsequent nodes could miss the prior annoucement.
+    All the nodes need to setup their connections to connect to all the other cluster members.
+
+    Instead, I am thinking of using the the same multi-cast infrasture to communicate among the members of the cluster.
+    `ACK` packets are small and UDP is faster than TCP.  Modern switches are reliable managing ports thus reducing collision.
+    Draft design:
+        - New member multicast their presence but member that is coming online later will have missed this annoucemet.
+            - Upon receiving any operations, we check the `members` collection for existance.  Add it, if it doesn't exist.
+            - Upon receiving the `BYE` operation, remove it from the `members` collection.
+        - `DEL`, `PUT`, `UPD` operations will require acknowledgment.
+            - A `pending` dictionary shall be used to keep track of un-acknowledge keys.
+                - We queue up a `ACK` operation to be multicast out.
+            - All members in the cluster will receive other memebers acknowledgements.
+                - If the received acknowledgment is not in one's `pending` collect, just ignore it.
+                - The house keeping thread shall monitor the acknowledgement and request re-acknowledgement.
+                    - Keys that have not received an acknowldement in 3 sec, a re-acknowledgment `RAK` is initiated.
+                    - If we haven't receive acknowledgement after 10 sec, we log a `warning` or `critical` message.
+                        - Remove the key from the `pending` collection.
+                        - Remove the key from the `member`  collection.
+                            - The member node is down.
 """
 import atexit
 import base64
@@ -91,7 +118,7 @@ class _DefaultSize:
         return 1
 
     def __setitem__(self, _, value):
-        assert value == 1
+        assert value == 1   # noqa: S101
 
     def pop(self, _):
         return 1
@@ -108,8 +135,8 @@ class Cache(collections.abc.MutableMapping):
         if getsizeof:
             self.getsizeof = getsizeof
         if self.getsizeof is not Cache.getsizeof:
-            self.__size = dict()
-        self.__data = dict()
+            self.__size = dict()    # noqa: C408
+        self.__data = dict()        # noqa: C408
         self.__currsize = 0
         self.__maxsize = maxsize
         self.__name:str = None  # McCache addition.
@@ -212,7 +239,7 @@ class Cache(collections.abc.MutableMapping):
         return self.__currsize
 
     @staticmethod
-    def getsizeof(value):
+    def getsizeof(value):   # noqa: ARG004
         """Return the size of a cache element's value."""
         return 1
 
@@ -460,9 +487,9 @@ class TTLCache(_TimedCache):
             return TTLCache._Link, (self.key, self.expires)
 
         def unlink(self):
-            next = self.next
+            next = self.next    # noqa: A001 RUF100
             prev = self.prev
-            prev.next = next
+            prev.next = next    # noqa: A001 RUF100
             next.prev = prev
 
     def __init__(self, maxsize, ttl, timer=time.monotonic, getsizeof=None):
@@ -550,7 +577,7 @@ class TTLCache(_TimedCache):
         while curr is not root and not (time < curr.expires):
             cache_delitem(self, curr.key)
             del links[curr.key]
-            next = curr.next
+            next = curr.next    # noqa: A001
             curr.unlink()
             curr = next
 
@@ -717,8 +744,10 @@ class OpCode(Enum):
     INI = 'INI'     # Member announcing its initialization to the group.
     INQ = 'INQ'     # Member inquiring about a cache entry from the group.
     NEW = 'NEW'     # New member annoucement to join the group.
+    NAK = 'NAK'     # Negative acknowledgement.  Didn't receive the key/value.
     NOP = 'NOP'     # No operation.
     PUT = 'PUT'     # Member annoucing a new cache entry is put into its local cache.
+    REQ = 'RAK'     # Request acknowledgment for a key.
     QRY = 'QRY'     # Query the cache.
     RST = 'RST'     # Reset the cache.
     UPD = 'UPD'     # Update an existing cache entry.
@@ -809,6 +838,8 @@ if 'MCCACHE_MAXSIZE' in os.environ and isinstance(os.environ['MCCACHE_MAXSIZE'] 
 if 'MCCACHE_MULTICAST_HOPS' in os.environ and isinstance(os.environ['MCCACHE_MULTICAST_HOPS'] ,int):
     _config.mc_hops = int(os.environ['MCCACHE_MULTICAST_HOPS'])
 
+MAGIC_BYTE = 246
+
 _ip = None
 try:
     # SEE: https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml
@@ -873,7 +904,7 @@ def get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
     """
     if  name:
         if  not isinstance( name ,str ):
-            raise TypeError('The cache name must be a string!') # noqa: EM101
+            raise TypeError('The cache name must be a string!')
     else:
         name = 'default'
     if  cache:
@@ -902,7 +933,7 @@ def get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
 
 # Private utilities methods.
 #
-def __get_socket(is_sender: SocketWorker) -> socket.socket:
+def _get_socket(is_sender: SocketWorker) -> socket.socket:
     """Get a configured socket for either the sender or receiver.
 
     Args:
@@ -972,7 +1003,7 @@ def _make_pending_value( bdata: bytes ,frame_size: int ,members: dict ) -> {}:
         fragmnts += 1
 
     return {'value': [
-                pack('@BBBB' ,246 ,1 ,i ,fragmnts ) +                                   # Header (4 bytes)
+                pack('@BBBB' ,MAGIC_BYTE ,1 ,i ,fragmnts ) +                                   # Header (4 bytes)
                 bdata[ i : i + frg_size ] for i in range( 0 ,len( bdata ) ,frg_size )   # Payload
             ],
             'members': {
@@ -980,7 +1011,7 @@ def _make_pending_value( bdata: bytes ,frame_size: int ,members: dict ) -> {}:
             }
         }
 
-def _send_fragment( sock:socket.socket ,fragment: bytes ):
+def _send_fragment( sock:socket.socket ,fragment: bytes ) -> None:
     """Send a payload fragment.
 
     Args:
@@ -998,7 +1029,13 @@ def _send_fragment( sock:socket.socket ,fragment: bytes ):
         time.sleep(0.003)    # 3 msec.
         sock.sendto( fragment ,(_config.mc_gip ,_config.mc_port))
 
-def _decode_message( msg: tuple ,sender: str ):
+def _decode_message( msg: tuple ,sender: str ) -> None:
+    """Decode the message tuple from the sender.
+
+    Args:
+        msg         The message received from a sender.
+        sender      The sender of this message.
+    """
     opc = msg[0]    # Op Code
     tsm = msg[1]    # Timestamp
     nms = msg[2]    # Namespace
@@ -1011,24 +1048,31 @@ def _decode_message( msg: tuple ,sender: str ):
     match opc:
         case OpCode.ACK.value:
             if (nms ,key ,tsm) in _mcPending:
-                # TODO: Finish this.
                 if  frm in _mcPending[(nms ,key ,tsm)]['members']:
                     del _mcPending[(nms ,key ,tsm)]['members'][ frm ]
                 if  len(_mcPending[(nms ,key ,tsm)]['members']) == 0:
                     del _mcPending[(nms ,key ,tsm)]
+
         case OpCode.BYE.value:
             if  frm in _mcMember:
                 del _mcMember[ frm ]
+
         case OpCode.DEL.value:
             if  key in mcc:
                 mcc.__delitem__( key ,EnableMultiCast.NO.value )
+            # Acknowledge it.
+            _mcQueue.put((OpCode.ACK.name ,tsm ,nms ,key ,None))
+
         case OpCode.PUT.value | OpCode.UPD.value:
             mcc.__setitem__( key ,val ,EnableMultiCast.NO.value )
+            # Acknowledge it.
+            _mcQueue.put((OpCode.ACK.name ,tsm ,nms ,key ,None))
+
         case OpCode.INQ.value:
             if  logger.level == logging.DEBUG:
                 # NOTE: Don't dump the raw data out for security reason.
                 if  key is  None:
-                    keys = list(mcc.keys())
+                    keys = list( mcc.keys() )
                     keys.sort()
                     _mc = {k: base64.a85encode( hashlib.md5( pickle.dumps( mcc[k] )).digest() ,foldspaces=True).decode() for k in keys} # noqa: S324
                     msg = (opc ,None ,nms ,None ,None ,_mc)
@@ -1037,6 +1081,7 @@ def _decode_message( msg: tuple ,sender: str ):
                     crc = base64.a85encode( hashlib.md5( pickle.dumps( val )).digest() ,foldspaces=True).decode()   # noqa: S324
                     msg = (opc ,None ,nms ,key ,crc ,None)
                 logger.debug(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
+
         case _:
             pass
 
@@ -1073,7 +1118,7 @@ def _multicaster() -> None:
             }
         }
     """
-    sock = __get_socket( SocketWorker.SENDER )
+    sock = _get_socket( SocketWorker.SENDER )
 
     # Keep the format consistent to make it easy  for the test to parse.
     msg: tuple = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache broadcaster is ready.')
@@ -1088,6 +1133,7 @@ def _multicaster() -> None:
             key = msg[3]    # Key
             val = msg[4]    # Value
             crc = None
+
             if _config.op_level >= McCacheLevel.NEUTRAL.value and val is not None:
                 pkl = pickle.dumps( val )
                 crc = base64.a85encode( hashlib.md5( pkl ).digest() ,foldspaces=True).decode()  # noqa: S324
@@ -1101,8 +1147,8 @@ def _multicaster() -> None:
                 logger.debug(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
             if  _config.op_level <= McCacheLevel.PESSIMISTIC.value:
-                # Need to be acknowledged.
-                if (nms ,key ,tsm) not in _mcPending:
+                if  opc != OpCode.ACK.value and (nms ,key ,tsm) not in _mcPending:
+                    # Pending for acknowledgement.
                     _mcPending[(nms ,key ,tsm)] = _make_pending_value( pkl ,_config.mtu ,_mcMember )
 
             _send_fragment( sock ,pkl )
@@ -1125,7 +1171,6 @@ def _listener() -> None:
     """
     Listen in the group for new cache operation from all members.
     """
-    myip = SRC_IP_ADD.split(':')[0]
     # socket.AF_INET:           IPv4
     # socket.SOL_SOCKET:        The socket layer itself.
     # socket.IPPROTO_IP:        Value is 0 which is the default and creates a socket that will receive only IP packet.
@@ -1133,7 +1178,7 @@ def _listener() -> None:
     # socket.SO_REUSEADDR:      Tells the kernel to reuse a local socket in TIME_WAIT state ,without waiting for its natural timeout to expire.
     # socket.IP_ADD_MEMBERSHIP: This tells the system to receive packets on the network whose destination is the group address (but not its own)
 
-    sock = __get_socket( SocketWorker.LISTEN )
+    sock = _get_socket( SocketWorker.LISTEN )
 
     # Keep the format consistent to make it easy for the test to parse.
     msg: tuple = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache listener is ready.')
@@ -1144,8 +1189,8 @@ def _listener() -> None:
             pkt, sender = sock.recvfrom( 4096 )
             frm = sender[0]
 
-            if  frm != myip:    # Ignore my own messages.
-                msg = pickle.loads( pkt )   # noqa: S301
+            if  SRC_IP_ADD.find( frm ) == -1:   # Ignore my own messages.
+                msg = pickle.loads( pkt )       # noqa: S301
                 opc = msg[0]    # Op Code
                 tsm = msg[1]    # Timestamp
                 nms = msg[2]    # Namespace

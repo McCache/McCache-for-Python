@@ -150,6 +150,15 @@ ignore = [
   
   # Ignore complexity
   #"C901", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+
+  # raw-string-in-exception
+  "EM101",
+
+  # explicit-f-string-type-conversion
+  "RUF010",
+
+  # superfluous-else-return
+  "RET505",
 ]
 unfixable = [
   # Don't touch unused imports
