@@ -765,7 +765,7 @@ _mcIPAdd = {
 }
 
 # Setup normal and short IP addresses for logging and other use.
-LOG_EXTRA = {'ipv4': None ,'ipV4': None ,'ipv6': None ,'ipV6': None}    # Extra fields for the logger message.
+LOG_EXTRA: dict   = {'ipv4': None ,'ipV4': None ,'ipv6': None ,'ipV6': None}    # Extra fields for the logger message.
 LOG_EXTRA['ipv4'] = socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]
 LOG_EXTRA['ipV4'] = "".join([hex(int(g)).removeprefix("0x").zfill(2) for g in LOG_EXTRA['ipv4'].split(".")])
 try:
@@ -773,9 +773,9 @@ try:
     LOG_EXTRA['ipV6'] = LOG_EXTRA['ipv6'].replace(':' ,'')
 except socket.gaierror:
     pass
-LOG_FORMAT = f"%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d.%(thread)05d)[%(levelname)s {__app__}@%(lineno)d] %(message)s"
-SRC_IP_ADD = f"{LOG_EXTRA['ipv4']}:{os.getpid()}"   # Source IP address.
-logger = logging.getLogger()    # Root logger.
+LOG_FORMAT: str = f"%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d.%(thread)05d)[%(levelname)s {__app__}@%(lineno)d] %(message)s"
+SRC_IP_ADD: str = f"{LOG_EXTRA['ipv4']}:{os.getpid()}"   # Source IP address.
+logger: logging.Logger = logging.getLogger()    # Root logger.
 
 # Configure McCache.
 #
@@ -972,11 +972,11 @@ def _make_pending_value( bdata: bytes ,frame_size: int ,members: dict ) -> {}:
         fragmnts += 1
 
     return {'value': [
-                pack('@BBBB' ,246 ,1 ,i ,fragmnts ) +                           # Header (4 bytes)
-                bdata[i : i+frg_size] for i in range(0 ,len(bdata) ,frg_size)   # Payload
+                pack('@BBBB' ,246 ,1 ,i ,fragmnts ) +                                   # Header (4 bytes)
+                bdata[ i : i + frg_size ] for i in range( 0 ,len( bdata ) ,frg_size )   # Payload
             ],
             'members': {
-                ip: {range(0 ,fragmnts)} for ip in members.keys()
+                ip: { range(0 ,fragmnts)} for ip in members.keys()
             }
         }
 
