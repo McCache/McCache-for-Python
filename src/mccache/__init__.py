@@ -49,7 +49,7 @@ There are 3 levels of optimism on the cache notification.  They are:
     * Multicast out 2 message at 0 ms apart.
 
 2023-09-10:
-    After thinking more about the reliability of UDP,
+    After thinking more about the reliability of UDP (SEE: https://www.youtube.com/watch?v=GjiDmU6cqyA),
     I come to the conclusion that we have to make the communication reliable.
     I believe the market demand it.  So, the above optimistic level idea is no longer needed.
 
@@ -66,10 +66,10 @@ There are 3 levels of optimism on the cache notification.  They are:
         - `DEL`, `PUT`, `UPD` operations will require acknowledgment.
             - A `pending` dictionary shall be used to keep track of un-acknowledge keys.
                 - We queue up a `ACK` operation to be multicast out.
-            - All members in the cluster will receive other memebers acknowledgements.
+            - All members in the cluster will receive other members acknowledgements.
                 - If the received acknowledgment is not in one's `pending` collect, just ignore it.
                 - The house keeping thread shall monitor the acknowledgement and request re-acknowledgement.
-                    - Keys that have not received an acknowldement in 3 sec, a re-acknowledgment `RAK` is initiated.
+                    - Keys that have not received an acknowldement in 2 sec, a re-acknowledgment `RAK` is initiated.
                     - If we haven't receive acknowledgement after 10 sec, we log a `warning` or `critical` message.
                         - Remove the key from the `pending` collection.
                         - Remove the key from the `member`  collection.
@@ -755,7 +755,8 @@ class OpCode(Enum):
 
 @dataclass
 class McCacheConfig:
-    mtu: int = 1472             # Maximum Transmission Unit of your network packet payload.  Ethernet frame is 1500 minus header.  SEE: https://www.youtube.com/watch?v=Od5SEHEZnVU
+    mtu: int = 1472             # Maximum Transmission Unit of your network packet payload.  Ethernet frame is 1500 minus header.
+                                # SEE: https://www.youtube.com/watch?v=Od5SEHEZnVU and https://www.youtube.com/watch?v=GjiDmU6cqyA
     ttl: int = 900              # Total Time to Live in seconds for a cached entry.
     mc_gip: str = '224.0.0.3'   # Unassigned multi-cast IP.
     mc_port: int = 4000         # Unofficial port.  Was Diablo II game.
@@ -763,6 +764,7 @@ class McCacheConfig:
     max_size: int = 2048        # Entries.
     op_level: int = McCacheLevel.NEUTRAL.value
     debug_log: str = 'log/debug.log'          # Full pathname of the log file.
+    monkey_on: int = 0          # Percentage of anger with the chaos monkey.
     house_keeping_slots: str = '5,8,13,21,55' # Periods for first 5 slots: Very frequent ,Frequent ,Normal ,Slow ,Very slow.
 
 
@@ -991,9 +993,12 @@ def _make_pending_value( bdata: bytes ,frame_size: int ,members: dict ) -> {}:
     Return:
         A dictionary of the following structure:
         {
-            'value':    list(), # Ordered list of fragments.
+            'value':    list(),         # Ordered list of fragments.
             'members':  {
-                ip: set()       # Set of unacknowledge chunks for the given IP key.
+                ip: {
+                    'unack': set(),     # Set of unacknowledge fragments for the given IP key.
+                    'tries': {1,2,3}    # Max of three tries.
+                }
             }
         }
     """
@@ -1003,11 +1008,11 @@ def _make_pending_value( bdata: bytes ,frame_size: int ,members: dict ) -> {}:
         fragmnts += 1
 
     return {'value': [
-                pack('@BBBB' ,MAGIC_BYTE ,1 ,i ,fragmnts ) +                                   # Header (4 bytes)
+                pack('@BBBB' ,MAGIC_BYTE ,1 ,i ,fragmnts ) +                            # Header (4 bytes)
                 bdata[ i : i + frg_size ] for i in range( 0 ,len( bdata ) ,frg_size )   # Payload
             ],
             'members': {
-                ip: { range(0 ,fragmnts)} for ip in members.keys()
+                ip: { 'unack': { range(0 ,fragmnts)} ,'tries': {1,2} } for ip in members.keys()
             }
         }
 
@@ -1085,6 +1090,11 @@ def _decode_message( msg: tuple ,sender: str ) -> None:
         case _:
             pass
 
+def _chaos_monkey():
+    """Chaos monkey to simulate less reliable network.
+    """
+    pass
+
 # Private thread methods.
 #
 def _goodbye() -> None:
@@ -1108,15 +1118,7 @@ def _multicaster() -> None:
         CRC:        Checksum of the value identified by the key.
         Value:      The cached value.
 
-    The pending acknowledgement dictionary structure is:
-        {
-            (namespace ,key, timestamp): {
-                 'value': list()    # Payload chunk(s).
-                ,'members': {
-                    ip : set()      # Unacknowledge payload chunks.
-                }
-            }
-        }
+    SEE: _make_pending_value() for structure.
     """
     sock = _get_socket( SocketWorker.SENDER )
 
@@ -1165,7 +1167,29 @@ def _housekeeper() -> None:
     msg: tuple = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache housekeeper is ready.')
     logger.debug(f"Im:{SRC_IP_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
 
-    # TODO: Acknowledge the sender if required.
+#   TODO: Finish this.
+#   while True:
+#       time.sleep( 1 )   # Sleep a minimum of 1 second.
+#       for key in _mcPending.keys():
+#           _ ,_ ,tsm = key
+#           dur:float = (time.time_ns() - tsm) * 0.000000001    # Convert to second.
+#           if  dur > 1:
+#               members = _mcPending[ key ]['members']
+#               for ip in _mcPending[ key ]['members'].keys():
+#
+#                   if  len(_mcPending[ key ]['value']) == len(_mcPending[ key ]['members'][ ip ]['unack']):
+#                       # Nothing was acknowledged.
+#                       _mcQueue.put((OpCode.RAK.name ,key[2] ,key[1] ,key[0] ,None))
+#                   else:
+#                       s = len(_mcPending[ key ]['value'] )
+#                       for f in range( 0 ,s ):
+#                           if  f in _mcPending[ key ]['members'][ ip ]['unack']:
+#                               _mcQueue.put((OpCode.RAK.name ,key[2] ,key[1] ,key[0] ,f"{f+1}/{s}"))
+#
+#                   _ = _mcPending[ key ]['members'][ ip ]['tries'].pop
+#                   if  len(_mcPending[ key ]['members'][ ip ]['tries']) == 0:
+#                       del _mcPending[ key ]['members'][ ip ]
+#                       logger.critical(f"Key:{key} have NOT be acknowledge by {ip}" ,extra=LOG_EXTRA)
 
 def _listener() -> None:
     """
