@@ -31,7 +31,7 @@ for h in mc.logger.handlers:
     if  h.formatter._fmt == mc.LOG_FORMAT.replace('{__app__}' ,mc.__app__):
         h.formatter._fmt = "%(lineno)04d %(asctime)s.%(msecs)03d %(message)s"
         h.formatter._style._fmt = "%(lineno)05d %(asctime)s.%(msecs)03d %(message)s"
-        # Include line number of source file for debugging only
+        # If debugging, output line number of source file for easy reference
         #h.formatter._fmt = "%(lineno)04d %(asctime)s.%(msecs)03d %(message)s"
         #h.formatter._style._fmt = "%(lineno)05d %(asctime)s.%(msecs)03d %(message)s"
 
@@ -79,9 +79,6 @@ while (end - bgn) < (duration*60):   # Seconds.
 
 keys = list(cache.keys())
 keys.sort()
-
-
-
 ksh = {k: base64.a85encode( hashlib.md5( pickle.dumps( cache[k] ) ).digest() ,foldspaces=True).decode() for k in keys}
 msg = (mc.OpCode.QRY.name ,None ,cache.name ,None ,None ,ksh)
 mc.logger.debug(f"Im:{mc.SRC_IP_ADD}\tFr:{' '*len(mc.SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=mc.LOG_EXTRA)
