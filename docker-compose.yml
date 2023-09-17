@@ -16,8 +16,7 @@ services:
       - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
     volumes:
       - ./log:/home/mccache/log
-    command: sleep 15m
-#   command: ./append.sh
+    command: python start_mccache.py
 
   node02:
     build: .
@@ -33,8 +32,7 @@ services:
       - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
     volumes:
       - ./log:/home/mccache/log
-    command: sleep 15m
-#   command: ./append.sh
+    command: python start_mccache.py
 
   node03:
     build: .
@@ -50,8 +48,7 @@ services:
       - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
     volumes:
       - ./log:/home/mccache/log
-    command: sleep 15m
-#   command: ./append.sh
+    command: python start_mccache.py
 
   node04:
     build: .
@@ -67,8 +64,7 @@ services:
       - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
     volumes:
       - ./log:/home/mccache/log
-    command: sleep 15m
-#   command: ./append.sh
+    command: python start_mccache.py
 
   node05:
     build: .
@@ -84,5 +80,4 @@ services:
       - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
     volumes:
       - ./log:/home/mccache/log
-    command: sleep 15m
-#   command: ./append.sh
+    command: python start_mccache.py

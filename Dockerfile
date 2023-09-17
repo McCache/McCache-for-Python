@@ -6,9 +6,9 @@
 #$  podman  exec    -it         mccache-test    bash
 #$  podman  stop                mccache-test
 #
-#$  pipenv  install     --dev   podman-compose
-#$  podman-compose  up  -d
-#$  podman-compose  down
+#$  pipenv  install --dev       podman-compose
+#$  podman-compose    up  -d
+#$  podman-compose    down
 #
 #   SEE: https://dzone.com/articles/podman-compose-vs-docker-compose
 #
@@ -23,14 +23,18 @@ ENV         LANG    C.UTF-8
 
 # Dont need the following if you are using the lastest image.
 #
-#UN         apt-get update
-#UN         apt-get install -y  vim
-#UN         pip     install -U  pip
+RUN         apt-get update
+RUN         apt-get install -y  vim
+
+# NOTE: If you get the following error, you don't have internet connection:
+#       WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x7f2aa8378c50>: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/pip
+RUN         pip     install -U  pip
 
 # Setup mccache user workspace.
 #
 RUN         useradd -U -md                      /home/${USRGRP} ${USRGRP}
 WORKDIR     /home/${USRGRP}
+# NOTE: Must copy all.  If not "pip install -e ." will break.
 COPY       .                                    /home/${USRGRP}
 COPY       ./tests/unit/start_mccache.py        /home/${USRGRP}
 
@@ -43,10 +47,12 @@ RUN         mkdir   -p  /home/${USRGRP}/log \
 #
 USER        ${USRGRP}
 
-# Install the McCache project using pyproject.toml
+# Pickup the McCache project from the source directory.
 #
-# Debug why it breaks the build.
-#UN         pip         install -e .
+ENV         PYTHONPATH=/home/${USRGRP}/src
+
+# TODO: Install the McCache project using pyproject.toml
+#
 
 # Start the test run.
 #

@@ -1,0 +1,6 @@
+log/
+tests/
+Dockerfile
+docker-compose*
+.dockerignore
+.gitignore
