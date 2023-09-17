@@ -96,7 +96,7 @@ from dataclasses import dataclass
 from enum import Enum
 from struct import pack, unpack
 
-from __about__ import __app__, __version__  # noqa   Use by hatch to build.
+from .__about__ import __app__, __version__ # noqa   Use by hatch to build.
 
 # Cachetools section.
 #
@@ -763,8 +763,8 @@ class McCacheConfig:
     mc_hops: int = 1            # Only local subnet.
     max_size: int = 2048        # Entries.
     op_level: int = McCacheLevel.NEUTRAL.value
-    debug_log: str = 'log/debug.log'          # Full pathname of the log file.
-    monkey_on: int = 0          # Percentage of anger with the chaos monkey.
+    debug_log: str = 'log/debug.log'    # Full pathname of the log file.
+    monkey_tantrum: int = 0     # Chaos monkey tantrum level (0-99).
     house_keeping_slots: str = '5,8,13,21,55' # Periods for first 5 slots: Very frequent ,Frequent ,Normal ,Slow ,Very slow.
 
 
@@ -932,6 +932,15 @@ def get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
 
     return cache
 
+def clear_cache( name: str | None = None ) -> None:
+    """Clear all the  distributed caches.
+
+    Request all the memebers in the cluster to clear their cache without rebooting their instance.
+
+    Arg:
+        name    Name of the cache.  If none is provided, all caches shall be cleared.
+    """
+    _mcQueue.put((OpCode.RST.name ,time.time_ns() ,name ,None ,None))
 
 # Private utilities methods.
 #
@@ -1079,13 +1088,18 @@ def _decode_message( msg: tuple ,sender: str ) -> None:
                 if  key is  None:
                     keys = list( mcc.keys() )
                     keys.sort()
-                    _mc = {k: base64.a85encode( hashlib.md5( pickle.dumps( mcc[k] )).digest() ,foldspaces=True).decode() for k in keys} # noqa: S324
+                    _mc = {k: base64.b64encode( hashlib.md5( pickle.dumps( mcc[k] )).digest() ).decode() for k in keys} # noqa: S324
                     msg = (opc ,None ,nms ,None ,None ,_mc)
                 else:
                     val = mcc.get( key ,None )
-                    crc = base64.a85encode( hashlib.md5( pickle.dumps( val )).digest() ,foldspaces=True).decode()   # noqa: S324
+                    crc = base64.b64encode( hashlib.md5( pickle.dumps( val )).digest() ).decode()   # noqa: S324
                     msg = (opc ,None ,nms ,key ,crc ,None)
                 logger.debug(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
+
+        case OpCode.RST.value:
+            for n in filter( lambda k: k == nms or nms is None ,_mcCacheDict.keys() ):
+                for k in _mcCacheDict[ n ].keys():
+                    _mcCacheDict[ n ].__delitem__( k, EnableMultiCast.NO )
 
         case _:
             pass
@@ -1138,7 +1152,7 @@ def _multicaster() -> None:
 
             if _config.op_level >= McCacheLevel.NEUTRAL.value and val is not None:
                 pkl = pickle.dumps( val )
-                crc = base64.a85encode( hashlib.md5( pkl ).digest() ,foldspaces=True).decode()  # noqa: S324
+                crc = base64.b64encode( hashlib.md5( pkl ).digest() ).decode()  # noqa: S324
             if _config.op_level == McCacheLevel.PESSIMISTIC:
                 val = None
             msg = (opc ,tsm ,nms ,key ,crc ,val)
@@ -1210,7 +1224,7 @@ def _listener() -> None:
 
     while True:
         try:
-            pkt, sender = sock.recvfrom( 4096 )
+            pkt, sender = sock.recvfrom( _config.mtu )
             frm = sender[0]
 
             if  SRC_IP_ADD.find( frm ) == -1:   # Ignore my own messages.
@@ -1251,7 +1265,7 @@ if __name__ == "__main__":
     sys.path.append(__file__[:__file__.find('src')-1])
     sys.path.append(__file__[:__file__.find('src')+3])
     import tests.unit.start_mccache # noqa: F401 I001
-
+    import functools
 
 # The MIT License (MIT)
 # Copyright (c) 2023 McCache authors.
