@@ -109,6 +109,11 @@ from .__about__ import __app__, __version__ # noqa   Use by hatch to build.
 # but encountered the issue where some of the value are set to None.
 # Did not encounter this issue using a straight cachetools package.
 # In the interest of time, I just copy cachetools classes over and tweaked them.
+# When we have out test completed, we should try Monkey Patching it.
+#
+# We shoukd also consider using other popular Python Cache implementation too.  Some candidates are:
+#   1. https://pypi.org/project/cache3/
+
 
 # fmt: off
 class _DefaultSize:
@@ -759,12 +764,13 @@ class McCacheConfig:
                                 # SEE: https://www.youtube.com/watch?v=Od5SEHEZnVU and https://www.youtube.com/watch?v=GjiDmU6cqyA
     ttl: int = 900              # Total Time to Live in seconds for a cached entry.
     mc_gip: str = '224.0.0.3'   # Unassigned multi-cast IP.
-    mc_port: int = 4000         # Unofficial port.  Was Diablo II game.
+    mc_port: int = 4000         # Unofficial port.  Was for Diablo II game.
     mc_hops: int = 1            # Only local subnet.
     max_size: int = 2048        # Entries.
-    op_level: int = McCacheLevel.NEUTRAL.value
     debug_log: str = 'log/debug.log'    # Full pathname of the log file.
-    monkey_tantrum: int = 0     # Chaos monkey tantrum level (0-99).
+    monkey_tantrum: int = 0     # Chaos monkey tantrum % level (0-99).
+    # TODO: To be dropped.
+    op_level: int = McCacheLevel.NEUTRAL.value
     house_keeping_slots: str = '5,8,13,21,55' # Periods for first 5 slots: Very frequent ,Frequent ,Normal ,Slow ,Very slow.
 
 
@@ -772,7 +778,8 @@ class McCacheConfig:
 #
 _lock = threading.RLock()               # Module-level lock for serializing access to shared data.
 _mcCacheDict: dict[str ,Cache] = {}     # Private dict to segregate the cache namespace.
-_mcPending: dict[tuple ,dict] = {}      # Pending acknowledgement in pessimistic mode.
+_mcPending: dict[tuple ,dict] = {}      # Pending send packets needing acknowledgements.
+_mcArrived: dict[tuple ,dict] = {}      # Pending arrived packets needing to be assemble into a value message.
 _mcMember: dict[str ,int] = {}          # Members in the group.  ID/Timestamp.
 _mcQueue: queue.Queue = queue.Queue()
 _mcIPAdd = {
@@ -837,6 +844,14 @@ if 'MCCACHE_LEVEL' in os.environ and isinstance(os.environ['MCCACHE_LEVEL'] ,int
 if 'MCCACHE_MAXSIZE' in os.environ and isinstance(os.environ['MCCACHE_MAXSIZE'] ,int):
     _config.max_size = int(os.environ['MCCACHE_MAXSIZE'])
 
+if 'MCCACHE_MONKEY_TANTRUM' in os.environ and isinstance(os.environ['MCCACHE_MONKEY_TANTRUM'] ,int):
+    _config.monkey_tantrum = int(os.environ['MCCACHE_MONKEY_TANTRUM'])
+
+if 'MCCACHE_RANDOM_SEED' in os.environ and isinstance(os.environ['MCCACHE_RANDOM_SEED'] ,int):
+    _config.random_seed = int(os.environ['MCCACHE_RANDOM_SEED'])
+else:
+    _config.random_seed = int(str(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]).split(".")[3])
+
 if 'MCCACHE_MULTICAST_HOPS' in os.environ and isinstance(os.environ['MCCACHE_MULTICAST_HOPS'] ,int):
     _config.mc_hops = int(os.environ['MCCACHE_MULTICAST_HOPS'])
 
@@ -870,6 +885,10 @@ finally:
     del _ip
     del _mcIPAdd
 
+# Setup random.
+#
+random.seed( _config.monkey_tantrum )
+
 # Setup McCache logger.
 #
 logger = logging.getLogger('mccache')   # McCache specific logger.
@@ -884,10 +903,10 @@ if  _config.debug_log:
     _hdlr.setFormatter(_fmtr)
     logger.addHandler(_hdlr)
     logger.setLevel(logging.DEBUG)
+# TODO: Make it cloud ready for AWS ,Azure ,GCP & OCI.
 del _hdlr
 del _fmtr
-logger.info(f"Setting: (level: {_config.op_level} ,size: {_config.max_size}) ,ttl: {_config.ttl} ,gip: {_config.mc_gip} ,dbg: {_config.debug_log is not None})")
-
+logger.info(f"Setting: (level: {_config.op_level} ,size: {_config.max_size}) ,ttl: {_config.ttl} ,gip: {_config.mc_gip} ,rsd: {_config.random_seed} ,dbg: {_config.debug_log is not None})")
 
 # Public methods.
 #
@@ -935,7 +954,8 @@ def get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
 def clear_cache( name: str | None = None ) -> None:
     """Clear all the  distributed caches.
 
-    Request all the memebers in the cluster to clear their cache without rebooting their instance.
+    Request all the members in the cluster to clear their cache without rebooting their instance.
+    This method is intended to be used from a node that is not participating in the cluster.
 
     Arg:
         name    Name of the cache.  If none is provided, all caches shall be cleared.
@@ -964,7 +984,7 @@ def _get_socket(is_sender: SocketWorker) -> socket.socket:
     sock = socket.socket( addrinfo[0] ,socket.SOCK_DGRAM )
     if  is_sender.value:
         # Set Time-to-live (optional)
-        ttl_bin = struct.pack('@i' ,_config.mc_hops)
+        ttl_bin = struct.pack('@I' ,_config.mc_hops)
         if  addrinfo[0] == socket.AF_INET:  # IPv4
             sock.setsockopt( socket.IPPROTO_IP   ,socket.IP_MULTICAST_TTL ,ttl_bin )
         else:
@@ -1028,20 +1048,25 @@ def _make_pending_value( bdata: bytes ,frame_size: int ,members: dict ) -> {}:
 def _send_fragment( sock:socket.socket ,fragment: bytes ) -> None:
     """Send a payload fragment.
 
+    If `MCCACHE_MONKEY_TANTRUM` envvar is set, the chaos monkey will drop packets.
+    This is intended ONLY during testing.
+
     Args:
-        socket      A configure socket to send out of.
+        socket      A configured socket to send a fragment out of.
         fragment    A fragment of binary data.
     """
-    # UDP is not reliable therefore send 2 packets.
-    sock.sendto( fragment ,(_config.mc_gip ,_config.mc_port))
-    sock.sendto( fragment ,(_config.mc_gip ,_config.mc_port))
+    # The following is to assist with testing.
+    # This Monkey should NOT throw a tantrum in a production environment.
+    #
+    if _config.monkey_tantrum > 0 and _config.monkey_tantrum < 100:
+        _trantrum = random.randint(1 ,100)  # Between 1 and 99.
+        if  _trantrum >= (50 - _config.monkey_tantrum/2) and \
+            _trantrum <= (50 + _config.monkey_tantrum/2):
+            msg = (OpCode.NOP.value ,None ,None ,None ,None ,'Monkey is angry!  NOT sending out the message.')
+            logger.warning(f"Im:{SRC_IP_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
+            return
 
-    if  McCacheLevel.NEUTRAL.value >= _config.op_level:
-        time.sleep(0.001)    # 1 msec.
-        sock.sendto( fragment ,(_config.mc_gip ,_config.mc_port))
-    if  McCacheLevel.PESSIMISTIC.value >= _config.op_level:
-        time.sleep(0.003)    # 3 msec.
-        sock.sendto( fragment ,(_config.mc_gip ,_config.mc_port))
+    sock.sendto( fragment ,(_config.mc_gip ,_config.mc_port))
 
 def _decode_message( msg: tuple ,sender: str ) -> None:
     """Decode the message tuple from the sender.
@@ -1054,7 +1079,7 @@ def _decode_message( msg: tuple ,sender: str ) -> None:
     tsm = msg[1]    # Timestamp
     nms = msg[2]    # Namespace
     key = msg[3]    # Key
-    crc = msg[4]    # CRC
+    crc = msg[4]    # Checksum
     val = msg[5]    # Value
     frm = sender    # From
 
@@ -1062,10 +1087,10 @@ def _decode_message( msg: tuple ,sender: str ) -> None:
     match opc:
         case OpCode.ACK.value:
             if (nms ,key ,tsm) in _mcPending:
-                if  frm in _mcPending[(nms ,key ,tsm)]['members']:
-                    del _mcPending[(nms ,key ,tsm)]['members'][ frm ]
-                if  len(_mcPending[(nms ,key ,tsm)]['members']) == 0:
-                    del _mcPending[(nms ,key ,tsm)]
+                if  frm in _mcPending[ (nms ,key ,tsm) ]['members']:
+                    del    _mcPending[ (nms ,key ,tsm) ]['members'][ frm ]
+                if  len(   _mcPending[ (nms ,key ,tsm) ]['members']) == 0:
+                    del    _mcPending[ (nms ,key ,tsm) ]
 
         case OpCode.BYE.value:
             if  frm in _mcMember:
@@ -1075,17 +1100,17 @@ def _decode_message( msg: tuple ,sender: str ) -> None:
             if  key in mcc:
                 mcc.__delitem__( key ,EnableMultiCast.NO.value )
             # Acknowledge it.
-            _mcQueue.put((OpCode.ACK.name ,tsm ,nms ,key ,None))
+            _mcQueue.put( (OpCode.ACK.name ,tsm ,nms ,key ,None) )
 
         case OpCode.PUT.value | OpCode.UPD.value:
             mcc.__setitem__( key ,val ,EnableMultiCast.NO.value )
             # Acknowledge it.
-            _mcQueue.put((OpCode.ACK.name ,tsm ,nms ,key ,None))
+            _mcQueue.put( (OpCode.ACK.name ,tsm ,nms ,key ,None) )
 
         case OpCode.INQ.value:
             if  logger.level == logging.DEBUG:
                 # NOTE: Don't dump the raw data out for security reason.
-                if  key is  None:
+                if  key is None:
                     keys = list( mcc.keys() )
                     keys.sort()
                     _mc = {k: base64.b64encode( hashlib.md5( pickle.dumps( mcc[k] )).digest() ).decode() for k in keys} # noqa: S324
@@ -1104,11 +1129,6 @@ def _decode_message( msg: tuple ,sender: str ) -> None:
         case _:
             pass
 
-def _chaos_monkey():
-    """Chaos monkey to simulate less reliable network.
-    """
-    pass
-
 # Private thread methods.
 #
 def _goodbye() -> None:
@@ -1120,6 +1140,28 @@ def _goodbye() -> None:
     _mcQueue.put((OpCode.BYE.name ,time.time_ns() ,None ,None ,None))
     time.sleep( 0.3 )
 
+# TODO:
+# New design of the packet:
+#   Header:
+#       Magic           1 byte
+#       Version:        1 byte
+#      ?Sequence:       1 byte zero offset
+#      ?Fragments:      1 byte
+#       Key Size:       2 bytes
+#       Msg Size:       2 bytes
+#   Payload Key tuple:
+#       1) NS: Str      Namespace 
+#       2) KY: Obj      Key
+#       3) TS: Int      Timestamp
+#       4) SQ: Int      Sequence number
+#       5) FG: Int      Fragment count
+#   Payload Msg tuple:
+#       1) OP: Str      Operation code
+#       2) CK: Str      Checksum
+#       3) FG: Bytes    Fragment of a pickled value
+#
+#   Local key tuple:    (Sender ,Payload Key)
+#
 def _multicaster() -> None:
     """
     Dequeue and multicast out the cache operation to all the members in the group.
@@ -1137,7 +1179,7 @@ def _multicaster() -> None:
     sock = _get_socket( SocketWorker.SENDER )
 
     # Keep the format consistent to make it easy  for the test to parse.
-    msg: tuple = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache broadcaster is ready.')
+    msg = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache broadcaster is ready.')
     logger.debug(f"Im:{SRC_IP_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
 
     while True:
@@ -1178,7 +1220,7 @@ def _housekeeper() -> None:
     Background house keeping thread.
     """
     # Keep the format consistent to make it easy for the test to parse.
-    msg: tuple = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache housekeeper is ready.')
+    msg = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache housekeeper is ready.')
     logger.debug(f"Im:{SRC_IP_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
 
 #   TODO: Finish this.
@@ -1219,12 +1261,14 @@ def _listener() -> None:
     sock = _get_socket( SocketWorker.LISTEN )
 
     # Keep the format consistent to make it easy for the test to parse.
-    msg: tuple = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache listener is ready.')
+    msg = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache listener is ready.')
     logger.debug(f"Im:{SRC_IP_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
 
     while True:
         try:
             pkt, sender = sock.recvfrom( _config.mtu )
+            hdr = unpack('@BBBB' ,pkt[0:4]) # TODO: Finish this.
+            # If (hdr[0] == MAGIC_BYTE ,pkt[0:]):
             frm = sender[0]
 
             if  SRC_IP_ADD.find( frm ) == -1:   # Ignore my own messages.
@@ -1233,15 +1277,16 @@ def _listener() -> None:
                 tsm = msg[1]    # Timestamp
                 nms = msg[2]    # Namespace
                 key = msg[3]    # Key
-                crc = msg[4]    # CRC
+                crc = msg[4]    # Checksum
                 _   = msg[5]    # Value
 
                 if  logger.level == logging.DEBUG:
                     msg = (opc ,tsm ,nms ,key ,crc ,None)
                     logger.debug(f"Im:{SRC_IP_ADD}\tFr:{frm}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
-                if  frm not in _mcMember:
-                    _mcMember[ frm ] = tsm
+                # Keep the latest timestamp of the last contact with the members.
+                #
+                _mcMember[ frm ] = tsm
 
                 _decode_message( msg ,sender[0] )
         except  Exception as ex:    # noqa: BLE001
@@ -1266,6 +1311,7 @@ if __name__ == "__main__":
     sys.path.append(__file__[:__file__.find('src')+3])
     import tests.unit.start_mccache # noqa: F401 I001
     import functools
+
 
 # The MIT License (MIT)
 # Copyright (c) 2023 McCache authors.
