@@ -34,7 +34,8 @@ RUN         pip     install -U  pip
 #
 RUN         useradd -U -md                      /home/${USRGRP} ${USRGRP}
 WORKDIR     /home/${USRGRP}
-# NOTE: Must copy all.  If not "pip install -e ." will break.
+# NOTE: Must copy all pertinent files.  If not "pip install -e ." will break.
+#       There is a `.dockerignore` file that is used to filter out files of no interest to us.
 COPY       .                                    /home/${USRGRP}
 COPY       ./tests/unit/start_mccache.py        /home/${USRGRP}
 

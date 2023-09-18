@@ -1,6 +1,9 @@
 version: '3'
 services:
-  # Set the RUN_TIMESTAMP environment variable externally from the CLI, shell or from .env file.
+  # Set the following environment variable externally from the CLI, shell or from .env file:
+  #   RUN_TIMESTAMP
+  #   RUN_MAX_KEYS
+  #   RUN_MINUTES
   # SEE: https://docs.docker.com/compose/environment-variables/set-environment-variables/
   node01:
     build: .
@@ -14,6 +17,7 @@ services:
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
       - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
+#     - MCCACHE_MONKEY_TANTRUM=20
     volumes:
       - ./log:/home/mccache/log
     command: python start_mccache.py
@@ -30,6 +34,7 @@ services:
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
       - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
+#     - MCCACHE_MONKEY_TANTRUM=20
     volumes:
       - ./log:/home/mccache/log
     command: python start_mccache.py
@@ -46,6 +51,7 @@ services:
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
       - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
+#     - MCCACHE_MONKEY_TANTRUM=20
     volumes:
       - ./log:/home/mccache/log
     command: python start_mccache.py
@@ -62,6 +68,7 @@ services:
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
       - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
+#     - MCCACHE_MONKEY_TANTRUM=20
     volumes:
       - ./log:/home/mccache/log
     command: python start_mccache.py
@@ -78,6 +85,41 @@ services:
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
       - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
+#     - MCCACHE_MONKEY_TANTRUM=20
     volumes:
       - ./log:/home/mccache/log
     command: python start_mccache.py
+
+# node06:
+#   build: .
+#   image: mccache-img
+#   container_name: mccache05
+#   environment:
+#     - MCCACHE_LEVEL=5         # Neutral
+#     - MCCACHE_DEBUG_FILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
+#     - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
+#     - MCCACHE_RANDOM_SEED=6
+#     - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
+#     - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
+##    - MCCACHE_MONKEY_TANTRUM=20
+#   volumes:
+#     - ./log:/home/mccache/log
+#   command: python start_mccache.py
+#
+# node07:
+#   build: .
+#   image: mccache-img
+#   container_name: mccache05
+#   environment:
+#     - MCCACHE_LEVEL=5         # Neutral
+#     - MCCACHE_DEBUG_FILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
+#     - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
+#     - MCCACHE_RANDOM_SEED=7
+#     - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
+#     - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
+##    - MCCACHE_MONKEY_TANTRUM=20
+#   volumes:
+#     - ./log:/home/mccache/log
+#   command: python start_mccache.py

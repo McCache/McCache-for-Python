@@ -1,7 +1,0 @@
-log/
-logs/
-Dockerfile
-docker-compose*
-.dockerignore
-run*test.bat
-run*test.sh
