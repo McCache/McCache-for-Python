@@ -32,21 +32,20 @@ In the above example, there is **nothing** different in the usage `McCache` from
 ## Saving
 If an external dependency is remove your architecture, there is a immediate reduction in complexity and not to mention a cost saving too.  The following are some cloud compute instance pricing comparison on September 16th, 2023.
 
-Compute instances
-|Instance Name   |Term     |vCPU|RAM |Price/Hr|30 Days|
-|----------------|---------|:--:|---:|-------:|------:|
-|t3a.small       |One Year |2   |2 Gb|   0.011|   7.92|
-|t3a.small       |On Demand|2   |2 Gb|   0.019|  13.68|
-|t3a.medium      |One Year |2   |4 Gb|   0.024|  17.28|
-|t3a.medium      |On Demand|2   |4 Gb|   0.037|  26.64|
+|<sub>Instance Name   </sub>|<sub>Term     </sub>|<sub>vCPU</sub>|<sub>RAM </sub>|<sub>$/Hour</sub>|<sub>$/30 Days</sub>|
+|----------------           |---------           |:--:           |---:           |-------:         |------:             |
+|<sub>t3a.small       </sub>|<sub>One Year </sub>|<sub>2   </sub>|<sub>2 Gb</sub>|<sub> 0.011</sub>|<sub>     7.92</sub>|
+|<sub>t3a.small       </sub>|<sub>On Demand</sub>|<sub>2   </sub>|<sub>2 Gb</sub>|<sub> 0.019</sub>|<sub>    13.68</sub>|
+|<sub>t3a.medium      </sub>|<sub>One Year </sub>|<sub>2   </sub>|<sub>4 Gb</sub>|<sub> 0.024</sub>|<sub>    17.28</sub>|
+|<sub>t3a.medium      </sub>|<sub>On Demand</sub>|<sub>2   </sub>|<sub>4 Gb</sub>|<sub> 0.037</sub>|<sub>    26.64</sub>|
+|                           |                    |               |               |                 |                    |
+|<sub>cache.t4g.medium</sub>|<sub>One Year </sub>|<sub>2   </sub>|<sub>3 Gb</sub>|<sub> 0.041</sub>|<sub>    29.52</sub>|
+|<sub>cache.t4g.medium</sub>|<sub>On Demand</sub>|<sub>2   </sub>|<sub>3 Gb</sub>|<sub> 0.065</sub>|<sub>    46.80</sub>|
+|<sub>cache.m6g.large </sub>|<sub>One Year </sub>|<sub>2   </sub>|<sub>6 Gb</sub>|<sub> 0.094</sub>|<sub>    67.68</sub>|
+|<sub>cache.m6g.large </sub>|<sub>On Demand</sub>|<sub>2   </sub>|<sub>6 Gb</sub>|<sub> 0.149</sub>|<sub>   107.28</sub>|
 
-Managed Redis or Memcached instances
-|Instance Name   |Term     |vCPU|RAM |Price/Hr|30 Days|
-|----------------|---------|:--:|---:|-------:|------:|
-|cache.t4g.medium|One Year |2   |3 Gb|   0.041|  29.52|
-|cache.t4g.medium|On Demand|2   |3 Gb|   0.065|  46.80|
-|cache.m6g.large |One Year |2   |6 Gb|   0.094|  67.68|
-|cache.m6g.large |On Demand|2   |6 Gb|   0.149| 107.28|
+Top: [Compute instances](https://aws.amazon.com/ec2/pricing/reserved-instances/pricing/)<br>
+Bottom: [Managed Redis or Memcached instances](https://aws.amazon.com/elasticache/pricing/?nc2=type_a)
 
 For example, a small cluster of three `t3.medium` instances should have plenty of available memory for caching as compared to a dedicated one `cache.m6g.large` instance.
 
