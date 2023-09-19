@@ -12,7 +12,7 @@ pip    install     wheel
 pip    install     pipenv
 ```
 
-Once you have installed `pipenv`, the next step is to install all the project dependencies using `pipeenv`.  Use the following command to install all Python project dependencies:
+Once you have installed `pipenv`, the next step is to install all the project dependencies in the `Pipfile` using `pipenv`.  Use the following command to install all Python project dependencies:
 ```
 pipenv sync
 ```
@@ -36,8 +36,8 @@ We like [PEP8](https://peps.python.org/pep-0008/#a-foolish-consistency-is-the-ho
 * Whitespaces:
   * We love it for we believe it makes the code more readable and we do not live in the 90s with small monitors.  Characters that are butted together is harder to read.
 * Commas:
-  * This is not English literature writing.  A comma is use to introduce the next term.  Therefore we have a space before the comma but no space after the comma.  If there is no next term, you will not need a comma to seperate the terms as dipicted by the following reailroad diagram:
-    * Waiting for `mermaid` railroad diagram support.
+  * This is **not** English literature writing.  A comma is use to introduce the next term.  Therefore we have a space before the comma but no space after the comma.  If there is no next term, you will not need a comma to seperate the terms as dipicted by the following reailroad diagram:
+    * WIP: Waiting for [`mermaid`](https://mermaid.js.org/intro/) railroad diagram support.
 * Vertical aligment:
   * We believe that vertical align make it easier on the eyes to pick out deltas.  A multi jagged lines require the eyes and brain to perform a lot of scans and processing creating mental fatigue.
 
@@ -49,9 +49,9 @@ We recommend that you read the script [`start_mccache.py`](https://github.com/Mc
 The following sub-sections are taks you  need to perform manually before you commit your code.  At this point in time, it is **not** part of `pre-commit` so that there is some flexibity.
 
 ## Codestyle
-After installation you may execute code formatting with the following commands:
+You can run the following command to check the code for PEP8 formatting compliance.
 ```bash
-pipenv run ruff check   ./src/mccache/*.py
+ruff check   ./src/mccache/*.py
 ```
 `ruff` documentation mentioned that it be used to replace `Flake8`, `isort`, `pydocstyle`, `yesqa`, `eradicate`, `pyupgrade`, and `autoflake`.
 Execute the following command to display all the `ruff` supported linters:
@@ -63,9 +63,9 @@ pipenv run ruff linter
 
 You can run the following command to further check the code.
 ```bash
-pipenv run mypy         ./src/mccache/*.py
-pipenv run bandit       ./src/mccache/*.py
-pipenv run vulture
+mypy         ./src/mccache/*.py  # Static type checker for Python.
+bandit       ./src/mccache/*.py  # Security issues scanner.
+vulture      ./src/mccache/*.py  # Dead code scanner.
 ```
 
 ### Tests
@@ -82,9 +82,9 @@ Before submitting your code please do the following steps:
 1. Add any changes you want.
 1. Add tests for the new changes.
 1. Edit documentation if you have changed something significant.
-1. Run the steps outline above from the `Codestyle` section to format your changes.
-1. Run the steps outline above from the `Checks` section to ensure that types, security and docstrings are okay.
-1. Run the steps outline above from the `Tests` section to ensure that we did not break functionality.
+1. Run the steps outline above from the **`Codestyle`** section to format your changes.
+1. Run the steps outline above from the **`Checks`** section to ensure that types, security and docstrings are okay.
+1. Run the steps outline above from the **`Tests`** section to ensure that we did not break functionality.
 
 ## Other help
 

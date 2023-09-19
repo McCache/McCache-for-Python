@@ -23,7 +23,7 @@ mypy = ">=1.5.1"                # Static type checker for Python.
 ruff = ">=0.0.287"              # Extremely fast Python linter.
 vulture = ">=2.9.1"             # Dead code scanner.
 pytest = ">=7.4.0"              # Unit testing framework.
-coverage = "7.3.1"              # Measure code coverage.
+coverage = ">=7.3.1"            # Measure code coverage.
 hatch = ">=1.7.0"               # The build tool.
 
 [requires]
