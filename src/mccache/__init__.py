@@ -69,11 +69,15 @@ There are 3 levels of optimism on the cache notification.  They are:
             - All members in the cluster will receive other members acknowledgements.
                 - If the received acknowledgment is not in one's `pending` collect, just ignore it.
                 - The house keeping thread shall monitor the acknowledgement and request re-acknowledgement.
-                    - Keys that have not received an acknowldement in 2 sec, a re-acknowledgment `RAK` is initiated.
+                    - Keys that have not received an acknowledgement in 1 sec, a re-acknowledgment `RAK` is initiated.
                     - If we haven't receive acknowledgement after 10 sec, we log a `warning` or `critical` message.
                         - Remove the key from the `pending` collection.
                         - Remove the key from the `member`  collection.
                             - The member node is down.
+
+    Since we are going to implement a guarenteed protocol, the following feature to replace the optimistic level.
+        1) Member only interested in what it have in cache.  Uses less memory.
+        2) All members have the identical cache.  Wil ltakre up more memory per member.
 """
 import atexit
 import base64
@@ -91,12 +95,14 @@ import struct
 import threading
 import time
 
-#
-from dataclasses import dataclass
-from enum import Enum
-from struct import pack, unpack
+from dataclasses    import dataclass
+from enum           import Enum
+from struct         import pack, unpack
 
-from .__about__ import __app__, __version__ # noqa   Use by hatch to build.
+try:
+    from .__about__ import __app__, __version__ # noqa   Use by hatch to build.
+except ImportError:
+    from  __about__ import __app__, __version__ # noqa   Use by hatch to build.
 
 # Cachetools section.
 #
@@ -111,8 +117,9 @@ from .__about__ import __app__, __version__ # noqa   Use by hatch to build.
 # In the interest of time, I just copy cachetools classes over and tweaked them.
 # When we have out test completed, we should try Monkey Patching it.
 #
-# We shoukd also consider using other popular Python Cache implementation too.  Some candidates are:
+# We should also consider using other popular Python Cache implementation too.  Some candidates are:
 #   1. https://pypi.org/project/cache3/
+#   2. Write our own based of collection.UserDict
 
 
 # fmt: off
@@ -729,6 +736,7 @@ class EnableMultiCast(Enum):
     YES = True      # Multicast out the change.
     NO  = False     # Do not multicast out the change.  This is the default.
 
+
 class SocketWorker(Enum):
     SENDER = True   # The sender of a message.
     LISTEN = False  # The listener for messages.
@@ -740,8 +748,21 @@ class McCacheLevel(Enum):
     OPTIMISTIC  = 7 # Life is great on the happy path.  Acknowledgment is not required.  Sync the caches.
 
 
+class McCacheOption(Enum):
+    # Constants for linter to catch typos instead of at runtime.
+    MCCACHE_TTL             = 'MCCACHE_TTL' # Time to live.
+    MCCACHE_MTU             = 'MCCACHE_MTU' # Maximum Transmission Unit.
+    MCCACHE_MAXSIZE         = 'MCCACHE_MAXSIZE'
+    MCCACHE_MULTICAST_IP    = 'MCCACHE_MULTICAST_IP'
+    MCCACHE_MULTICAST_HOPS  = 'MCCACHE_MULTICAST_HOPS'    
+    MCCACHE_MONKEY_TANTRUM  = 'MCCACHE_MONKEY_TANTRUM'
+    MCCACHE_RANDOM_SEED     = 'MCCACHE_RANDOM_SEED'
+    MCCACHE_DEBUG_FILE      = 'MCCACHE_DEBUG_FILE'
+    MCCACHE_LOG_FORMAT      = 'MCCACHE_LOG_FORMAT'
+
+
 class OpCode(Enum):
-    # Keep everythng here as 3 character fixed length strings.
+    # Keep everything here as 3 character fixed length strings.
     ACK = 'ACK'     # Acknowledgement of a received request.
     BYE = 'BYE'     # Member announcing it is leaving the group.
     DEL = 'DEL'     # Member requesting the group to evict the cache entry.
@@ -752,9 +773,10 @@ class OpCode(Enum):
     NAK = 'NAK'     # Negative acknowledgement.  Didn't receive the key/value.
     NOP = 'NOP'     # No operation.
     PUT = 'PUT'     # Member annoucing a new cache entry is put into its local cache.
-    REQ = 'RAK'     # Request acknowledgment for a key.
     QRY = 'QRY'     # Query the cache.
+    REQ = 'RAK'     # Request acknowledgment for a key.
     RST = 'RST'     # Reset the cache.
+    SIZ = 'SIZ'     # Query the current McCache storage size. 
     UPD = 'UPD'     # Update an existing cache entry.
 
 
@@ -766,7 +788,7 @@ class McCacheConfig:
     mc_gip: str = '224.0.0.3'   # Unassigned multi-cast IP.
     mc_port: int = 4000         # Unofficial port.  Was for Diablo II game.
     mc_hops: int = 1            # Only local subnet.
-    max_size: int = 2048        # Entries.
+    max_size: int = 512         # Entries.
     debug_log: str = 'log/debug.log'    # Full pathname of the log file.
     monkey_tantrum: int = 0     # Chaos monkey tantrum % level (0-99).
     # TODO: To be dropped.
@@ -778,9 +800,9 @@ class McCacheConfig:
 #
 _lock = threading.RLock()               # Module-level lock for serializing access to shared data.
 _mcCacheDict: dict[str ,Cache] = {}     # Private dict to segregate the cache namespace.
-_mcPending: dict[tuple ,dict] = {}      # Pending send packets needing acknowledgements.
-_mcArrived: dict[tuple ,dict] = {}      # Pending arrived packets needing to be assemble into a value message.
-_mcMember: dict[str ,int] = {}          # Members in the group.  ID/Timestamp.
+_mcPending: dict[tuple ,dict] = {}      # Pending send fragment needing acknowledgements.
+_mcArrived: dict[tuple ,dict] = {}      # Pending arrived fragments to be assemble into a value message.
+_mcMember: dict[str ,int] = {}          # Members in the group.  IP: Timestamp.
 _mcQueue: queue.Queue = queue.Queue()
 _mcIPAdd = {
     224: {
@@ -802,10 +824,14 @@ _mcIPAdd = {
     }
 }
 
+# Protocol header magic byte.
+#
+MAGIC_BYTE = 170    # Binary: 10101010 checked pattern.
+
 # Setup normal and short IP addresses for logging and other use.
-LOG_EXTRA: dict   = {'ipv4': None ,'ipV4': None ,'ipv6': None ,'ipV6': None}    # Extra fields for the logger message.
+LOG_EXTRA: dict   = {'ipv4': None ,'ipV4': None ,'ipv6': None ,'ipV6': None }    # Extra fields for the logger message.
 LOG_EXTRA['ipv4'] = socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]
-LOG_EXTRA['ipV4'] = "".join([hex(int(g)).removeprefix("0x").zfill(2) for g in LOG_EXTRA['ipv4'].split(".")])
+LOG_EXTRA['ipV4'] = ''.join([hex(int(g)).removeprefix("0x").zfill(2) for g in LOG_EXTRA['ipv4'].split(".")])
 try:
     LOG_EXTRA['ipv6'] = socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET6)[0][4][0]
     LOG_EXTRA['ipV6'] = LOG_EXTRA['ipv6'].replace(':' ,'')
@@ -819,9 +845,12 @@ logger: logging.Logger = logging.getLogger()    # Root logger.
 #
 _config = McCacheConfig()
 
-if 'MCCACHE_LOG_FORMAT' in os.environ:
-    LOG_FORMAT = os.environ['MCCACHE_LOG_FORMAT']
+# NOTE: Config from environment variables trump over config read from a file.
+#
+if  McCacheOption.MCCACHE_LOG_FORMAT    in os.environ:
+    LOG_FORMAT = os.environ[ McCacheOption.MCCACHE_LOG_FORMAT ]
 
+# TODO: Finish converting to use McCacheOption enum and move it into _load_config().
 if 'MCCACHE_DEBUG_FILE' in os.environ:
     _config.debug_log = os.environ['MCCACHE_DEBUG_FILE']
 
@@ -855,9 +884,7 @@ else:
 if 'MCCACHE_MULTICAST_HOPS' in os.environ and isinstance(os.environ['MCCACHE_MULTICAST_HOPS'] ,int):
     _config.mc_hops = int(os.environ['MCCACHE_MULTICAST_HOPS'])
 
-MAGIC_BYTE = 246
-
-_ip = None
+_ip:str = None
 try:
     # SEE: https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml
     if 'MCCACHE_MULTICAST_IP' in os.environ:
@@ -896,13 +923,14 @@ logger.propagate = False
 logger.setLevel( logging.INFO )
 _hdlr = logging.StreamHandler()
 _fmtr = logging.Formatter(fmt=LOG_FORMAT ,datefmt='%Y%m%d%a %H%M%S' ,defaults=LOG_EXTRA)
-_hdlr.setFormatter(_fmtr)
-logger.addHandler(_hdlr)
+_hdlr.setFormatter( _fmtr )
+logger.addHandler(  _hdlr )
 if  _config.debug_log:
-    _hdlr = logging.FileHandler(_config.debug_log ,mode="a")
-    _hdlr.setFormatter(_fmtr)
-    logger.addHandler(_hdlr)
-    logger.setLevel(logging.DEBUG)
+    from    logging.handlers import RotatingFileHandler
+    _hdlr = RotatingFileHandler( _config.debug_log ,mode="a" ,maxBytes=(2*1024*1024*1024), backupCount=99)   # 2Gib with 10 backups.
+    _hdlr.setFormatter( _fmtr )
+    logger.addHandler(  _hdlr )
+    logger.setLevel( logging.DEBUG )
 # TODO: Make it cloud ready for AWS ,Azure ,GCP & OCI.
 del _hdlr
 del _fmtr
@@ -916,12 +944,11 @@ def get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
     If no name is specified ,return the default TLRUCache or LRUCache cache depending on the optimism setting.
     SEE: https://dropbox.tech/infrastructure/caching-in-theory-and-practice
 
-    Parameter
-    ---------
-        name: str       Name to isolate different caches.  Namespace dot notation is suggested.
-        cache: Cache    Optional cache instance to override the default cache type.
-
-    Return: Cache instance to use with given name.
+    Args:
+        name:   Name to isolate different caches.  Namespace dot notation is suggested.
+        cache:  Optional cache instance to override the default cache type.
+    Return:
+        Cache instance to use with given name.
     """
     if  name:
         if  not isinstance( name ,str ):
@@ -957,21 +984,42 @@ def clear_cache( name: str | None = None ) -> None:
     Request all the members in the cluster to clear their cache without rebooting their instance.
     This method is intended to be used from a node that is not participating in the cluster.
 
-    Arg:
-        name    Name of the cache.  If none is provided, all caches shall be cleared.
+    Args:
+        name:   Name of the cache.  If none is provided, all caches shall be cleared.
+    Return:
+        None
     """
     _mcQueue.put((OpCode.RST.name ,time.time_ns() ,name ,None ,None))
 
 # Private utilities methods.
 #
+def _load_config() -> dataclass:
+    """Load the McCache configuration.
+
+    Configuration will loaded in the following order over writting the prevously set values.
+    1) `pyproject.toml`
+    2) Environment variables.
+
+    Return:
+        Dataclass configuration.
+    """
+    try:
+        import tomllib  # Introduce in Python 3.11.
+        with open("pyproject.toml", mode="rt", encoding="utf-8") as fp:
+            _toml = tomllib.loads( fp.read() )
+    except ModuleNotFoundError:
+        pass
+
+    # TODO: Finish this method up.
+    return None
+
 def _get_socket(is_sender: SocketWorker) -> socket.socket:
     """Get a configured socket for either the sender or receiver.
 
     Args:
-        is_Sender   A switch to pick the socket to be configire for either sender or receiver.
-
+        is_sender:  A switch to pick the socket to be configire for either sender or receiver.
     Return:
-        socket      A configured socket ready to be used.
+        A configured socket ready to be used.
     """
     # socket.AF_INET:           IPv4
     # socket.SOL_SOCKET:        The socket layer itself.
@@ -1016,9 +1064,8 @@ def _make_pending_value( bdata: bytes ,frame_size: int ,members: dict ) -> {}:
             Fragments:  1 byte
 
     Args:
-        bdata       Binary data.
-        frame_size  The size of the usuable ethernet frame (minus the IP header)
-
+        bdata:      Binary data.
+        frame_size: The size of the usuable ethernet frame (minus the IP header)
     Return:
         A dictionary of the following structure:
         {
@@ -1052,8 +1099,10 @@ def _send_fragment( sock:socket.socket ,fragment: bytes ) -> None:
     This is intended ONLY during testing.
 
     Args:
-        socket      A configured socket to send a fragment out of.
-        fragment    A fragment of binary data.
+        socket:     A configured socket to send a fragment out of.
+        fragment:   A fragment of binary data.
+    Return:
+        None
     """
     # The following is to assist with testing.
     # This Monkey should NOT throw a tantrum in a production environment.
@@ -1068,12 +1117,29 @@ def _send_fragment( sock:socket.socket ,fragment: bytes ) -> None:
 
     sock.sendto( fragment ,(_config.mc_gip ,_config.mc_port))
 
+def _checksum(val: bytes) -> str:
+    """Generate a checksum for the input value.
+
+    The checksum can be displayed as a representation of the raw value.
+    One should not display the raw value for it may be a security violation.
+
+    Args:
+        val:    Input bytes to create a checksum for.
+    Return:
+        A checksum string in encoded in base64.
+    """
+    pkl: bytes  = pickle.dumps( val )
+    crc: str    = base64.b64encode( hashlib.md5( pkl ).digest() ).decode()  # noqa: S324
+    return  crc
+
 def _decode_message( msg: tuple ,sender: str ) -> None:
     """Decode the message tuple from the sender.
 
     Args:
         msg         The message received from a sender.
         sender      The sender of this message.
+    Return:
+        None
     """
     opc = msg[0]    # Op Code
     tsm = msg[1]    # Timestamp
@@ -1086,11 +1152,12 @@ def _decode_message( msg: tuple ,sender: str ) -> None:
     mcc = get_cache( nms )
     match opc:
         case OpCode.ACK.value:
-            if (nms ,key ,tsm) in _mcPending:
-                if  frm in _mcPending[ (nms ,key ,tsm) ]['members']:
-                    del    _mcPending[ (nms ,key ,tsm) ]['members'][ frm ]
-                if  len(   _mcPending[ (nms ,key ,tsm) ]['members']) == 0:
-                    del    _mcPending[ (nms ,key ,tsm) ]
+            pky = (nms ,key ,tsm)   # Pending key.
+            if  pky in _mcPending:
+                if  frm in _mcPending[ pky ]['members']:
+                    del    _mcPending[ pky ]['members'][ frm ]
+                if  len(   _mcPending[ pky ]['members']) == 0:
+                    del    _mcPending[ pky ]
 
         case OpCode.BYE.value:
             if  frm in _mcMember:
@@ -1102,29 +1169,50 @@ def _decode_message( msg: tuple ,sender: str ) -> None:
             # Acknowledge it.
             _mcQueue.put( (OpCode.ACK.name ,tsm ,nms ,key ,None) )
 
+        case OpCode.INQ.value:
+            if  logger.level == logging.DEBUG:
+                _mc:  dict = None
+                _kys: list = None
+                # NOTE: Don't dump the raw data out for security reason.
+                if  key is None:
+                    _kys= list( mcc.keys() )
+                    _kys.sort()
+                    _mc = {k: _checksum( mcc[k] ) for k in _kys}
+                    msg = (opc ,tsm ,nms ,None ,None ,_mc)
+                else:
+                    val = mcc.get( key ,None )
+                    crc = _checksum( val )
+                    msg = (opc ,tsm ,nms ,key ,crc ,None)
+                logger.info(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
+                # Free up the big memory after logging.
+                _mc  = None
+                _kys = None
+
         case OpCode.PUT.value | OpCode.UPD.value:
             mcc.__setitem__( key ,val ,EnableMultiCast.NO.value )
             # Acknowledge it.
             _mcQueue.put( (OpCode.ACK.name ,tsm ,nms ,key ,None) )
 
-        case OpCode.INQ.value:
-            if  logger.level == logging.DEBUG:
-                # NOTE: Don't dump the raw data out for security reason.
-                if  key is None:
-                    keys = list( mcc.keys() )
-                    keys.sort()
-                    _mc = {k: base64.b64encode( hashlib.md5( pickle.dumps( mcc[k] )).digest() ).decode() for k in keys} # noqa: S324
-                    msg = (opc ,None ,nms ,None ,None ,_mc)
-                else:
-                    val = mcc.get( key ,None )
-                    crc = base64.b64encode( hashlib.md5( pickle.dumps( val )).digest() ).decode()   # noqa: S324
-                    msg = (opc ,None ,nms ,key ,crc ,None)
-                logger.debug(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
-
         case OpCode.RST.value:
             for n in filter( lambda k: k == nms or nms is None ,_mcCacheDict.keys() ):
                 for k in _mcCacheDict[ n ].keys():
                     _mcCacheDict[ n ].__delitem__( k, EnableMultiCast.NO )
+
+        case OpCode.SIZ.value:
+            r = {   '_mccache_': {
+                    'count': len(_mcCacheDict),
+                    'size': round(_mcCacheDict.__sizeof__() /(1024*1024) ,4)    # In Mib.
+                    },
+            }.update(
+                { n: {  'count': len(_mcCacheDict[n]),
+                        'size': round(_mcCacheDict.__sizeof__() /(1024*1024) ,4),
+                        'average': round(_mcCacheDict.__sizeof__() /(1024*1024) ,4) / len(_mcCacheDict[n])
+                    }  
+                    for n in _mcCacheDict.keys()
+                }
+            )
+            msg = (opc ,tsm ,None ,None ,None ,r)
+            logger.info(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
         case _:
             pass
@@ -1132,11 +1220,17 @@ def _decode_message( msg: tuple ,sender: str ) -> None:
 # Private thread methods.
 #
 def _goodbye() -> None:
-    """
-    Shutting down of this Python process to all the members in the group.
+    """Shutting down of this Python process.
+    
+    Inform to all the members in the group.
 
     SEE: https://docs.python.org/3.8/library/atexit.html#module-atexit
+
+    Args:
+    Return:
+        None
     """
+    _mcQueue.put((OpCode.SIZ.name ,time.time_ns() ,None ,None ,None))
     _mcQueue.put((OpCode.BYE.name ,time.time_ns() ,None ,None ,None))
     time.sleep( 0.3 )
 
@@ -1163,8 +1257,7 @@ def _goodbye() -> None:
 #   Local key tuple:    (Sender ,Payload Key)
 #
 def _multicaster() -> None:
-    """
-    Dequeue and multicast out the cache operation to all the members in the group.
+    """Dequeue and multicast out the cache operation to all the members in the group.
 
     A message is constructed using the following format:
         OP Code:    Cache operation code.  SEE: OpCode enum.
@@ -1175,26 +1268,31 @@ def _multicaster() -> None:
         Value:      The cached value.
 
     SEE: _make_pending_value() for structure.
+
+    Args:
+    Return:
+        None
     """
     sock = _get_socket( SocketWorker.SENDER )
 
-    # Keep the format consistent to make it easy  for the test to parse.
+    # Keep the format consistent to make it easy for the test to parse.
     msg = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache broadcaster is ready.')
     logger.debug(f"Im:{SRC_IP_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
 
-    while True:
+    opc: str = ''   # Op Code
+    while opc != OpCode.BYE.name:
         try:
             msg = _mcQueue.get()
-            opc = msg[0]    # Op Code
-            tsm = msg[1]    # Timestamp
-            nms = msg[2]    # Namespace
-            key = msg[3]    # Key
-            val = msg[4]    # Value
-            crc = None
+            opc         = msg[0]    # Op Code
+            tsm: int    = msg[1]    # Timestamp
+            nms: str    = msg[2]    # Namespace
+            key: object = msg[3]    # Key
+            val: object = msg[4]    # Value
+            crc: str    = None      # Checksum
+            pkl: bytes  = None      # Pickled value
 
             if _config.op_level >= McCacheLevel.NEUTRAL.value and val is not None:
-                pkl = pickle.dumps( val )
-                crc = base64.b64encode( hashlib.md5( pkl ).digest() ).decode()  # noqa: S324
+                crc = _checksum( val )
             if _config.op_level == McCacheLevel.PESSIMISTIC:
                 val = None
             msg = (opc ,tsm ,nms ,key ,crc ,val)
@@ -1205,19 +1303,23 @@ def _multicaster() -> None:
                 logger.debug(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
             if  _config.op_level <= McCacheLevel.PESSIMISTIC.value:
-                if  opc != OpCode.ACK.value and (nms ,key ,tsm) not in _mcPending:
+                pky = (nms ,key ,tsm)   # Pending key.
+                if  opc != OpCode.ACK.value and pky not in _mcPending:
                     # Pending for acknowledgement.
-                    _mcPending[(nms ,key ,tsm)] = _make_pending_value( pkl ,_config.mtu ,_mcMember )
+                    _mcPending[ pky ] = _make_pending_value( pkl ,_config.mtu ,_mcMember )
 
             _send_fragment( sock ,pkl )
-            if  len(pkl) > _config.mtu:
+            if  len( pkl ) > _config.mtu:
                 logger.warn(f"Payload keyed with {nms}.{key} size is {len(pkl)} maybe > {_config.mtu} bytes for MTU payload frame.")
         except  Exception as ex:    # noqa: BLE001
             logger.error(ex)
 
 def _housekeeper() -> None:
-    """
-    Background house keeping thread.
+    """Background house keeping thread.
+
+    Args:
+    Return:
+        None
     """
     # Keep the format consistent to make it easy for the test to parse.
     msg = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache housekeeper is ready.')
@@ -1226,30 +1328,33 @@ def _housekeeper() -> None:
 #   TODO: Finish this.
 #   while True:
 #       time.sleep( 1 )   # Sleep a minimum of 1 second.
-#       for key in _mcPending.keys():
+#       for pky in _mcPending.keys():
 #           _ ,_ ,tsm = key
 #           dur:float = (time.time_ns() - tsm) * 0.000000001    # Convert to second.
 #           if  dur > 1:
-#               members = _mcPending[ key ]['members']
-#               for ip in _mcPending[ key ]['members'].keys():
+#               members = _mcPending[ pky ]['members']
+#               for ip in _mcPending[ pky ]['members'].keys():
 #
-#                   if  len(_mcPending[ key ]['value']) == len(_mcPending[ key ]['members'][ ip ]['unack']):
+#                   if  len(_mcPending[ pky ]['value']) == len(_mcPending[ pky ]['members'][ ip ]['unack']):
 #                       # Nothing was acknowledged.
-#                       _mcQueue.put((OpCode.RAK.name ,key[2] ,key[1] ,key[0] ,None))
+#                       _mcQueue.put((OpCode.RAK.name ,pky[2] ,pky[1] ,pky[0] ,None))
 #                   else:
-#                       s = len(_mcPending[ key ]['value'] )
+#                       s = len(_mcPending[ pky ]['value'] )
 #                       for f in range( 0 ,s ):
-#                           if  f in _mcPending[ key ]['members'][ ip ]['unack']:
-#                               _mcQueue.put((OpCode.RAK.name ,key[2] ,key[1] ,key[0] ,f"{f+1}/{s}"))
+#                           if  f in _mcPending[ pky ]['members'][ ip ]['unack']:
+#                               _mcQueue.put((OpCode.RAK.name ,pky[2] ,pky[1] ,pky[0] ,f"{f+1}/{s}"))
 #
-#                   _ = _mcPending[ key ]['members'][ ip ]['tries'].pop
-#                   if  len(_mcPending[ key ]['members'][ ip ]['tries']) == 0:
-#                       del _mcPending[ key ]['members'][ ip ]
-#                       logger.critical(f"Key:{key} have NOT be acknowledge by {ip}" ,extra=LOG_EXTRA)
+#                   _ = _mcPending[ pky ]['members'][ ip ]['tries'].pop
+#                   if  len(_mcPending[ pky ]['members'][ ip ]['tries']) == 0:
+#                       del _mcPending[ pky ]['members'][ ip ]
+#                       logger.critical(f"Key:{pky} have NOT be acknowledge by {ip}" ,extra=LOG_EXTRA)
 
 def _listener() -> None:
-    """
-    Listen in the group for new cache operation from all members.
+    """Listen in the group for new cache operation from all members.
+    
+    Args:
+    Return:
+        None
     """
     # socket.AF_INET:           IPv4
     # socket.SOL_SOCKET:        The socket layer itself.
@@ -1273,22 +1378,23 @@ def _listener() -> None:
 
             if  SRC_IP_ADD.find( frm ) == -1:   # Ignore my own messages.
                 msg = pickle.loads( pkt )       # noqa: S301
-                opc = msg[0]    # Op Code
-                tsm = msg[1]    # Timestamp
-                nms = msg[2]    # Namespace
-                key = msg[3]    # Key
-                crc = msg[4]    # Checksum
-                _   = msg[5]    # Value
+                opc: str    = msg[0]    # Op Code
+                tsm: int    = msg[1]    # Timestamp
+                nms: str    = msg[2]    # Namespace
+                key: object = msg[3]    # Key
+                crc: object = msg[4]    # Checksum
+                _           = msg[5]    # Value
+
+                _decode_message( msg ,sender[0] )   # TODO: Return parsed message elements.
+
+                # Maintain the latest timestamp of the last contact with the members.
+                #
+                _mcMember[ frm ] = tsm
 
                 if  logger.level == logging.DEBUG:
                     msg = (opc ,tsm ,nms ,key ,crc ,None)
                     logger.debug(f"Im:{SRC_IP_ADD}\tFr:{frm}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
-                # Keep the latest timestamp of the last contact with the members.
-                #
-                _mcMember[ frm ] = tsm
-
-                _decode_message( msg ,sender[0] )
         except  Exception as ex:    # noqa: BLE001
             logger.error(ex)
 
