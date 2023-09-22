@@ -45,6 +45,8 @@ end = time.time()
 mc.logger.setLevel( logging.DEBUG ) # Enable detail logging in McCache for testing.
 mc.logger.info(f"Start testing with: Random seed={rndseed:3} Duration={duration:3} min.")
 
+test: bool = False
+
 stats = {
     'get': 0,
     'ins': 0,
@@ -52,21 +54,21 @@ stats = {
     'del': 0,
 }
 while (end - bgn) < (duration*60):   # Seconds.
-    time.sleep( random.randint(1 ,70)/1000.0 )
+    time.sleep( random.randint(1 ,60)/1000.0 )
     key = int((time.time_ns() /100)  %entries)
-    opc = random.randint(0 ,13)
+    opc = random.randint(0 ,15)
     match opc:
         case 0:
             if  key in cache:
                 # Evict cache.
                 del cache[key]
                 stats['del'] += 1
-        case 1|2:
+        case 1|2|3:
             if  key not in cache:
                 # Insert cache.
                 cache[key] = datetime.datetime.utcnow()
                 stats['ins'] += 1
-        case 3|4|5|6:
+        case 4|5|6|7|8:
             if  key in cache:
                 # Update cache.
                 cache[key] = datetime.datetime.utcnow()
@@ -75,11 +77,12 @@ while (end - bgn) < (duration*60):   # Seconds.
             # Look up cache.
             _ = cache.get( key ,None )
             stats['get'] += 1
+
     end = time.time()
 
 keys = list(cache.keys())
 keys.sort()
-ksh = {k: base64.a85encode( hashlib.md5( pickle.dumps( cache[k] ) ).digest() ,foldspaces=True).decode() for k in keys}
+ksh = {k: mc.checksum( cache[k] ) for k in keys}
 msg = (mc.OpCode.QRY.name ,None ,cache.name ,None ,None ,ksh)
 mc.logger.debug(f"Im:{mc.SRC_IP_ADD}\tFr:{' '*len(mc.SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=mc.LOG_EXTRA)
 
