@@ -77,7 +77,15 @@ There are 3 levels of optimism on the cache notification.  They are:
 
     Since we are going to implement a guarenteed protocol, the following feature to replace the optimistic level.
         1) Member only interested in what it have in cache.  Uses less memory.
-        2) All members have the identical cache.  Wil ltakre up more memory per member.
+        2) All members have the identical cache.  Will take up more memory per member.
+
+    Competition:
+    So far I have not able to seach for anything out on the internet that is doing what this project is doing.
+    There is a Python project call `DistCache` but upon digging deeper it is a frontend to Redis.
+        https://pypi.org/project/distcache/
+
+    Are we so crazy to think of this design and implmentation?
+    Surely, this is a solved problem or the herd mentality is on the client-server model.
 """
 import atexit
 import base64
@@ -100,10 +108,13 @@ from dataclasses    import dataclass
 from enum           import Enum ,IntEnum ,StrEnum
 from struct         import pack, unpack
 
+# TODO: Figure out how to setup this package.
 try:
-    from .__about__ import __app__, __version__ # noqa   Use by hatch to build.
+    # Not work from command line.
+    from .__about__ import __app__, __version__ # noqa
 except ImportError:
-    from  __about__ import __app__, __version__ # noqa   Use by hatch to build.
+    # Work from VS Code.
+    from  __about__ import __app__, __version__ # noqa
 
 # Cachetools section.
 #
@@ -181,6 +192,7 @@ class Cache(collections.abc.MutableMapping):
 
         # McCache addition.
         if  multicast:
+            # TODO: Discontinue this optimistic level implementation.
             if  _mcConfig.op_level == McCacheLevel.OPTIMISTIC.value:  # Distribute the cache entry to remote members.
                 _mcQueue.put((OpCode.PUT.name ,time.time_ns() ,self.name ,key ,value))
             elif _mcConfig.op_level == McCacheLevel.NEUTRAL.value:    # Update remote member's cache entry if exist.
@@ -743,6 +755,7 @@ class SocketWorker(Enum):
     LISTEN = False  # The listener for messages.
 
 
+# TODO: Discontinue this optimistic level implementation.
 class McCacheLevel(IntEnum):
     PESSIMISTIC = 3 # Something out there is going to screw you.  Requires acknowledgement.  Evict the caches.
     NEUTRAL     = 5 # Default.
@@ -800,13 +813,11 @@ class McCacheConfig:
     mc_gip: str = '224.0.0.3'   # Unassigned multi-cast IP.
     mc_port: int = 4000         # Unofficial port.  Was for Diablo II game.
     mc_hops: int = 1            # Only local subnet.
-    max_size: int = 512         # Entries.
+    maxsize: int = 512          # Entries.
     debug_log: str = 'log/debug.log'
-#   log_format: str = f"%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d.%(thread)05d)[%(levelname)s {__app__}@%(lineno)d] %(message)s"
     monkey_tantrum: int = 0     # Chaos monkey tantrum % level (0-99).
-    # TODO: To be dropped.
+    # TODO: Discontinue this optimistic level implementation.
     op_level: int = McCacheLevel.NEUTRAL.value
-    house_keeping_slots: str = '5,8,13,21,55' # Periods for first 5 slots: Very frequent ,Frequent ,Normal ,Slow ,Very slow.
 
 
 # Module initialization.
@@ -864,12 +875,24 @@ def get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
             cache = _mcCache[ name ]
 
         if  not cache:
+            # TODO: Discontinue this optimistic level implementation.
             # This will be the default type of cache for McCache.
             if _mcConfig.op_level == McCacheLevel.PESSIMISTIC:
-                cache = TLRUCache( maxsize=_mcConfig.max_size ,ttl=_mcConfig.ttl )
+                cache = TLRUCache( maxsize=_mcConfig.maxsize  ,ttl=_mcConfig.ttl )
             else:
-                cache = LRUCache(  maxsize=_mcConfig.max_size )
+                cache = LRUCache(  maxsize=_mcConfig.maxsize  )
             _mcCache[ name ] = cache
+            # TODO: Need to capture runtime metrics.
+            # {
+            #   'default': {
+            #       'cache':  Cache(),      # The cache.
+            #       'initOn': Integer(),    # The time the cache was initialized in nano seconds.
+            #       'hitOn':  Integer(),    # Last time the cache was hit.
+            #       'ttlHits':Integer(),    # Number of hits to the cache since initialization.
+            #       'avgHits':Integer(),    # Number of hits to the cache to the average load.
+            #       'avgLoad':Float()       # The average time between calls that is within 60 minutes.
+            #   }
+            # }
 
             if  cache.name is None:
                 cache.setname( name )
@@ -879,7 +902,7 @@ def get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
     return cache
 
 def clear_cache( name: str | None = None ) -> None:
-    """Clear all the  distributed caches.
+    """Clear all the distributed caches.
 
     Request all the members in the cluster to clear their cache without rebooting their instance.
     This method is intended to be used from a node that is not participating in the cluster.
@@ -959,7 +982,7 @@ def _load_config():
         config.mtu          = int(os.environ[McCacheOption.MCCACHE_MTU])
  
     if  McCacheOption.MCCACHE_MAXSIZE       in os.environ and isinstance(os.environ[McCacheOption.MCCACHE_MAXSIZE] ,int):
-        config.max_size     = int(os.environ[McCacheOption.MCCACHE_MAXSIZE])
+        config.maxsize      = int(os.environ[McCacheOption.MCCACHE_MAXSIZE])
  
     if  McCacheOption.MCCACHE_LOG_FORMAT    in os.environ:
         LOG_FORMAT          = str(os.environ[ McCacheOption.MCCACHE_LOG_FORMAT ])
@@ -1006,7 +1029,7 @@ def _load_config():
     return  config
 
 def _setup_logger( debug_log: str | None = None ) -> logging.Logger:
-    """Setup the McCache logger.
+    """Setup the McCache specifc logger.
     
     Args:
     Return:
@@ -1030,6 +1053,19 @@ def _setup_logger( debug_log: str | None = None ) -> logging.Logger:
 
     return logger
 
+def _log_message() -> None:
+    """A standardize way to log out mcCache messages.
+
+        Messages at DEBUG level shall be used in the testing.
+        The standardized format makes parsing them easier.
+
+    Args:
+    Return:
+        None
+    """
+    # TODO: Finish this up.
+    ...
+
 def _get_socket(is_sender: SocketWorker) -> socket.socket:
     """Get a configured socket for either the sender or receiver.
 
@@ -1038,12 +1074,12 @@ def _get_socket(is_sender: SocketWorker) -> socket.socket:
     Return:
         A configured socket ready to be used.
     """
-    # socket.AF_INET:           IPv4
-    # socket.SOL_SOCKET:        The socket layer itself.
-    # socket.IPPROTO_IP:        Value is 0 which is the default and creates a socket that will receive only IP packet.
-    # socket.INADDR_ANY:        Binds the socket to all available local interfaces.
-    # socket.SO_REUSEADDR:      Tells the kernel to reuse a local socket in TIME_WAIT state ,without waiting for its natural timeout to expire.
-    # socket.IP_ADD_MEMBERSHIP: This tells the system to receive packets on the network whose destination is the group address (but not its own)
+    # AF_INET:           IPv4
+    # SOL_SOCKET:        The socket layer itself.
+    # IPPROTO_IP:        Value is 0 which is the default and creates a socket that will receive only IP packet.
+    # INADDR_ANY:        Binds the socket to all available local interfaces.
+    # SO_REUSEADDR:      Tells the kernel to reuse a local socket in TIME_WAIT state ,without waiting for its natural timeout to expire.
+    # IP_ADD_MEMBERSHIP: This tells the system to receive packets on the network whose destination is the group address (but not its own)
 
     addrinfo = socket.getaddrinfo( _mcConfig.mc_gip ,None )[0]
     sock = socket.socket( addrinfo[0] ,socket.SOCK_DGRAM )
@@ -1071,14 +1107,15 @@ def _get_socket(is_sender: SocketWorker) -> socket.socket:
 
 
 def _make_pending_value( bdata: bytes ,frame_size: int ,members: dict ) -> {}:
-    """Make a dictionary entry for management of communication acknowledgement.
+    """Make a dictionary entry for management of acknowledgements.
 
     Each payload chunk is prefixed with a 4 bytes of header defined as follow:
         Header:
-            Magic:      1 byte
-            Version:    1 byte
+            Magic:      5 bits | 1 byte
+            Version:    3 bits |
             Sequence:   1 byte zero offset.
             Fragments:  1 byte
+            Reserved:   1 byte
 
     Args:
         bdata:      Binary data.
@@ -1101,6 +1138,7 @@ def _make_pending_value( bdata: bytes ,frame_size: int ,members: dict ) -> {}:
         fragmnts += 1
 
     return {'value': [
+                # TODO: Redo this.
                 pack('@BBBB' ,MAGIC_BYTE ,1 ,i ,fragmnts ) +                            # Header (4 bytes)
                 bdata[ i : i + frg_size ] for i in range( 0 ,len( bdata ) ,frg_size )   # Payload
             ],
@@ -1134,8 +1172,8 @@ def _send_fragment( sock:socket.socket ,fragment: bytes ) -> None:
 
     sock.sendto( fragment ,(_mcConfig.mc_gip ,_mcConfig.mc_port))
 
-def _get_size(obj, seen=None):
-    """Recursively finds size of objects
+def _get_size( obj: object, seen: set | None = None ):
+    """Recursively finds size of objects.
     
     Credit goes to:
     https://goshippo.com/blog/measure-real-size-any-python-object
@@ -1144,7 +1182,7 @@ def _get_size(obj, seen=None):
         seen:   A collection of seen objets.
     Return:
     """
-    size = sys.getsizeof(obj)
+    size = sys.getsizeof( obj )
     if  seen is None:
         seen =  set()
     obj_id = id( obj )
@@ -1266,12 +1304,13 @@ def _goodbye() -> None:
 # TODO:
 # New design of the packet:
 #   Header:
-#       Magic           1 byte
-#       Version:        1 byte
-#      ?Sequence:       1 byte zero offset
-#      ?Fragments:      1 byte
+#       Magic           5 bits|= 1 byte
+#       Version:        3 bits|
 #       Key Size:       2 bytes
 #       Msg Size:       2 bytes
+#      ?Sequence:       1 byte zero offset
+#      ?Fragments:      1 byte
+#       Reserved:       1 byte
 #   Payload Key tuple:
 #       1) NS: Str      Namespace 
 #       2) KY: Obj      Key
@@ -1320,6 +1359,7 @@ def _multicaster() -> None:
             crc: str    = None      # Checksum
             pkl: bytes  = None      # Pickled value
 
+            # TODO: Discontinue this optimistic level implementation.
             if _mcConfig.op_level >= McCacheLevel.NEUTRAL.value and val is not None:
                 crc = checksum( val )
             if _mcConfig.op_level == McCacheLevel.PESSIMISTIC:
@@ -1331,6 +1371,7 @@ def _multicaster() -> None:
                 msg = (opc ,tsm ,nms ,key ,crc ,None)
                 logger.debug(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
+            # TODO: Discontinue this optimistic level implementation.
             if  _mcConfig.op_level <= McCacheLevel.PESSIMISTIC.value:
                 pky = (nms ,key ,tsm)   # Pending key.
                 if  opc != OpCode.ACK.value and pky not in _mcPending:
@@ -1385,13 +1426,6 @@ def _listener() -> None:
     Return:
         None
     """
-    # socket.AF_INET:           IPv4
-    # socket.SOL_SOCKET:        The socket layer itself.
-    # socket.IPPROTO_IP:        Value is 0 which is the default and creates a socket that will receive only IP packet.
-    # socket.INADDR_ANY:        Binds the socket to all available local interfaces.
-    # socket.SO_REUSEADDR:      Tells the kernel to reuse a local socket in TIME_WAIT state ,without waiting for its natural timeout to expire.
-    # socket.IP_ADD_MEMBERSHIP: This tells the system to receive packets on the network whose destination is the group address (but not its own)
-
     sock = _get_socket( SocketWorker.LISTEN )
 
     # Keep the format consistent to make it easy for the test to parse.
@@ -1430,9 +1464,9 @@ def _listener() -> None:
 # Main Initialization section.
 #
 _mcConfig = _load_config()
-random.seed( _mcConfig.monkey_tantrum )
-logger  = _setup_logger(_mcConfig.debug_log)
-logger.info(f"Setting: {_mcConfig}")
+random.seed(_mcConfig.monkey_tantrum)
+logger =  _setup_logger(_mcConfig.debug_log)
+logger.info(f"McCache config: {_mcConfig}")
 
 # Main section to start the background daemon threads.
 #
@@ -1452,7 +1486,6 @@ if __name__ == "__main__":
     sys.path.append(__file__[:__file__.find('src')-1])
     sys.path.append(__file__[:__file__.find('src')+3])
     import tests.unit.start_mccache # noqa: F401 I001
-    import functools
 
 
 # The MIT License (MIT)
