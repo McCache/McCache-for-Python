@@ -1,0 +1,36 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+default_language_version:
+  python: python3.11
+
+fail_fast: true
+
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+    -   id: check-added-large-files
+    -   id: check-ast
+    -   id: check-docstring-first
+    -   id: check-toml
+    -   id: check-yaml
+    -   id: detect-private-key
+    -   id: end-of-file-fixer
+    -   id: trailing-whitespace
+
+-   repo: local
+    hooks:
+    -   id:     bandit
+        name:   bandit
+        entry:  bandit
+        types:  [python]
+        language: system
+
+-   repo: local
+    hooks:
+    -   id:     vulture
+        name:   vulture
+        entry:  vulture
+        types:  [python]
+        language: system
+        

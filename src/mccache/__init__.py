@@ -768,7 +768,7 @@ class McCacheOption(StrEnum):
     MCCACHE_MTU             = 'MCCACHE_MTU' # Maximum Transmission Unit.
     MCCACHE_MAXSIZE         = 'MCCACHE_MAXSIZE'
     MCCACHE_MULTICAST_IP    = 'MCCACHE_MULTICAST_IP'
-    MCCACHE_MULTICAST_HOPS  = 'MCCACHE_MULTICAST_HOPS'    
+    MCCACHE_MULTICAST_HOPS  = 'MCCACHE_MULTICAST_HOPS'
     MCCACHE_MONKEY_TANTRUM  = 'MCCACHE_MONKEY_TANTRUM'
     MCCACHE_RANDOM_SEED     = 'MCCACHE_RANDOM_SEED'
     MCCACHE_DEBUG_FILE      = 'MCCACHE_DEBUG_FILE'
@@ -795,7 +795,7 @@ class OpCode(StrEnum):
     QRY = 'QRY'     # Query the cache.
     REQ = 'RAK'     # Request acknowledgment for a key.
     RST = 'RST'     # Reset the cache.
-    SIZ = 'SIZ'     # Query the current McCache storage size. 
+    SIZ = 'SIZ'     # Query the current McCache storage size.
     UPD = 'UPD'     # Update an existing cache entry.
 
     def __repr__(self):
@@ -830,7 +830,7 @@ _mcPending: dict[tuple ,dict] = {}  # Pending send fragment needing acknowledgem
 _mcMember:  dict[str ,int] = {}     # Members in the group.  IP: Timestamp.
 _mcQueue:   queue.Queue = queue.Queue()
 
-ONE_MIB = 1048576   # 1 Mib 
+ONE_MIB = 1048576   # 1 Mib
 MAGIC_BYTE = int(0b11111001)    # 241 (Pattern + Version)
 
 # Setup normal and short IP addresses for logging and other use.
@@ -950,7 +950,7 @@ def _load_config():
             _toml = tomllib.loads( fp.read() )
     except ModuleNotFoundError:
         pass
- 
+
     mcIPAdd = {
         224: {
             0: {
@@ -977,30 +977,30 @@ def _load_config():
     #
     if  McCacheOption.MCCACHE_TTL           in os.environ and isinstance(os.environ[McCacheOption.MCCACHE_TTL] ,int):
         config.ttl          = int(os.environ[McCacheOption.MCCACHE_TTL])
- 
+
     if  McCacheOption.MCCACHE_MTU           in os.environ and isinstance(os.environ[McCacheOption.MCCACHE_MTU] ,int):
         config.mtu          = int(os.environ[McCacheOption.MCCACHE_MTU])
- 
+
     if  McCacheOption.MCCACHE_MAXSIZE       in os.environ and isinstance(os.environ[McCacheOption.MCCACHE_MAXSIZE] ,int):
         config.maxsize      = int(os.environ[McCacheOption.MCCACHE_MAXSIZE])
- 
+
     if  McCacheOption.MCCACHE_LOG_FORMAT    in os.environ:
         LOG_FORMAT          = str(os.environ[ McCacheOption.MCCACHE_LOG_FORMAT ])
 
     if  McCacheOption.MCCACHE_DEBUG_FILE    in os.environ:
         config.debug_log    = str(os.environ[McCacheOption.MCCACHE_DEBUG_FILE])
- 
+
     if  McCacheOption.MCCACHE_RANDOM_SEED   in os.environ and isinstance(os.environ[McCacheOption.MCCACHE_RANDOM_SEED] ,int):
         config.random_seed  = int(os.environ[McCacheOption.MCCACHE_RANDOM_SEED])
     else:
         config.random_seed  = int(str(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]).split(".")[3])
- 
+
     if  McCacheOption.MCCACHE_MONKEY_TANTRUM in os.environ and isinstance(os.environ[McCacheOption.MCCACHE_MONKEY_TANTRUM] ,int):
         config.monkey_tantrum=int(os.environ[McCacheOption.MCCACHE_MONKEY_TANTRUM])
- 
+
     if  McCacheOption.MCCACHE_MULTICAST_HOPS in os.environ and isinstance(os.environ[McCacheOption.MCCACHE_MULTICAST_HOPS] ,int):
         config.mc_hops = int(os.environ[McCacheOption.MCCACHE_MULTICAST_HOPS])
- 
+
     ip:str = None
     try:
         # SEE: https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml
@@ -1010,11 +1010,11 @@ def _load_config():
             else:
                 config.mc_gip  = os.environ[McCacheOption.MCCACHE_MULTICAST_IP].split(':')[0]
                 config.mc_port = int(os.environ[McCacheOption.MCCACHE_MULTICAST_IP].split(':')[1])
- 
+
             ip = [int(d) for d in config.mc_gip.split(".")]
             if  len( ip ) != 4 or ip[0] != 224: # noqa: PLR2004
                 raise ValueError(f"{_mcConfig.mc_gip} is an invalid multicast IP address! SEE: https://tinyurl.com/4cymemdf") # noqa: EM102
- 
+
             if  not(ip[0] in mcIPAdd and \
                     ip[1] in mcIPAdd[ ip[0]] and \
                     ip[2] in mcIPAdd[ ip[0]][ ip[1]] and \
@@ -1030,7 +1030,7 @@ def _load_config():
 
 def _setup_logger( debug_log: str | None = None ) -> logging.Logger:
     """Setup the McCache specifc logger.
-    
+
     Args:
     Return:
         A logger specific to the module.
@@ -1174,10 +1174,10 @@ def _send_fragment( sock:socket.socket ,fragment: bytes ) -> None:
 
 def _get_size( obj: object, seen: set | None = None ):
     """Recursively finds size of objects.
-    
+
     Credit goes to:
     https://goshippo.com/blog/measure-real-size-any-python-object
-    
+
     Args:
         seen:   A collection of seen objets.
     Return:
@@ -1274,7 +1274,7 @@ def _decode_message( msg: tuple ,sender: str ) -> None:
                 }
             n = { n: {  'count':    len(_mcCache[n]),
                         'size(Mb)': round(_get_size(_mcCache[n]) / ONE_MIB ,4)
-                    }  
+                    }
                     for n in _mcCache.keys()
                 }
             r.update( n )
@@ -1288,7 +1288,7 @@ def _decode_message( msg: tuple ,sender: str ) -> None:
 #
 def _goodbye() -> None:
     """Shutting down of this Python process.
-    
+
     Inform to all the members in the group.
 
     SEE: https://docs.python.org/3.8/library/atexit.html#module-atexit
@@ -1312,7 +1312,7 @@ def _goodbye() -> None:
 #      ?Fragments:      1 byte
 #       Reserved:       1 byte
 #   Payload Key tuple:
-#       1) NS: Str      Namespace 
+#       1) NS: Str      Namespace
 #       2) KY: Obj      Key
 #       3) TS: Int      Timestamp
 #       4) SQ: Int      Sequence number
@@ -1421,7 +1421,7 @@ def _housekeeper() -> None:
 
 def _listener() -> None:
     """Listen in the group for new cache operation from all members.
-    
+
     Args:
     Return:
         None

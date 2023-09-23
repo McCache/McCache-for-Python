@@ -18,14 +18,22 @@ pipenv sync
 ```
 It may take a few minutes to rebuild the `Pipenv.lock` file, so be a little patient.
 
+Install `pre-commit` to with the following command:
+```
+pre-commit install
+```
+`pre-commit` hook into `git` to auto check for your code for project requirements before it is committed into your local `git` repo.
+
 To activate your `virtualenv` run the following command:
 ```bash
 pipenv  shell
 ```
+Yiu should work from within the virtual environment.
 
 We use `hatch` to build and publish this package to [PyPi](https://pypi.org).
 ```bash
-pipenv  run hatch  build
+hatch   build
+hatch   ...
 ```
 
 ## Formatting Philosophy
@@ -37,7 +45,7 @@ We like [PEP8](https://peps.python.org/pep-0008/#a-foolish-consistency-is-the-ho
   * We love it for we believe it makes the code more readable and we do not live in the 90s with small monitors.  Characters that are butted together is harder to read.
 * Commas:
   * This is **not** English literature writing.  A comma is use to introduce the next term.  Therefore we have a space before the comma but no space after the comma.  If there is no next term, you will not need a comma to seperate the terms as dipicted by the following reailroad diagram:
-    * WIP: Waiting for [`mermaid`](https://mermaid.js.org/intro/) railroad diagram support.
+    * WIP: Waiting for [`mermaid`](https://mermaid.js.org/intro/) railroad diagram support. 
 * Vertical aligment:
   * We believe that vertical align make it easier on the eyes to pick out deltas.  A multi jagged lines require the eyes and brain to perform a lot of scans and processing creating mental fatigue.
 
@@ -51,17 +59,17 @@ The following sub-sections are taks you  need to perform manually before you com
 ## Codestyle
 You can run the following command to check the code for PEP8 formatting compliance.
 ```bash
-ruff check   ./src/mccache/*.py
+ruff  check  ./src/mccache/*.py
 ```
 `ruff` documentation mentioned that it be used to replace `Flake8`, `isort`, `pydocstyle`, `yesqa`, `eradicate`, `pyupgrade`, and `autoflake`.
 Execute the following command to display all the `ruff` supported linters:
 ```
-pipenv run ruff linter
+ruff  linter
 ```
 
 ### Checks
 
-You can run the following command to further check the code.
+You can run the following command to further check the code.  `bandit` and `vulture` are automatic when you commit your code.
 ```bash
 mypy         ./src/mccache/*.py  # Static type checker for Python.
 bandit       ./src/mccache/*.py  # Security issues scanner.
