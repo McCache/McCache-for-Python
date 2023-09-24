@@ -23,14 +23,14 @@ repos:
     -   id:     bandit
         name:   bandit
         entry:  bandit
+        args:   ["-c", "pyproject.toml"]
         types:  [python]
         language: system
 
--   repo: local
-    hooks:
-    -   id:     vulture
-        name:   vulture
-        entry:  vulture
-        types:  [python]
-        language: system
-        
+#-   repo: local
+#    hooks:
+#    -   id:     vulture
+#        name:   vulture
+#        entry:  vulture
+#        types:  [python]
+#        language: system

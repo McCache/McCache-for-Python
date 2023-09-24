@@ -3,7 +3,7 @@ import datetime
 import hashlib
 import logging
 import os
-import pickle
+import pickle   # noqa: B403
 import random
 import socket
 import time
@@ -54,7 +54,7 @@ stats = {
     'del': 0,
 }
 while (end - bgn) < (duration*60):   # Seconds.
-    time.sleep( random.randint(1 ,60)/1000.0 )
+    time.sleep( random.randint(1 ,60)/1000.0 )  # Milliseconds
     key = int((time.time_ns() /100)  %entries)
     opc = random.randint(0 ,15)
     match opc:
@@ -68,7 +68,7 @@ while (end - bgn) < (duration*60):   # Seconds.
                 # Insert cache.
                 cache[key] = datetime.datetime.utcnow()
                 stats['ins'] += 1
-        case 4|5|6|7|8:
+        case 4|5|6|7|8: # Simulate much more updates than inserts.
             if  key in cache:
                 # Update cache.
                 cache[key] = datetime.datetime.utcnow()

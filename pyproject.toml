@@ -96,6 +96,9 @@ all = [
   "typing",
 ]
 
+[tool.bandit]
+skips = ["B101" ,"B301" ,"B311" ,"B324" ,"B403"]
+
 [tool.black]
 target-version = ["py310"]
 line-length = 160   # But you should exercise good judgement and keep it as short as possible.

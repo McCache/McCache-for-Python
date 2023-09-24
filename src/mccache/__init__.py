@@ -4,55 +4,8 @@
 This is a distributed application cache build on top of the `cachetools` package.  SEE: https://pypi.org/project/cachetools/
 It uses UDP multicasting is used as the transport hence the name "Multi-Cast Cache", playfully abbreviated to "McCache".
 
-When an object is insert/update an object into the cache, it is assumed that the instance shall be the latest.
-McCache default behaviour is to notify all member in the cluster of this update and the other members shall evict their entry in their local cache.
-If an entry is no longer in cache, re-calculation/processing or retrieve from storage is required.
-The state of your object in storage should be the latest.
-
-The worst case sceenario is an extra re-processing or retrieval from storage.
-The best  case sceenario is that NO external call shall be made.
-Once configured in more optimism mode then the default, more sophisticate cache coherence protocol shall be used.
-
-This tool can be a good fit if your use cases meet most of the following guidelines:
-    1. Not to be "dependent" on an external caching service such as memcached ,redis or riak.
-    2. Keep the programming API "consistent" working with local cache.
-    3. A small local network cluster of nodes running "identical" piece of software and setup.
-    4. Number of objects to cache are not "many".
-    5. Changes to the cache objects are not "frequent".
-    6. Size of the value to be cache is "smaller" than the ethernet MTU (< 1472 bytes).
-    7. Your load balancer could be configured to support "sticky" session.
-    8. Security is "delegated" to the moat around your compute environment.
-
-Having stated the above, you need to quantify the above loose guidelines to match your use case.
-
-There are 3 levels of optimism on the cache notification.  They are:
-### 1. PESSIMISTIC:
-    * All communication will required acknowledgement.
-    * Changes to local cache shall propagate an eviction to the other member's local cache.
-        - Without an entry in the member's local cache ,they have to re-fetch it from persistance storage, which should be the freshest.
-    *`Total Time to Live` cache algorithmn.  Default is 15 minutes.
-    * Multicast out 4 messages at 0, 1 ,3 ms apart
-
-### 2. NEUTRAL (default):
-    * No acknowledgement is required from the other members.
-    * Changes to local cache will propagate an update to the other member's local cache.
-        - Members with an existing local entry shall update their own local cache.
-    *`Least Recently Used` cache algorithmn.
-    * Multicast out 3 messages at 0 ,1 ms apart.
-
-### 3. OPTIMISIC:
-    * No acknowledgement is required from the other members.
-    * Keep a global coherent cache.
-        - All members shall update their own local cache with the multicasted change.
-        - Increased size of cache for more objects.
-    *`Least Recently Used` cache algorithmn.
-    * Multicast out 2 message at 0 ms apart.
 
 2023-09-10:
-    After thinking more about the reliability of UDP (SEE: https://www.youtube.com/watch?v=GjiDmU6cqyA),
-    I come to the conclusion that we have to make the communication reliable.
-    I believe the market demand it.  So, the above optimistic level idea is no longer needed.
-
     To implement a peer-to-peer communication will be a big management overhead.
     As the cluster is coming online subsequent nodes could miss the prior annoucement.
     All the nodes need to setup their connections to connect to all the other cluster members.
@@ -116,6 +69,7 @@ except ImportError:
     # Work from VS Code.
     from  __about__ import __app__, __version__ # noqa
 
+
 # Cachetools section.
 #
 # Classes copied from cachetools package version 5.3.1 by Thomas Kemmer.
@@ -163,7 +117,13 @@ class Cache(collections.abc.MutableMapping):
         self.__data = dict()        # noqa: C408
         self.__currsize = 0
         self.__maxsize = maxsize
-        self.__name:str = None  # McCache addition.
+        # McCache addition.
+        self.__name:str = None
+        self.__initOn   = time.time_ns()    # The time the cache was initialized in nano seconds.
+        self.__hitOn    = time.time_ns()    # Last time the cache was hit.
+        self.__ttlHits  = 0                 # Number of hits to the cache since initialization.
+        self.__avgHits  = 0                 # Number of hits to the cache to the average load.
+        self.__avgLoad  = 0                 # The average time between calls that is within 60 minutes.
 
     def __repr__(self):
         return f"{self.__class__.__name__}({repr(self.__data)} ,maxsize={self.__maxsize} ,currsize={self.__currsize}))"
@@ -192,13 +152,16 @@ class Cache(collections.abc.MutableMapping):
 
         # McCache addition.
         if  multicast:
-            # TODO: Discontinue this optimistic level implementation.
-            if  _mcConfig.op_level == McCacheLevel.OPTIMISTIC.value:  # Distribute the cache entry to remote members.
-                _mcQueue.put((OpCode.PUT.name ,time.time_ns() ,self.name ,key ,value))
-            elif _mcConfig.op_level == McCacheLevel.NEUTRAL.value:    # Update remote member's cache entry if exist.
-                _mcQueue.put((OpCode.UPD.name ,time.time_ns() ,self.name ,key ,value))
-            else:   # Evict the remote member's cache entry.
-                _mcQueue.put((OpCode.DEL.name ,time.time_ns() ,self.name ,key ,None))
+            _mcQueue.put((OpCode.UPD.name ,time.time_ns() ,self.name ,key ,value))
+
+        # TODO:
+        # Collect McCache metric and how rapid the cache being hit on.
+#       _elapsed = time.time_ns() - self.__hitOn
+#       if  _elapsed < (10 * ONE_MIN_NS):
+#           self.__avgload =  ((self.avgload * self.__avgHits) + _elapsed) / (self.__avgHits + 1)
+#           self.__avgHits += 1
+#       self.__hitOn   =  time.time_ns()
+#       self.__ttlHits += 1
 
     def __delitem__(self, key, multicast = True):   # noqa: RUF100 FBT002  McCache
         size = self.__size.pop(key)
@@ -208,6 +171,15 @@ class Cache(collections.abc.MutableMapping):
         # McCache addition.
         if  multicast:
             _mcQueue.put((OpCode.DEL.name ,time.time_ns() ,self.name ,key ,None))
+
+        # TODO:
+        # Collect McCache metric and how rapid the cache being hit on.
+#       _elapsed = time.time_ns() - self.__hitOn
+#       if  _elapsed < (10 * ONE_MIN_NS):
+#           self.__avgload =  ((self.avgload * self.__avgHits) + _elapsed) / (self.__avgHits + 1)
+#           self.__avgHits += 1
+#       self.__hitOn   =  time.time_ns()
+#       self.__ttlHits += 1
 
     def __contains__(self, key):
         return key in self.__data
@@ -244,15 +216,6 @@ class Cache(collections.abc.MutableMapping):
             self[key] = value = default
         return value
 
-    def setname(self, name):
-        """Set name of the cache."""
-        self.__name = name
-
-    @property
-    def name(self):
-        """The name of the cache."""
-        return self.__name
-
     @property
     def maxsize(self):
         """The maximum size of the cache."""
@@ -267,6 +230,37 @@ class Cache(collections.abc.MutableMapping):
     def getsizeof(value):   # noqa: ARG004
         """Return the size of a cache element's value."""
         return 1
+
+    # McCache addition.
+    def setname(self, name):
+        """Set name of the cache."""
+        self.__name = name
+
+    @property
+    def name(self) -> str:
+        """The name of the cache."""
+        return self.__name
+
+    @property
+    def hitOn(self) -> int:
+        """Last time the cache was hit."""
+        return self.__ttlHits
+
+    @property
+    def ttlhits(self) -> int:
+        """The total hits of the cache."""
+        return self.__ttlHits
+
+    @property
+    def avghits(self) -> int:
+        """The average hits of the cache."""
+        return self.__avgHits
+
+    @property
+    def avgload(self) -> int:
+        """The average load of the cache."""
+        return self.__avgLoad
+
 
 class FIFOCache(Cache):
     """First In First Out (FIFO) cache implementation."""
@@ -755,13 +749,6 @@ class SocketWorker(Enum):
     LISTEN = False  # The listener for messages.
 
 
-# TODO: Discontinue this optimistic level implementation.
-class McCacheLevel(IntEnum):
-    PESSIMISTIC = 3 # Something out there is going to screw you.  Requires acknowledgement.  Evict the caches.
-    NEUTRAL     = 5 # Default.
-    OPTIMISTIC  = 7 # Life is great on the happy path.  Acknowledgment is not required.  Sync the caches.
-
-
 class McCacheOption(StrEnum):
     # Constants for linter to catch typos instead of at runtime.
     MCCACHE_TTL             = 'MCCACHE_TTL' # Time to live.
@@ -816,21 +803,20 @@ class McCacheConfig:
     maxsize: int = 512          # Entries.
     debug_log: str = 'log/debug.log'
     monkey_tantrum: int = 0     # Chaos monkey tantrum % level (0-99).
-    # TODO: Discontinue this optimistic level implementation.
-    op_level: int = McCacheLevel.NEUTRAL.value
 
 
 # Module initialization.
 #
 _lock = threading.RLock()           # Module-level lock for serializing access to shared data.
 _mcConfig:  McCacheConfig()         # Private McCache configuration.
-_mcCache:   dict[str ,Cache] = {}   # Private dict to segregate the cache namespace.
+_mcCache:   dict[str   ,dict] = {}  # Private dict to segregate the cache namespace.
 _mcArrived: dict[tuple ,dict] = {}  # Pending arrived fragments to be assemble into a value message.
 _mcPending: dict[tuple ,dict] = {}  # Pending send fragment needing acknowledgements.
 _mcMember:  dict[str ,int] = {}     # Members in the group.  IP: Timestamp.
 _mcQueue:   queue.Queue = queue.Queue()
 
-ONE_MIB = 1048576   # 1 Mib
+ONE_MIB    = 1048576            # 1 Mib
+ONE_MIN_NS = 60_000_000_000     # One minute Nano sec.
 MAGIC_BYTE = int(0b11111001)    # 241 (Pattern + Version)
 
 # Setup normal and short IP addresses for logging and other use.
@@ -875,27 +861,10 @@ def get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
             cache = _mcCache[ name ]
 
         if  not cache:
-            # TODO: Discontinue this optimistic level implementation.
-            # This will be the default type of cache for McCache.
-            if _mcConfig.op_level == McCacheLevel.PESSIMISTIC:
-                cache = TLRUCache( maxsize=_mcConfig.maxsize  ,ttl=_mcConfig.ttl )
-            else:
-                cache = LRUCache(  maxsize=_mcConfig.maxsize  )
+            # TODO: Convert to TLRUCache but need to figure put the `ttu`.
+            cache = LRUCache( maxsize=_mcConfig.maxsize )
+            cache.setname( name )
             _mcCache[ name ] = cache
-            # TODO: Need to capture runtime metrics.
-            # {
-            #   'default': {
-            #       'cache':  Cache(),      # The cache.
-            #       'initOn': Integer(),    # The time the cache was initialized in nano seconds.
-            #       'hitOn':  Integer(),    # Last time the cache was hit.
-            #       'ttlHits':Integer(),    # Number of hits to the cache since initialization.
-            #       'avgHits':Integer(),    # Number of hits to the cache to the average load.
-            #       'avgLoad':Float()       # The average time between calls that is within 60 minutes.
-            #   }
-            # }
-
-            if  cache.name is None:
-                cache.setname( name )
     finally:
         _lock.release()
 
@@ -1028,21 +997,25 @@ def _load_config():
 
     return  config
 
-def _setup_logger( debug_log: str | None = None ) -> logging.Logger:
+def _get_mccache_logger( debug_log: str | None = None ) -> logging.Logger:
     """Setup the McCache specifc logger.
 
     Args:
     Return:
         A logger specific to the module.
     """
-    logger: logging.Logger = logging.getLogger()    # Root logger.
-    logger = logging.getLogger('mccache')   # McCache specific logger.
+    logger: logging.Logger = logging.getLogger('mccache')   # McCache specific logger.
     logger.propagate = False
-    logger.setLevel( logging.INFO )
-    hdlr = logging.StreamHandler()
-    fmtr = logging.Formatter(fmt=LOG_FORMAT ,datefmt='%Y%m%d%a %H%M%S' ,defaults=LOG_EXTRA)
-    hdlr.setFormatter( fmtr )
-    logger.addHandler( hdlr )
+
+    if (logger.hasHandlers()):
+        logger.handlers.clear()
+
+    if 'TERM' in os.environ or ('SESSIONNAME' in os.environ and os.environ['SESSIONNAME'] == 'Console'):
+        hdlr = logging.StreamHandler()
+        fmtr = logging.Formatter(fmt=LOG_FORMAT ,datefmt='%Y%m%d%a %H%M%S' ,defaults=LOG_EXTRA)
+        hdlr.setFormatter( fmtr )
+        logger.addHandler( hdlr )
+        logger.setLevel( logging.INFO )
     if  debug_log:
         from   logging.handlers import RotatingFileHandler
         hdlr = RotatingFileHandler( debug_log ,mode="a" ,maxBytes=(2*1024*1024*1024), backupCount=99)   # 2Gib with 99 backups.
@@ -1132,14 +1105,11 @@ def _make_pending_value( bdata: bytes ,frame_size: int ,members: dict ) -> {}:
             }
         }
     """
-    frg_size = frame_size - 4   # 4 bytes of McCache payload header.
-    fragmnts = len( bdata ) / frg_size
-    if  len( bdata ) % frg_size != 0:
-        fragmnts += 1
+    frg_size: int = frame_size - 4   # 4 bytes of McCache payload header.
+    fragmnts: int = int(len( bdata ) / frg_size) + 1
 
     return {'value': [
-                # TODO: Redo this.
-                pack('@BBBB' ,MAGIC_BYTE ,1 ,i ,fragmnts ) +                            # Header (4 bytes)
+                pack('@BBBB' ,MAGIC_BYTE ,i ,fragmnts ,0) +                             # Header (4 bytes)
                 bdata[ i : i + frg_size ] for i in range( 0 ,len( bdata ) ,frg_size )   # Payload
             ],
             'members': {
@@ -1269,11 +1239,17 @@ def _decode_message( msg: tuple ,sender: str ) -> None:
         case OpCode.SIZ:
             r = {   '_mccache_': {
                         'count':    len(_mcCache),
-                        'size(Mb)': round(_get_size(_mcCache   ) / ONE_MIB ,4)
+                        'size(Mb)': round(_get_size(_mcCache   ) / ONE_MIB ,4),
+                        'avgload':  None,
+                        'avghits':  sum([_mcCache[n].avghits for n in _mcCache.keys()]),
+                        'ttlhits':  sum([_mcCache[n].ttlhits for n in _mcCache.keys()]),
                     },
                 }
             n = { n: {  'count':    len(_mcCache[n]),
-                        'size(Mb)': round(_get_size(_mcCache[n]) / ONE_MIB ,4)
+                        'size(Mb)': round(_get_size(_mcCache[n]) / ONE_MIB ,4),
+                        'avgload':  round(          _mcCache[n].avgload    ,4),
+                        'avghits':  _mcCache[n].avghits,
+                        'ttlhits':  _mcCache[n].ttlhits,
                     }
                     for n in _mcCache.keys()
                 }
@@ -1299,7 +1275,7 @@ def _goodbye() -> None:
     """
     _mcQueue.put((OpCode.SIZ.name ,time.time_ns() ,None ,None ,None))
     _mcQueue.put((OpCode.BYE.name ,time.time_ns() ,None ,None ,None))
-    time.sleep( 0.3 )
+    time.sleep( 1 )
 
 # TODO:
 # New design of the packet:
@@ -1359,11 +1335,7 @@ def _multicaster() -> None:
             crc: str    = None      # Checksum
             pkl: bytes  = None      # Pickled value
 
-            # TODO: Discontinue this optimistic level implementation.
-            if _mcConfig.op_level >= McCacheLevel.NEUTRAL.value and val is not None:
-                crc = checksum( val )
-            if _mcConfig.op_level == McCacheLevel.PESSIMISTIC:
-                val = None
+            crc = checksum( val )
             msg = (opc ,tsm ,nms ,key ,crc ,val)
             pkl = pickle.dumps( msg )   # Serialized out the tuple.
 
@@ -1371,12 +1343,10 @@ def _multicaster() -> None:
                 msg = (opc ,tsm ,nms ,key ,crc ,None)
                 logger.debug(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
-            # TODO: Discontinue this optimistic level implementation.
-            if  _mcConfig.op_level <= McCacheLevel.PESSIMISTIC.value:
-                pky = (nms ,key ,tsm)   # Pending key.
-                if  opc != OpCode.ACK.value and pky not in _mcPending:
-                    # Pending for acknowledgement.
-                    _mcPending[ pky ] = _make_pending_value( pkl ,_mcConfig.mtu ,_mcMember )
+            pky = (nms ,key ,tsm)   # Pending key.
+            if  opc != OpCode.ACK.value and pky not in _mcPending:
+                # Pending for acknowledgement.
+                _mcPending[ pky ] = _make_pending_value( pkl ,_mcConfig.mtu ,_mcMember )
 
             _send_fragment( sock ,pkl )
             if  len( pkl ) > _mcConfig.mtu:
@@ -1436,7 +1406,7 @@ def _listener() -> None:
         try:
             pkt, sender = sock.recvfrom( _mcConfig.mtu )
             hdr = unpack('@BBBB' ,pkt[0:4]) # TODO: Finish this.
-            # If (hdr[0] == MAGIC_BYTE ,pkt[0:]):
+            # If  hdr[0] == MAGIC_BYTE:
             frm = sender[0]
 
             if  SRC_IP_ADD.find( frm ) == -1 or OpCode.SIZ == msg[0]:   # Ignore my own messages or the request for size.
@@ -1463,10 +1433,12 @@ def _listener() -> None:
 
 # Main Initialization section.
 #
-_mcConfig = _load_config()
+logger: logging.Logger = logging.getLogger()    # Root logger.
+_mcConfig =  _load_config()
+logger = _get_mccache_logger(_mcConfig.debug_log)
+logger.info(f"{_mcConfig}")
+
 random.seed(_mcConfig.monkey_tantrum)
-logger =  _setup_logger(_mcConfig.debug_log)
-logger.info(f"McCache config: {_mcConfig}")
 
 # Main section to start the background daemon threads.
 #
@@ -1477,8 +1449,7 @@ t1.start()
 t2 = threading.Thread(target=_housekeeper ,daemon=True ,name="McCache housekeeper")
 t2.start()
 t3 = threading.Thread(target=_listener    ,daemon=True ,name="McCache listener")
-t3.start()
-
+#t3.start()
 
 if __name__ == "__main__":
     # ONLY used during development testing.
