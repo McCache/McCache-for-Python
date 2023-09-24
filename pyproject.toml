@@ -28,6 +28,7 @@ keyword = [
   "distributed",
   "multicast",
   "optimistic",
+  "performance",
   "scale-out",
   "udp",
 ]

@@ -36,8 +36,7 @@ RUN         useradd -U -md                      /home/${USRGRP} ${USRGRP}
 WORKDIR     /home/${USRGRP}
 # NOTE: Must copy all pertinent files.  If not "pip install -e ." will break.
 #       There is a `.dockerignore` file that is used to filter out files of no interest to us.
-COPY       .                                    /home/${USRGRP}
-COPY       ./tests/unit/start_mccache.py        /home/${USRGRP}
+COPY    .   /home/${USRGRP}
 
 RUN         mkdir   -p  /var/log/${USRGRP}  \
         &&  chown   -R  ${USRGRP}:${USRGRP} /var/log/${USRGRP}
@@ -57,4 +56,4 @@ ENV         PYTHONPATH=/home/${USRGRP}/src
 
 # Start the test run.
 #
-CMD         ["sleep" ,"60m"]
+#MD         ["sleep" ,"5m"]

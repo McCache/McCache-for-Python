@@ -20,7 +20,8 @@ services:
 #     - MCCACHE_MONKEY_TANTRUM=20
     volumes:
       - ./log:/home/mccache/log
-    command: python start_mccache.py
+    command: python tests/unit/start_mccache.py ;exit
+#   command: sleep 15m
 
   node02:
     build: .
@@ -37,7 +38,8 @@ services:
 #     - MCCACHE_MONKEY_TANTRUM=20
     volumes:
       - ./log:/home/mccache/log
-    command: python start_mccache.py
+    command: python tests/unit/start_mccache.py ;exit
+#   command: sleep 15m
 
   node03:
     build: .
@@ -54,7 +56,8 @@ services:
 #     - MCCACHE_MONKEY_TANTRUM=20
     volumes:
       - ./log:/home/mccache/log
-    command: python start_mccache.py
+    command: python tests/unit/start_mccache.py ;exit
+#   command: sleep 15m
 
   node04:
     build: .
@@ -71,7 +74,8 @@ services:
 #     - MCCACHE_MONKEY_TANTRUM=20
     volumes:
       - ./log:/home/mccache/log
-    command: python start_mccache.py
+    command: python tests/unit/start_mccache.py ;exit
+#   command: sleep 15m
 
   node05:
     build: .
@@ -88,7 +92,8 @@ services:
 #     - MCCACHE_MONKEY_TANTRUM=20
     volumes:
       - ./log:/home/mccache/log
-    command: python start_mccache.py
+    command: python tests/unit/start_mccache.py ;exit
+#   command: sleep 15m
 
 # node06:
 #   build: .
@@ -105,7 +110,7 @@ services:
 ##    - MCCACHE_MONKEY_TANTRUM=20
 #   volumes:
 #     - ./log:/home/mccache/log
-#   command: python start_mccache.py
+#   command: python tests/unit/start_mccache.py ;exit
 #
 # node07:
 #   build: .
@@ -122,4 +127,4 @@ services:
 ##    - MCCACHE_MONKEY_TANTRUM=20
 #   volumes:
 #     - ./log:/home/mccache/log
-#   command: python start_mccache.py
+#   command: python tests/unit/start_mccache.py ;exit
