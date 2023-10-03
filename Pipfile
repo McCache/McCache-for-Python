@@ -9,6 +9,7 @@ verify_ssl = true
 name = "testpypi"
 
 [packages]
+psutil = ">=5.9.5"
 
 [dev-packages]                  # As of 2023-09-04.
 cachetools = ">=5.3.0"          # McCache is build from this library.
@@ -34,5 +35,4 @@ helloworld = "python -c \"print('Hello World. Ran from: pipenv run helloworld')\
 unittest   = "./tests/run_tests"
 minitest   = "./tests/run_tests  MAX_KEYS 10   RUN_MINS 1"
 loadtest   = "./tests/run_tests  MAX_KEYS 100  RUN_MINS 10"
-appendtest = "for ((i=1;i<=10000;i++)); do echo "$(hostname) $(date '+%T %N')" >> ${MCCACHE_DEBUG_FILE}; done"
-
+appendtest = "for ((i=1;i<=10000;i++)); do echo \"$(hostname) $(date '+%T %N')\" >> ${MCCACHE_DEBUG_FILE}; done"
