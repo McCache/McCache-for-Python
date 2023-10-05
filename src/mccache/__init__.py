@@ -49,7 +49,6 @@ import heapq
 import logging
 import os
 import pickle
-import psutil
 import queue
 import random
 import socket
@@ -60,7 +59,6 @@ import time
 
 from dataclasses    import dataclass
 from enum           import Enum ,IntEnum ,StrEnum
-from statistics     import mean
 from struct         import pack, unpack
 
 # TODO: Figure out how to setup this package.
@@ -157,7 +155,7 @@ class Cache(collections.abc.MutableMapping):
 
         # McCache addition.
         if  multicast:
-            _mcQueue.put((OpCode.UPD.name ,time.time_ns() ,self.name ,key ,value))
+            _mcQueue.put((OpCode.UPD ,time.time_ns() ,self.name ,key ,value))
 
         # TODO:
         # Collect McCache metric and how rapid the cache being hit on.
@@ -176,7 +174,7 @@ class Cache(collections.abc.MutableMapping):
 
         # McCache addition.
         if  multicast:
-            _mcQueue.put((OpCode.DEL.name ,time.time_ns() ,self.name ,key ,None))
+            _mcQueue.put((OpCode.DEL ,time.time_ns() ,self.name ,key ,None))
 
         # TODO:
         # Collect McCache metric and how rapid the cache being hit on.
@@ -852,7 +850,7 @@ HEADER_SIZE= 16                 # The fixed length header for each fragment pack
 _mySelf = { me[4][0] for me in socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET ) }
 
 LOG_EXTRA: dict   = {'ipv4': None ,'ipV4': None ,'ipv6': None ,'ipV6': None }    # Extra fields for the logger message.
-LOG_EXTRA['ipv4'] = sorted(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET ))[0][4][0] # Pick 192.xxx over 172.xxx
+LOG_EXTRA['ipv4'] = sorted(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET ))[0][4][0]
 LOG_EXTRA['ipV4'] = ''.join([hex(int(g)).removeprefix("0x").zfill(2) for g in LOG_EXTRA['ipv4'].split(".")])
 try:
     LOG_EXTRA['ipv6'] = socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET6)[0][4][0]
@@ -916,53 +914,6 @@ def clear_cache( name: str | None = None ) -> None:
     """
     _mcQueue.put((OpCode.RST ,time.time_ns() ,name ,None ,None))
 
-def get_cache_metrics( name: str | None = None ) -> dict:
-    """Return the metrics colelcted for the entire cache.
-
-        SEE: https://psutil.readthedocs.io/en/latest/
-
-    Args:
-        name:   The name of the cache.
-
-    """
-    gbl: dict = {}
-    nms: dict = {}
-
-    if  not name:
-        gbl = { '_process_': {
-                    'avgload':      psutil.getloadavg(),    # NOTE: Not accurate on windows.
-                    'cputimes':     psutil.cpu_times(),
-                    'memoryinfo':   psutil.Process().memory_info()
-                },
-                '_mccache_': {
-                    'count':    len( _mcCache),
-                    'size(Mb)': round(_get_size(_mcCache   ) / ONE_MIB ,4),
-#                   'avgload':  round(mean([_mcCache[ n ].avgload for n in _mcCache.keys()]) ,4),
-                    'avghits':  sum([_mcCache[ n ].avghits for n in _mcCache.keys()]),
-                    'lookups':  sum([_mcCache[ n ].lookups for n in _mcCache.keys()]),
-                    'updates':  sum([_mcCache[ n ].updates for n in _mcCache.keys()]),
-                    'deletes':  sum([_mcCache[ n ].deletes for n in _mcCache.keys()]),
-                },
-            }   # Global stats.
-    nms =   {n: {   'count':    len( _mcCache[ n ]),
-                    'size(Mb)': round(_get_size(_mcCache[ n ]) / ONE_MIB ,4),
-#                   'avgload':  round(          _mcCache[ n ].avgload    ,4),
-                    'avghits':  _mcCache[ n ].avghits,
-                    'lookups':  _mcCache[ n ].lookups,
-                    'updates':  _mcCache[ n ].updates,
-                    'deletes':  _mcCache[ n ].deletes,
-                }
-                for n in _mcCache.keys() if n == name or name is None
-        }   # Namespace stats.
-
-    return gbl | nms    # Python v3.9 way to merge 2 dictionaries.
-
-
-def get_cluster_metrics( name: str | None = None ) -> None:
-    """Inquire the metrics for all the distributed caches.
-    """
-    _mcQueue.put((OpCode.MET ,time.time_ns() ,name ,None ,None))
-
 def get_cache_checksum( name: str | None = None ,key: str | None = None ) -> None:
     """Inquire the checksum for all the distributed caches.
     """
@@ -1022,32 +973,6 @@ def _load_config():
     }
     global   LOG_FORMAT
     config = McCacheConfig()
-    _toml  = {}
-
-    try:
-        import tomllib  # Introduced in Python 3.11.
-        with open("pyproject.toml", mode="rt", encoding="utf-8") as fp:
-            _toml = tomllib.loads( fp.read() )
-
-        if 'tool' in _toml and 'mccache' in _toml['tool']:
-            for cfg in McCacheOption:
-                key = str(cfg.value.replace('MCCACHE_TTL_' ,'')).lower()
-                if  key in _toml['tool']:
-                    match key:
-                        case 'mtu':
-                            config.mtu =    int(_toml['tool']['mtu'])
-                        case 'ttl':
-                            config.ttl =    int(_toml['tool']['ttl'])
-                        case 'maxsize':
-                            config.maxsize= int(_toml['tool']['maxsize'])
-                        case 'multicast_hops':
-                            config.mc_hops= int(_toml['tool']['multicast_hops'])
-                        case 'multicast_ip':
-                            config.mc_gip =     _toml['tool']['multicast_ip']
-                        case 'debug_log':
-                            config.debug_log =  _toml['tool']['debug_log']
-    except ModuleNotFoundError:
-        pass
 
     # NOTE: Config from environment variables trump over config read from a file.
     #
@@ -1228,14 +1153,14 @@ def _make_pending_ack( key: tuple ,val: object ,members: set ,frame_size: int | 
     """
     tsm: int = key[ 2 ]                     # 8 bytes unsigned nanoseconds for timestamp.
     key_b: bytes = pickle.dumps( key )      # Serialized the key.
-    key_size: int = len( key_b )
-    if  key_size > 65535:   # 2 bytes unsigned.
-        raise BufferError(f"Pickled key for {key} size is {key_size}")
+    key_s: int = len( key_b )
+    if  key_s > 65535:   # 2 bytes unsigned.
+        raise BufferError(f"Pickled key for {key} size is {key_s}")
 
     val_b: bytes = pickle.dumps( val )      # Serialized the message.
-    val_size: int = len( val_b )
-    if  val_size > 65535:   # 2 bytes unsigned.
-        raise BufferError(f"Pickled val for {key} size is {val_size}")
+    val_s: int = len( val_b )
+    if  val_s > 65535:   # 2 bytes unsigned.
+        raise BufferError(f"Pickled val for {key} size is {val_s}")
 
     bgn: int
     end: int
@@ -1248,7 +1173,7 @@ def _make_pending_ack( key: tuple ,val: object ,members: set ,frame_size: int | 
 
     ack = { 'message': [None] * frg_count,  # Pre-allocated the list.
             'members': {
-                ip: {'unack': { f } ,'tries': 3 } for ip in _mcMember.keys() for f in range(0 ,frg_count)
+                ip: {'unack': { f } ,'tries': 0 } for ip in _mcMember.keys() for f in range(0 ,frg_count)
             }
         }
 
@@ -1258,7 +1183,7 @@ def _make_pending_ack( key: tuple ,val: object ,members: set ,frame_size: int | 
         frg_b= pay_b[ bgn : end ] # A fragment of the message.
 
         # NOTE: 'HH' MUST come after 'BBBB' for it impact the length.
-        hdr_b =  struct.pack('@BBBBHHQ' ,MAGIC_BYTE ,0 ,seq ,frg_count ,key_size ,val_size ,tsm)
+        hdr_b =  struct.pack('@BBBBHHQ' ,MAGIC_BYTE ,0 ,seq ,frg_count ,key_s ,val_s ,tsm)
         ack['message'][ seq ] = hdr_b + frg_b
     return  ack
 
@@ -1301,7 +1226,7 @@ def _assemble_message( aky_t: tuple ,sender: str ) -> (tuple ,object):
     """Assemble the fragments back into the key and value tuple.
 
     Args:
-        aky_t: tuple    The acknowledgment key.
+        aky_t: tuple    The acknowledgment key for the message.
         sender: str     The sender/originator for the message.
     Return:
         key: tuple      The key tuple.
@@ -1309,13 +1234,15 @@ def _assemble_message( aky_t: tuple ,sender: str ) -> (tuple ,object):
     """
     bgn: int
     end: int
-    key_t: tuple  = None
-    val_o: object = None
-    frg_s: int    = 0   # Fragment size.
     frg_b: bytes  = []  # Fragment bytes.
+    frg_s: int    = 0   # Fragment size.
     hdr_b: bytes  = []  # Fixed packet Header bytes
     key_b: bytes  = []  # Serialized Key bytes.
+    key_t: tuple  = None
+    key_s: int    = 0
     val_b: bytes  = []  # Serialized Value bytes.
+    val_o: object = None
+    val_s: int    = 0   # Size of the value object.
 
     if  aky_t  not in _mcArrived:
         return None ,None
@@ -1326,23 +1253,23 @@ def _assemble_message( aky_t: tuple ,sender: str ) -> (tuple ,object):
         bgn   = HEADER_SIZE
         frg_s = len( frg_b )
         hdr_b = frg_b[ 0 : HEADER_SIZE ]    # Fix size 16 bytes of packet header.
-        _ ,_ ,_ ,_ ,keysize ,msgsize ,_ = struct.unpack('@BBBBHHQ' ,hdr_b)    # Unpack the fragment header.
+        _ ,_ ,_ ,_ ,key_s ,val_s ,_ = struct.unpack('@BBBBHHQ' ,hdr_b)    # Unpack the fragment header.
 
         if  not key_t:
-            key_bal: int = (keysize - len( key_b ))     # The size of the incomplete key.
-            if  keysize > len( key_b ):
+            key_bal: int = (key_s - len( key_b ))     # The size of the incomplete key.
+            if  key_s > len( key_b ):
                 # Not done assembling the key.
                 end   = HEADER_SIZE + key_bal if key_bal < (frg_s - HEADER_SIZE) else frg_s
                 key_b+= frg_b[ bgn : end ]
                 bgn   = end
 
-            if  keysize == len( key_b ):
+            if  key_s == len( key_b ):
                 key_t = pickle.loads(bytes( key_b ))    # De-Serialized the key.
 
         if  key_t and bgn < frg_s:
             val_b += frg_b[ bgn : ]
 
-    if  msgsize == len( val_b ):
+    if  val_s == len( val_b ):
         val_o = pickle.loads(bytes( val_b ))    # De-Serialized the value.
 
 #   print(f"key_b ={len(key_b):4},  {' '.join(format(x, '02x') for x in key_b)}")
@@ -1373,34 +1300,6 @@ def _send_fragment( sock:socket.socket ,fragment: bytes ) -> None:
             return
 
     sock.sendto( fragment ,(_mcConfig.mc_gip ,_mcConfig.mc_port))
-
-def _get_size( obj: object, seen: set | None = None ):
-    """Recursively finds size of objects.
-
-    Credit goes to:
-    https://goshippo.com/blog/measure-real-size-any-python-object
-
-    Args:
-        seen:   A collection of seen objets.
-    Return:
-    """
-    size = sys.getsizeof( obj )
-    if  seen is None:
-        seen =  set()
-    obj_id = id( obj )
-    if  obj_id in seen:
-        return 0
-    # Important mark as seen *before* entering recursion to gracefully handle
-    # self-referential objects
-    seen.add( obj_id )
-    if  isinstance( obj ,dict ):
-        size += sum([_get_size( v ,seen ) for v in obj.values()])
-        size += sum([_get_size( k ,seen ) for k in obj.keys()])
-    elif hasattr( obj ,'__dict__' ):
-        size += _get_size( obj.__dict__ ,seen )
-    elif hasattr( obj ,'__iter__' ) and not isinstance( obj ,(str, bytes, bytearray)):
-        size += sum([_get_size( i ,seen ) for i in obj])
-    return size
 
 def _decode_message( key_t: tuple ,val_o: object ,sender: str ) -> None:
     """Decode the message from the sender.
@@ -1450,18 +1349,14 @@ def _decode_message( key_t: tuple ,val_o: object ,sender: str ) -> None:
                 msg = (opc ,tsm ,nms ,None ,None ,_mc)
                 logger.info(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
-        case OpCode.MET:    # Metrics.
-            _mt = get_cache_metrics()
-            msg = (opc ,tsm ,None ,None ,None ,_mt)
-            logger.info(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
-
         case OpCode.RST:    # Reset.
             for n in filter( lambda k: k == nms or nms is None ,_mcCache.keys() ):
                 for k in _mcCache[ n ].keys():
                     _mcCache[ n ].__delitem__( k ,EnableMultiCast.NO )
 
         case OpCode.UPD:    # Insert and Update.
-            mcc.__setitem__( key ,val ,EnableMultiCast.NO.value )
+            if  key in mcc:
+                mcc.__setitem__( key ,val ,EnableMultiCast.NO.value )
             # Acknowledge it.
             _mcQueue.put( (OpCode.ACK.name ,tsm ,nms ,key ,None))
 
@@ -1486,10 +1381,6 @@ def _goodbye() -> None:
     Return:
         None
     """
-    # TODO: The following produce duplicate output.
-    msg = (OpCode.MET ,time.time_ns() ,None ,None ,None ,get_cache_metrics())
-    logger.info(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
-
     _mcQueue.put((OpCode.BYE ,time.time_ns() ,None ,None ,None))
     time.sleep( 1 )
 
@@ -1562,37 +1453,73 @@ def _multicaster() -> None:
 def _housekeeper() -> None:
     """Background house keeping thread.
 
+    Request acknowledgment for messages that was send.
+    Request resent missing fragments of a message.
+
     Args:
     Return:
         None
     """
+    QUANTA:int = 0.75   # Seconds.
+
     # Keep the format consistent to make it easy for the test to parse.
     msg = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache housekeeper is ready.')
     logger.debug(f"Im:{SRC_IP_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
 
-#   TODO: Finish this.
-#   while True:
-#       time.sleep( 1 )   # Sleep a minimum of 1 second.
-#       for pky in _mcPending.keys():
-#           _ ,_ ,tsm = key
-#           dur:float = (time.time_ns() - tsm) * 0.000000001    # Convert to second.
-#           if  dur > 1:
-#               members = _mcPending[ pky ]['members']
-#               for ip in _mcPending[ pky ]['members'].keys():
-#
-#                   if  len(_mcPending[ pky ]['value']) == len(_mcPending[ pky ]['members'][ ip ]['unack']):
-#                       # Nothing was acknowledged.
-#                       _mcQueue.put((OpCode.RAK.name ,pky[2] ,pky[1] ,pky[0] ,None))
-#                   else:
-#                       s = len(_mcPending[ pky ]['value'] )
-#                       for f in range( 0 ,s ):
-#                           if  f in _mcPending[ pky ]['members'][ ip ]['unack']:
-#                               _mcQueue.put((OpCode.RAK.name ,pky[2] ,pky[1] ,pky[0] ,f"{f+1}/{s}"))
-#
-#                   _ = _mcPending[ pky ]['members'][ ip ]['tries'].pop
-#                   if  len(_mcPending[ pky ]['members'][ ip ]['tries']) == 0:
-#                       del _mcPending[ pky ]['members'][ ip ]
-#                       logger.critical(f"Key:{pky} have NOT be acknowledge by {ip}" ,extra=LOG_EXTRA)
+    while True:
+        time.sleep( QUANTA )
+
+        # Message pending acknowledgement.
+        #
+        bads = {}   # A bad list of unackowledge parkets to delete outside of the iteration.
+        for pky_t in _mcPending.keys():
+            _ ,_ ,tsm = pky_t     # pky = (nms ,key ,tsm)   # Key for a message pending acknowledgement.
+            elps:float = round((time.time_ns() - tsm) * 0.000000001 ,4)  # Convert to second.
+            if  elps >= QUANTA:
+                for ip  in  _mcPending[ pky_t ]['members'].keys():
+                    if  len(_mcPending[ pky_t ]['message']) == len(_mcPending[ pky_t ]['members'][ ip ]['unack']):
+                        # Nothing was acknowledged.
+                        _mcQueue.put((OpCode.RAK.name ,pky_t[2] ,pky_t[1] ,pky_t[0] ,None))   # Request ACK fotr the entire message.
+                    else:
+                        s = len(_mcPending[ pky ]['message'] )
+                        for f in range( 0 ,s ):
+                            if  f in _mcPending[ pky ]['members'][ ip ]['unack']:
+                                _mcQueue.put((OpCode.RAK.name ,pky_t[2] ,pky_t[1] ,pky_t[0] ,f"{f}/{s}")) # Request specific fragment ACK .
+
+                    _mcPending[ pky_t ]['members'][ ip ]['tries'] += 1
+                    if  _mcPending[ pky_t ]['members'][ ip ]['tries'] > 3:    # Max of 3 tries.
+                        if  pky_t not in bads:
+                            bads[ pky_t ] = {'members': []}
+                        if  ip  not in bads[ pky_t ]['members']:
+                            bads[ pky_t ]['members'].append( ip )
+
+        # TODO: How should we handle unacknowledge fragments/message?
+        for pky_t in  bads:
+            for ip  in  bads[ pky_t ]['members']:
+                del _mcPending[ pky_t ]['members'][ ip ]
+
+                logger.error(f"Key:{pky_t} have NOT be acknowledge by {ip}" ,extra=LOG_EXTRA)
+                #_mcQueue.put((OpCode.DEL ,time.time_ns() ,pky[1] ,pky[0] ,None))
+
+            if  len(_mcPending[ pky_t ]['members']) == 0:
+                del _mcPending[ pky_t ]
+
+        # Message pending assembly.
+        #
+        bads = {}
+        for aky_t in _mcArrived.keys():
+            # TODO: How should we time out?
+            if  elps > QUANTA * 2:
+                bads[ aky_t ] = None
+                lst  = [s for s in range( 0, len(_mcArrived[ aky_t ])) if _mcArrived[ aky_t ][s] is None]
+                logger.error(f"Key:{aky_t} message incomplete.  Missing fragments: {lst}" ,extra=LOG_EXTRA)
+            else:
+                for seq in range( 0 ,len(_mcArrived[ aky_t ])):
+                    if  _mcArrived[ aky_t ][ seq ] is None:
+                        _mcQueue.put((OpCode.REQ ,time.time_ns() ,pky[1] ,pky[0] ,f"{SRC_IP_ADD[0]}:{seq}"))
+
+        for aky_t in bads:
+            del _mcArrived[ pky ]
 
 def _listener() -> None:
     """Listen in the group for new cache operation from all members.
@@ -1621,6 +1548,10 @@ def _listener() -> None:
             # NOTE: Ignore our own messages and we have collected all the fragments for a message.
             if  frmIP not in _mySelf:
                 aky_t = _collect_fragment( pkt_b ,frmIP )
+
+                if  frmIP not in _mcMember:
+                    _mcMember[ frmIP ] = aky_t[3]   # aky_t = (sender ,frg_c ,key_s ,tsm)   # Pending assembly key.
+
                 if  aky_t:
                     # All the fragments are received and is ready to be assembled back into a message.
                     key_t ,val_o = _assemble_message( aky_t ,frmIP )
