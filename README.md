@@ -13,7 +13,7 @@ It uses UDP multicasting as the performant transport hence the name "Multi-Cast 
 The goals of this package are:
 1. Reduce complexity by not be dependent on any external caching service such as `memcached`, `redis` or the likes.
 2. Keep the programming interface consistent with Python's dictionary.  The distributed nature of the cache is transparent to you.
-3. ~~Not dependent on external library.~~ (_Work in progress_.)
+3. Performance
 
 ## Installation
 ```console
@@ -91,7 +91,8 @@ Removing an external dependency in your architecture reduces it's <strong>comple
         <tr><td colspan=5/></tr>
         <tr><td colspan=5><sub>Single Python 3.11 memory footprint while idling:<br><pre>
 $ python -c 'import time; time.sleep(60)' &
-$ ps aux | grep python | awk '{sum=sum+$6}; END {print sum/1024 " MB"}'
+$ ps aux |grep python \
+ |awk '{sum=sum+$6}; END {print sum/1024 " MB"}'
 9.41016 MB
         </pre></sub></td></tr>
       </tbody>
@@ -122,6 +123,13 @@ You can review the script used in the test.<br>
 **SEE**: https://github.com/McCache/McCache-for-Python/blob/main/tests/unit/start_mccache.py<br>
 You should clone this repo down and run the test in a local `docker`/`podman` cluster.<br>
 **SEE**: https://github.com/McCache/McCache-for-Python/blob/main/CONTRIBUTING.md#Tests
+
+We suggest the following testing to collect metrics of your application running in your environment.
+1. Import the `McCache` library into your project.
+2. Use it in your data access layer by populating and updating the cache **but don't** use the cached values.
+3. Configure to enable the debug logging by providing a path for your log file.
+4. Run your application for an extended period and exit.  A metric summary will be logged out.
+5. Review the metrics to quantify the fit to your application and environment.
 
 ## Configuration
 The following are parameters you can tune to fit your needs.
@@ -158,19 +166,7 @@ Three deamon threads are started when this package is initialized.  They are:
 3. Housekeeper. &nbsp;Whose job is manage the acknowledgement of multicasted messages.
 
 UPD is selected for its speed but unreliable.  We have to implement a guaranteed message transfer protocol over it.  A message may larger than the UDP payload size.  Regardless, we always chunk up the message into fragments plus a header that fully fit into the UPD payload.  Each UDP payload is made up of a fixed length header follow by a variable length message fragment.  The message is further broken up into the key and fragment section as depicted below:
-```
-1) Header                       2) Message
-                                    Key section                     Fragment section
-    # Field             Size        # Field            Type         # Field             Type
-    - ---------------- ------       - ---------------- -------      - ----------------  -------
-    1 Magic number     1 Byte       1 Cache namespace  String       1 Operation code    String
-      1.1 Pattern      4 Bits       
-      1.2 Version      4 Bits       
-    2 Sequence number  1 Byte       2 Key              Object       2 Checksum          String
-    3 Fragments count  1 Byte       3 Timestamp        Integer      3 Message fragment  Bytes
-    4 Key size         2 Byte       4 Sequence number  Integer
-    5 Fragment size    2 Byte       5 Fragments count  Integer
-    6 Reserved         1 Byte
+
 ```
 Given the size of each field in the header, we have a limitation of a maximum 255 fragments per message.
 
@@ -188,7 +184,7 @@ You can reach me at `elau1004@netscape.net`.
 ## Releases
 Releases are recorded [here](https://github.com/McCache/McCache-for-Python/issues).
 
-## License 
+## License
 `McCache` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
 
 # Rewrite everthing below ...
@@ -209,4 +205,3 @@ https://test.pypi.org/project/McCache/0.0.1/
 
 ## Package in PyPI
 _Coming soon_
-

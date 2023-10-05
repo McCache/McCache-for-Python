@@ -11,7 +11,7 @@ services:
     container_name: mccache01
     environment:
       - MCCACHE_LEVEL=5         # Neutral
-      - MCCACHE_DEBUG_FILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
       - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
       - MCCACHE_RANDOM_SEED=1
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
@@ -29,7 +29,7 @@ services:
     container_name: mccache02
     environment:
       - MCCACHE_LEVEL=5         # Neutral
-      - MCCACHE_DEBUG_FILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
       - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
       - MCCACHE_RANDOM_SEED=2
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
@@ -47,7 +47,7 @@ services:
     container_name: mccache03
     environment:
       - MCCACHE_LEVEL=5         # Neutral
-      - MCCACHE_DEBUG_FILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
       - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
       - MCCACHE_RANDOM_SEED=3
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
@@ -65,7 +65,7 @@ services:
     container_name: mccache04
     environment:
       - MCCACHE_LEVEL=5         # Neutral
-      - MCCACHE_DEBUG_FILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
       - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
       - MCCACHE_RANDOM_SEED=4
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
@@ -83,7 +83,7 @@ services:
     container_name: mccache05
     environment:
       - MCCACHE_LEVEL=5         # Neutral
-      - MCCACHE_DEBUG_FILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
       - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
       - MCCACHE_RANDOM_SEED=5
       - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
@@ -101,7 +101,7 @@ services:
 #   container_name: mccache05
 #   environment:
 #     - MCCACHE_LEVEL=5         # Neutral
-#     - MCCACHE_DEBUG_FILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
+#     - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
 #     - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
 #     - MCCACHE_RANDOM_SEED=6
 #     - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.
@@ -118,7 +118,7 @@ services:
 #   container_name: mccache05
 #   environment:
 #     - MCCACHE_LEVEL=5         # Neutral
-#     - MCCACHE_DEBUG_FILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
+#     - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug${RUN_TIMESTAMP}.log
 #     - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
 #     - MCCACHE_RANDOM_SEED=7
 #     - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}  # Default to  3 minutes.

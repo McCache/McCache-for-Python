@@ -32,8 +32,8 @@ for h in mc.logger.handlers:
         h.formatter._fmt = "%(lineno)04d %(asctime)s.%(msecs)03d %(message)s"
         h.formatter._style._fmt = "%(lineno)05d %(asctime)s.%(msecs)03d %(message)s"
         # If debugging, output line number of source file for easy reference
-        #h.formatter._fmt = "%(lineno)04d %(asctime)s.%(msecs)03d %(message)s"
-        #h.formatter._style._fmt = "%(lineno)05d %(asctime)s.%(msecs)03d %(message)s"
+        h.formatter._fmt = "%(lineno)04d %(asctime)s.%(msecs)03d %(message)s"
+        h.formatter._style._fmt = "%(lineno)05d %(asctime)s.%(msecs)03d %(message)s"
 
 cache = mc.get_cache()
 bgn = time.time()
@@ -45,48 +45,27 @@ end = time.time()
 mc.logger.setLevel( logging.DEBUG ) # Enable detail logging in McCache for testing.
 mc.logger.info(f"Start testing with: Random seed={rndseed:3} Duration={duration:3} min.")
 
-test: bool = False
-
-stats = {
-    'get': 0,
-    'ins': 0,
-    'upd': 0,
-    'del': 0,
-}
 while (end - bgn) < (duration*60):   # Seconds.
     time.sleep( random.randint(1 ,60)/1000.0 )  # Milliseconds
-    key = int((time.time_ns() /100)  %entries)
-    opc = random.randint(0 ,15)
+    key = f'K{int((time.time_ns() /100)  %entries):03}'
+    opc = random.randint( 0 ,15 )
     match opc:
         case 0:
             if  key in cache:
                 # Evict cache.
-                del cache[key]
-                stats['del'] += 1
+                del cache[ key ]
         case 1|2|3:
             if  key not in cache:
                 # Insert cache.
-                cache[key] = datetime.datetime.utcnow()
-                stats['ins'] += 1
+                cache[ key ] = datetime.datetime.utcnow()
         case 4|5|6|7|8: # Simulate much more updates than inserts.
             if  key in cache:
                 # Update cache.
-                cache[key] = datetime.datetime.utcnow()
-                stats['upd'] += 1
+                cache[ key ] = datetime.datetime.utcnow()
         case _:
             # Look up cache.
             _ = cache.get( key ,None )
-            stats['get'] += 1
 
     end = time.time()
-
-keys = list(cache.keys())
-keys.sort()
-ksh = {k: mc.checksum( cache[k] ) for k in keys}
-msg = (mc.OpCode.QRY.name ,None ,cache.name ,None ,None ,ksh)
-mc.logger.debug(f"Im:{mc.SRC_IP_ADD}\tFr:{' '*len(mc.SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=mc.LOG_EXTRA)
-
-msg = (mc.OpCode.NOP.name ,None ,'Statistics' ,None ,None ,stats)
-mc.logger.debug(f"Im:{mc.SRC_IP_ADD}\tFr:{' '*len(mc.SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=mc.LOG_EXTRA)
 
 mc.logger.info(f"Done  testing.")
