@@ -49,6 +49,7 @@ import heapq
 import logging
 import os
 import pickle
+import psutil
 import queue
 import random
 import socket
@@ -59,6 +60,7 @@ import time
 
 from dataclasses    import dataclass
 from enum           import Enum ,IntEnum ,StrEnum
+from statistics     import mean
 from struct         import pack, unpack
 
 # TODO: Figure out how to setup this package.
@@ -119,6 +121,29 @@ class Cache(collections.abc.MutableMapping):
         self.__maxsize = maxsize
         # McCache addition.
         self.__name:str = None
+        self.__initOn   = time.time_ns()    # The time the cache was initialized in nano seconds.
+        self.__hitOn    = time.time_ns()    # Last time the cache was hit.
+        self.__lookups  = 0                 # Total number of lookups since the cache initialization.
+        self.__updates  = 0                 # Total number of updates since the cache initialization.
+        self.__deletes  = 0                 # Total number of deletes since the cache initialization.
+        self.__avgHits  = 0                 # Total number of hits to the cache for the average load in 1 minutes spike window.
+        self.__avgLoad  = 0                 # The average load between calls that is within 10 minutes apart.
+
+    def __setload__(self ,isUpdate: bool ) -> None:
+        # Collect McCache metric and how rapid the cache being hit on.
+        # Not interested in lookups.
+        if  isUpdate:
+            self.__updates += 1
+        else:
+            self.__deletes += 1
+
+        _since  = time.time_ns() - self.__hitOn
+        self.__hitOn   =  time.time_ns()
+        self.__avgHits += 1
+
+        if  _since <= ONE_MIN_NS:
+            self.__avgLoad = ((self.__avgLoad * self.__avgHits) + _since) / (self.__avgHits + 1)
+            self.__avgHits += 1
 
     def __repr__(self):
         return f"{self.__class__.__name__}({repr(self.__data)} ,maxsize={self.__maxsize} ,currsize={self.__currsize}))"
@@ -149,6 +174,7 @@ class Cache(collections.abc.MutableMapping):
         # McCache addition.
         if  multicast:
             _mcQueue.put((OpCode.UPD ,time.time_ns() ,self.name ,key ,value))
+            self.__setload__( isUpdate=True )
 
     def __delitem__(self, key, multicast = True):   # noqa: RUF100 FBT002  McCache
         size = self.__size.pop(key)
@@ -158,6 +184,7 @@ class Cache(collections.abc.MutableMapping):
         # McCache addition.
         if  multicast:
             _mcQueue.put((OpCode.DEL ,time.time_ns() ,self.name ,key ,None))
+            self.__setload__( isUpdate=False )
 
     def __contains__(self, key):
         return key in self.__data
@@ -879,6 +906,11 @@ def clear_cache( name: str | None = None ) -> None:
     """
     _mcQueue.put((OpCode.RST ,time.time_ns() ,name ,None ,None))
 
+def get_cluster_metrics( name: str | None = None ) -> None:
+    """Inquire the metrics for all the distributed caches.
+    """
+    _mcQueue.put((OpCode.MET ,time.time_ns() ,name ,None ,None))
+
 def get_cache_checksum( name: str | None = None ,key: str | None = None ) -> None:
     """Inquire the checksum for all the distributed caches.
     """
@@ -1042,6 +1074,75 @@ def _log_debug_msg( opc: str ,tsm: int = None ,nms: str = None ,key: object = No
     """
     msg = (opc ,tsm ,nms ,key ,crc ,val)
     logger.debug(f"Im:{SRC_IP_ADD}\tFr:{frm}\tMsg:{msg}" ,extra=LOG_EXTRA)
+
+def _get_size( obj: object, seen: set | None = None ):
+    """Recursively finds size of objects.
+
+    Credit goes to:
+    https://goshippo.com/blog/measure-real-size-any-python-object
+
+    Args:
+        seen:   A collection of seen objets.
+    Return:
+    """
+    size = sys.getsizeof( obj )
+    if  seen is None:
+        seen =  set()
+    obj_id = id( obj )
+    if  obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add( obj_id )
+    if  isinstance( obj ,dict ):
+        size += sum([_get_size( v ,seen ) for v in obj.values()])
+        size += sum([_get_size( k ,seen ) for k in obj.keys()])
+    elif hasattr( obj ,'__dict__' ):
+        size += _get_size( obj.__dict__ ,seen )
+    elif hasattr( obj ,'__iter__' ) and not isinstance( obj ,(str, bytes, bytearray)):
+        size += sum([_get_size( i ,seen ) for i in obj])
+    return size
+
+def _get_cache_metrics( name: str | None = None ) -> dict:
+    """Return the metrics collected for the entire cache.
+
+        SEE: https://psutil.readthedocs.io/en/latest/
+
+    Args:
+        name:   The name of the cache.
+
+    """
+    gbl: dict = {}
+    nms: dict = {}
+
+    if  not name:
+        gbl = { '_process_': {
+                    'avgload':      psutil.getloadavg(),    # NOTE: Not accurate on windows.
+                    'cputimes':     psutil.cpu_times(),
+                    'memoryinfo':   psutil.Process().memory_info()
+                },
+                '_mccache_': {
+                    'count':    len( _mcCache),
+                    'size(Mb)': round(_get_size(_mcCache   ) / ONE_MIB ,4),
+                    'avgload':  round(mean([_mcCache[ n ].avgload for n in _mcCache.keys()]) ,4),
+                    'avghits':  sum([_mcCache[ n ].avghits for n in _mcCache.keys()]),
+                    'lookups':  sum([_mcCache[ n ].lookups for n in _mcCache.keys()]),
+                    'updates':  sum([_mcCache[ n ].updates for n in _mcCache.keys()]),
+                    'deletes':  sum([_mcCache[ n ].deletes for n in _mcCache.keys()]),
+                },
+            }   # Global stats.
+    nms =   {n: {   'count':    len( _mcCache[ n ]),
+                    'size(Mb)': round(_get_size(_mcCache[ n ]) / ONE_MIB ,4),
+                    'avgload':  round(          _mcCache[ n ].avgload    ,4),
+                    'avghits':  _mcCache[ n ].avghits,
+                    'lookups':  _mcCache[ n ].lookups,
+                    'updates':  _mcCache[ n ].updates,
+                    'deletes':  _mcCache[ n ].deletes,
+                }
+                for n in _mcCache.keys() if n == name or name is None
+        }   # Namespace stats.
+
+    return gbl | nms    # Python v3.9 way to merge 2 dictionaries.
 
 def _get_socket(is_sender: SocketWorker) -> socket.socket:
     """Get a configured socket for either the sender or receiver.
@@ -1377,6 +1478,12 @@ def _decode_message( key_t: tuple ,val_o: object ,sender: str ) -> None:
                 msg = (opc ,tsm ,nms ,None ,None ,_mc)
                 logger.info(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
+        case OpCode.MET:    # Metrics.
+            if  logger.level == logging.DEBUG:
+                _mc = _get_cache_metrics( nms )
+                msg = (opc ,tsm ,nms ,None ,None ,_mc)
+                logger.info(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
+
         case OpCode.NEW:    # New member.
             if  sender not in _mcMember:
                 _mcMember[ sender ] = pky[ 2 ]  # Timestamp
@@ -1561,6 +1668,9 @@ random.seed(_mcConfig.monkey_tantrum)
 # Main section to start the background daemon threads.
 #
 atexit.register(_goodbye)   # SEE: https://docs.python.org/3.8/library/atexit.html#module-atexit
+
+if  sys.platform == 'win32':
+    psutil.getloadavg()     # Windows only simulate the load, so pre-warm it the background.
 
 t1 = threading.Thread(target=_multicaster ,daemon=True ,name="McCache multicaster")
 t1.start()

@@ -18,7 +18,7 @@ The following are the operation code that are send between nodes to communicate 
 |RST    |Member requesting reset of the cache.|
 |UPD    |Update an existing cache entry (Insert/Update).|
 
-onLY `DEL` and `UPD` will require acknowledgment from the receiving node(s).
+only `DEL` and `UPD` will require acknowledgment from the receiving node(s).
 
 ## Joining and leaving the cluster.
 ```mermaid
@@ -26,16 +26,16 @@ onLY `DEL` and `UPD` will require acknowledgment from the receiving node(s).
 title: McCache protocol to join and leave the cluster.
 ---
 sequenceDiagram
-    box lightblue   Machine 1
+    box MintCream   Machine 1
     participant HS  as Housekeeper
     participant S   as Sender
     end
-    box lightgreen  Machine 2
+    box Azure  Machine 2
     participant R   as Receiver
     participant HR  as Housekeeper
     end
-    S->>R: NEW
-    S->>R: BYE
+    S -) R: NEW
+    S -) R: BYE
 ```
 
 ## Insert/Update a value in the cache.
