@@ -65,7 +65,6 @@ while (end - bgn) < (duration*60):   # Seconds.
         case _:
             # Look up cache.
             _ = cache.get( key ,None )
-
     end = time.time()
 
 mc.logger.info(f"Done  testing.")

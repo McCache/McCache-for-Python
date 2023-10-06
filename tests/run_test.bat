@@ -1,6 +1,7 @@
 :: SEE: https://ss64.com/nt/syntax-variables.html
 :: Change the following to ECHO ON to trace the execution.
 @ECHO OFF
+@ECHO ON
 
 :: Check if either podman or docker is installed.
 ::
@@ -83,6 +84,7 @@ ECHO:
 
 :: Change over to the directory where this script resides.
 PUSHD %~p0
+pause
 
 :: Create the log directory if it doesn't exist, else empty the directory before we start.
 ::

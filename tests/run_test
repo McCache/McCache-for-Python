@@ -1,10 +1,11 @@
-#!/bin/env
+#!/bin/env bash
+set -xv
 
 # Check if either podman or docker is installed.
 #
 
 # Setup the variable RUN_TIMESTAMP to be passed into the container composer.
-export RUN_TIMESTAMP=$(date+'_%Y%m%d_%H%M')
+export RUN_TIMESTAMP=$(date +'_%Y%m%d_%H%M')
 
 # Parse the command line parameters with the following format:
 # run_test  [ key1 val1 [key2 val2 [key3 val3 [...]]]]
@@ -34,7 +35,7 @@ echo
 
 
 # Change over to the directory where this script resides.
-pushd %~p0
+pushd ${0%*/*}
 
 # Create the log directory if it doesn't exist, else empty the directory before we start.
 #

@@ -11,7 +11,8 @@ McCache is a distributed in-memory caching library that is build on the [`cachet
 It uses UDP multicasting as the performant transport hence the name "Multi-Cast Cache", playfully abbreviated to "`McCache`".
 
 The goals of this package are:
-1. Reduce complexity by not be dependent on any external caching service such as `memcached`, `redis` or the likes.
+1. Reduce complexity by not be dependent on any external caching service such as `memcached`, `redis` or the likes.  We are guided by the principal of first scaling up before we scale out.
+
 2. Keep the programming interface consistent with Python's dictionary.  The distributed nature of the cache is transparent to you.
 3. Performance
 
@@ -42,7 +43,12 @@ if 'key' not in c:
 In the above example, there is **nothing** different in the usage `McCache` from a regular Python dictionary.  However, the benefit is in a clustered environment where the other member's cache are kept coherent with the changes to your local cache.
 
 ## Saving
-Removing an external dependency in your architecture reduces it's <strong>complexity</strong> and not to mention some cost saving.  The following are some cloud compute instance pricing comparison on September 16th, 2023.
+Removing an external dependency in your architecture reduces it's <strong>complexity</strong> and not to mention some cost saving.
+SEE: [Cloud Savings](https://github.com/McCache/McCache-for-Python/blob/main/docs/SAVING.md)
+
+**MOVE THE FOLLOING INTO SAVING.md**
+
+The following are some cloud compute instance pricing comparison on September 16th, 2023.
 
 <table>
 <thead>
@@ -167,7 +173,6 @@ Three deamon threads are started when this package is initialized.  They are:
 
 UPD is selected for its speed but unreliable.  We have to implement a guaranteed message transfer protocol over it.  A message may larger than the UDP payload size.  Regardless, we always chunk up the message into fragments plus a header that fully fit into the UPD payload.  Each UDP payload is made up of a fixed length header follow by a variable length message fragment.  The message is further broken up into the key and fragment section as depicted below:
 
-```
 Given the size of each field in the header, we have a limitation of a maximum 255 fragments per message.
 
 The multicasting member will keep track of all the send fragments to all the member in the cluster.  Each member will re-assemble fragments back into a message.  Dropped fragment will be requested for a re-transmission.  Once each member have acknowledge receipt of all fragments, the message for that member is considered complete and be deleted from pending of acknowledgement.  Each member is always listening to traffic and maintaining its own members list.
