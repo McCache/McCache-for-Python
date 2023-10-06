@@ -124,8 +124,24 @@ class Cache(collections.abc.MutableMapping):
         self.__lookups  = 0                 # Total number of lookups since the cache initialization.
         self.__updates  = 0                 # Total number of updates since the cache initialization.
         self.__deletes  = 0                 # Total number of deletes since the cache initialization.
-        self.__avgHits  = 0                 # Total number of hits to the cache for the average load in 10 minutes spike window.
+        self.__avgHits  = 0                 # Total number of hits to the cache for the average load in 1 minutes spike window.
         self.__avgLoad  = 0                 # The average load between calls that is within 10 minutes apart.
+
+    def __setload__(self ,isUpdate: bool ) -> None:
+        # Collect McCache metric and how rapid the cache being hit on.
+        # Not interested in lookups.
+        if  isUpdate:
+            self.__updates += 1
+        else:
+            self.__deletes += 1
+
+        _since  = time.time_ns() - self.__hitOn
+        self.__hitOn   =  time.time_ns()
+        self.__avgHits += 1
+
+        if  _since <= ONE_MIN_NS:
+            self.__avgLoad = ((self.__avgLoad * self.__avgHits) + _since) / (self.__avgHits + 1)
+            self.__avgHits += 1
 
     def __repr__(self):
         return f"{self.__class__.__name__}({repr(self.__data)} ,maxsize={self.__maxsize} ,currsize={self.__currsize}))"
@@ -156,16 +172,7 @@ class Cache(collections.abc.MutableMapping):
         # McCache addition.
         if  multicast:
             _mcQueue.put((OpCode.UPD ,time.time_ns() ,self.name ,key ,value))
-
-        # TODO:
-        # Collect McCache metric and how rapid the cache being hit on.
-        self.__updates += 1
-#       _elapsed = time.time_ns() - self.__hitOn
-#       if  _elapsed < (10 * ONE_MIN_NS):
-#           self.__avgload =  ((self.avgload * self.__avgHits) + _elapsed) / (self.__avgHits + 1)
-#           self.__avgHits += 1
-#       self.__hitOn   =  time.time_ns()
-#       self.__ttlHits += 1
+            self.__setload__( isUpdate=True )
 
     def __delitem__(self, key, multicast = True):   # noqa: RUF100 FBT002  McCache
         size = self.__size.pop(key)
@@ -175,16 +182,7 @@ class Cache(collections.abc.MutableMapping):
         # McCache addition.
         if  multicast:
             _mcQueue.put((OpCode.DEL ,time.time_ns() ,self.name ,key ,None))
-
-        # TODO:
-        # Collect McCache metric and how rapid the cache being hit on.
-        self.__deletes  += 1
-#       _elapsed = time.time_ns() - self.__hitOn
-#       if  _elapsed < (10 * ONE_MIN_NS):
-#           self.__avgload =  ((self.avgload * self.__avgHits) + _elapsed) / (self.__avgHits + 1)
-#           self.__avgHits += 1
-#       self.__hitOn   =  time.time_ns()
-#       self.__ttlHits += 1
+            self.__setload__( isUpdate=False )
 
     def __contains__(self, key):
         return key in self.__data
@@ -773,6 +771,7 @@ class McCacheOption(StrEnum):
     MCCACHE_MULTICAST_IP    = 'MCCACHE_MULTICAST_IP'
     MCCACHE_MULTICAST_HOPS  = 'MCCACHE_MULTICAST_HOPS'
     MCCACHE_MONKEY_TANTRUM  = 'MCCACHE_MONKEY_TANTRUM'
+    MCCACHE_DEAMON_SLEEP    = 'MCCACHE_DEAMON_SLEEP'
     MCCACHE_RANDOM_SEED     = 'MCCACHE_RANDOM_SEED'
     MCCACHE_DEBUG_LOGFILE   = 'MCCACHE_DEBUG_LOGFILE'
     MCCACHE_LOG_FORMAT      = 'MCCACHE_LOG_FORMAT'
@@ -786,20 +785,19 @@ class McCacheOption(StrEnum):
 
 class OpCode(StrEnum):
     # Keep everything here as 3 character fixed length strings.
-    ACK = 'ACK'     # Acknowledgement of a received operation.
+    ACK = 'ACK'     # Acknowledgement of a received message.
     BYE = 'BYE'     # Member announcing it is leaving the group.
     DEL = 'DEL'     # Member requesting the group to evict the cache entry.
     ERR = 'ERR'     # Member announcing an error to the group.
     INI = 'INI'     # Member announcing its initialization to the group.
     INQ = 'INQ'     # Member inquiring about a cache entry from the group.
-    MET = 'MET'     # Query the current McCache metrics / statistics.
+    MET = 'MET'     # Member inquiring about the cache metrics metrics from the group.
     NEW = 'NEW'     # New member annoucement to join the group.
     NAK = 'NAK'     # Negative acknowledgement.  Didn't receive the key/value.
     NOP = 'NOP'     # No operation.
-    PUT = 'PUT'     # Member annoucing a new cache entry is put into its local cache.
     RAK = 'RAK'     # Request acknowledgment for a key.
-    REQ = 'REQ'     # Request message fragment resend.
-    RST = 'RST'     # Reset the cache.
+    REQ = 'REQ'     # Member requesting resend message fragment.
+    RST = 'RST'     # Member requesting reset of the cache.
     UPD = 'UPD'     # Update an existing cache entry (Insert/Updatre).
 
     def __repr__(self):
@@ -811,24 +809,16 @@ class OpCode(StrEnum):
 
 @dataclass
 class McCacheConfig:
-    mtu: int = 1472             # Maximum Transmission Unit of your network packet payload.  Ethernet frame is 1500 minus header.
-                                # SEE: https://www.youtube.com/watch?v=Od5SEHEZnVU and https://www.youtube.com/watch?v=GjiDmU6cqyA
-    ttl: int = 900              # Total Time to Live in seconds for a cached entry.
-    mc_gip: str = '224.0.0.3'   # Unassigned multi-cast IP.
-    mc_port: int = 4000         # Unofficial port.  Was for Diablo II game.
-    mc_hops: int = 1            # Only local subnet.
-    maxsize: int = 512          # Entries.
+    mtu: int = 1472                 # Maximum Transmission Unit of your network packet payload.  Ethernet frame is 1500 minus header.
+                                    # SEE: https://www.youtube.com/watch?v=Od5SEHEZnVU and https://www.youtube.com/watch?v=GjiDmU6cqyA
+    ttl: int = 900                  # Total Time to Live in seconds for a cached entry.
+    mc_gip: str = '224.0.0.3'       # Unassigned multi-cast IP.
+    mc_port: int = 4000             # Unofficial port.  Was for Diablo II game.
+    mc_hops: int = 1                # Only local subnet.
+    maxsize: int = 512              # Entries.
     debug_log: str = 'log/debug.log'
-    monkey_tantrum: int = 0     # Chaos monkey tantrum % level (0-99).
-    #   ttl: int            =   900
-    #   mtu: int            =   1472
-    #   maxsize: int        =   512
-    #   multicast_ip: str   =  '224.0.0.3'
-    #   multicast_port: int =   4000
-    #   multicast_hops: int =   1
-    #   monkey_tantrum: int =   0
-    #   random_seed: int    =   0
-    #   debug_file: str     =  'log/debug.log'
+    deamon_sleep: int = 2.0         # House keeping snooze seconds (0.33-99.0).
+    monkey_tantrum: int = 0         # Chaos monkey tantrum % level (0-99).
 
 # Module initialization.
 #
@@ -913,6 +903,11 @@ def clear_cache( name: str | None = None ) -> None:
         None
     """
     _mcQueue.put((OpCode.RST ,time.time_ns() ,name ,None ,None))
+
+def get_cluster_metrics( name: str | None = None ) -> None:
+    """Inquire the metrics for all the distributed caches.
+    """
+    _mcQueue.put((OpCode.MET ,time.time_ns() ,name ,None ,None))
 
 def get_cache_checksum( name: str | None = None ,key: str | None = None ) -> None:
     """Inquire the checksum for all the distributed caches.
@@ -1002,6 +997,9 @@ def _load_config():
     if  McCacheOption.MCCACHE_MULTICAST_HOPS in os.environ and isinstance(os.environ[McCacheOption.MCCACHE_MULTICAST_HOPS] ,int):
         config.mc_hops = int(os.environ[McCacheOption.MCCACHE_MULTICAST_HOPS])  # Minimum MUST be greater than 0.
 
+    if  McCacheOption.MCCACHE_DEAMON_SLEEP in os.environ and isinstance(os.environ[McCacheOption.MCCACHE_DEAMON_SLEEP] ,int):
+        config.deamon_sleep = int(os.environ[McCacheOption.MCCACHE_DEAMON_SLEEP])
+
     ip:str = None
     try:
         # SEE: https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml
@@ -1075,6 +1073,75 @@ def _log_debug_msg( opc: str ,tsm: int = None ,nms: str = None ,key: object = No
     msg = (opc ,tsm ,nms ,key ,crc ,val)
     logger.debug(f"Im:{SRC_IP_ADD}\tFr:{frm}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
+def _get_size( obj: object, seen: set | None = None ):
+    """Recursively finds size of objects.
+
+    Credit goes to:
+    https://goshippo.com/blog/measure-real-size-any-python-object
+
+    Args:
+        seen:   A collection of seen objets.
+    Return:
+    """
+    size = sys.getsizeof( obj )
+    if  seen is None:
+        seen =  set()
+    obj_id = id( obj )
+    if  obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add( obj_id )
+    if  isinstance( obj ,dict ):
+        size += sum([_get_size( v ,seen ) for v in obj.values()])
+        size += sum([_get_size( k ,seen ) for k in obj.keys()])
+    elif hasattr( obj ,'__dict__' ):
+        size += _get_size( obj.__dict__ ,seen )
+    elif hasattr( obj ,'__iter__' ) and not isinstance( obj ,(str, bytes, bytearray)):
+        size += sum([_get_size( i ,seen ) for i in obj])
+    return size
+
+def _get_cache_metrics( name: str | None = None ) -> dict:
+    """Return the metrics collected for the entire cache.
+
+        SEE: https://psutil.readthedocs.io/en/latest/
+
+    Args:
+        name:   The name of the cache.
+
+    """
+    gbl: dict = {}
+    nms: dict = {}
+
+    if  not name:
+        gbl = { '_process_': {
+                    'avgload':      psutil.getloadavg(),    # NOTE: Not accurate on windows.
+                    'cputimes':     psutil.cpu_times(),
+                    'memoryinfo':   psutil.Process().memory_info()
+                },
+                '_mccache_': {
+                    'count':    len( _mcCache),
+                    'size(Mb)': round(_get_size(_mcCache   ) / ONE_MIB ,4),
+                    'avgload':  round(mean([_mcCache[ n ].avgload for n in _mcCache.keys()]) ,4),
+                    'avghits':  sum([_mcCache[ n ].avghits for n in _mcCache.keys()]),
+                    'lookups':  sum([_mcCache[ n ].lookups for n in _mcCache.keys()]),
+                    'updates':  sum([_mcCache[ n ].updates for n in _mcCache.keys()]),
+                    'deletes':  sum([_mcCache[ n ].deletes for n in _mcCache.keys()]),
+                },
+            }   # Global stats.
+    nms =   {n: {   'count':    len( _mcCache[ n ]),
+                    'size(Mb)': round(_get_size(_mcCache[ n ]) / ONE_MIB ,4),
+                    'avgload':  round(          _mcCache[ n ].avgload    ,4),
+                    'avghits':  _mcCache[ n ].avghits,
+                    'lookups':  _mcCache[ n ].lookups,
+                    'updates':  _mcCache[ n ].updates,
+                    'deletes':  _mcCache[ n ].deletes,
+                }
+                for n in _mcCache.keys() if n == name or name is None
+        }   # Namespace stats.
+
+    return gbl | nms    # Python v3.9 way to merge 2 dictionaries.
+
 def _get_socket(is_sender: SocketWorker) -> socket.socket:
     """Get a configured socket for either the sender or receiver.
 
@@ -1144,7 +1211,8 @@ def _make_pending_ack( key: tuple ,val: object ,members: set ,frame_size: int | 
             'members': {
                 ip: {
                     'unack': set(), # Set of unacknowledge fragments for the given IP key.
-                    'tries': int    # Retries left before being considered as failed.  Default to 3.
+                    'tries': int,   # Count the number of retries.
+                    'initon':int    # The time this structure was initialized in nano seconds.
                 }
             }
         }
@@ -1167,23 +1235,24 @@ def _make_pending_ack( key: tuple ,val: object ,members: set ,frame_size: int | 
     hdr_b: bytes
     frg_b: bytes
     pay_b: bytes  = key_b + val_b  # Total binary payload to be send out.
-    pay_size: int = len( pay_b )
-    frg_mxsz: int = (frame_size if frame_size else _mcConfig.mtu) - HEADER_SIZE
-    frg_count:int = int( pay_size / frg_mxsz) +1
+    pay_s: int = len( pay_b )
+    frg_m: int = (frame_size if frame_size else _mcConfig.mtu) - HEADER_SIZE    # Max frame size.
+    frg_c:int = int( pay_s / frg_m) +1
 
-    ack = { 'message': [None] * frg_count,  # Pre-allocated the list.
+    ack = { 'message': [None] * frg_c,  # Pre-allocated the list.
             'members': {
-                ip: {'unack': { f } ,'tries': 0 } for ip in _mcMember.keys() for f in range(0 ,frg_count)
+                ip: {'unack': { f } ,'tries': 3 ,'initon': time.time_ns()}
+                    for ip in _mcMember.keys() for f in range(0 ,frg_c)
             }
         }
 
-    for seq in range( 0 ,frg_count ):
-        bgn  = seq * frg_mxsz
-        end  = bgn + frg_mxsz if (bgn + frg_mxsz) < pay_size else pay_size +1
+    for seq in range( 0 ,frg_c ):
+        bgn  = seq * frg_m
+        end  = bgn + frg_m if (bgn + frg_m) < pay_s else pay_s +1
         frg_b= pay_b[ bgn : end ] # A fragment of the message.
 
         # NOTE: 'HH' MUST come after 'BBBB' for it impact the length.
-        hdr_b =  struct.pack('@BBBBHHQ' ,MAGIC_BYTE ,0 ,seq ,frg_count ,key_s ,val_s ,tsm)
+        hdr_b =  struct.pack('@BBBBHHQ' ,MAGIC_BYTE ,0 ,seq ,frg_c ,key_s ,val_s ,tsm)
         ack['message'][ seq ] = hdr_b + frg_b
     return  ack
 
@@ -1217,10 +1286,12 @@ def _collect_fragment( pkt_b: bytes ,sender: str ) -> bool:
     aky_t: tuple = (sender ,frg_c ,key_s ,tsm)    # Pending assembly key.
     if  aky_t not in _mcArrived:
         _mcArrived[ aky_t ] = [ None ] * frg_c    # Initialize all the slots.
+        # TODO: Use this new format.
+#       _mcArrived[ aky_t ] = {'message': [None] * frg_c ,'tries': 0 ,'initon': time.time_ns()}  # Initialize all the slots.
 
     _mcArrived[ aky_t ][ seq ] = pkt_b
 
-    return  aky_t   if len(_mcArrived[ aky_t ]) and all([ f is not None for f in _mcArrived[ aky_t ]]) else None
+    return  aky_t if len(_mcArrived[ aky_t ]) and all([ f is not None for f in _mcArrived[ aky_t ]]) else None
 
 def _assemble_message( aky_t: tuple ,sender: str ) -> (tuple ,object):
     """Assemble the fragments back into the key and value tuple.
@@ -1301,6 +1372,65 @@ def _send_fragment( sock:socket.socket ,fragment: bytes ) -> None:
 
     sock.sendto( fragment ,(_mcConfig.mc_gip ,_mcConfig.mc_port))
 
+def _check_sent_pending() -> None:
+    """Check the pending list for messages that have not been acknowledge.
+    """
+    bads = {}   # A bad list of unacknowledge packets to delete outside of the iteration.
+    for pky_t in _mcPending.keys():
+        for ip in _mcPending[ pky_t ]['members'].keys():
+            elps = (time.time_ns() - _mcPending[ pky_t ]['initon']) / ONE_MIN_NS
+            if  elps > 0.6: # At least 2/3 of a second old.
+                if  _mcPending[ pky_t ]['members'][ ip ]['tries'] > 0:
+                    if  len(_mcPending[ pky_t ]['message']) == len(_mcPending[ pky_t ]['members'][ ip ]['unack']):
+                        # Nothing was acknowledged.
+                        _mcQueue.put((OpCode.RAK.name ,pky_t[2] ,pky_t[1] ,pky_t[0] ,ip ))   # Request ACK for the entire message from an IP.
+                    else:
+                        # Partially acknowledged.
+                        s = len(_mcPending[ pky_t ]['message'] )
+                        for f in range( 0 ,s ):
+                            if  f in _mcPending[ pky_t ]['members'][ ip ]['unack']:
+                                _mcQueue.put((OpCode.RAK.name ,pky_t[2] ,pky_t[1] ,pky_t[0] ,f"{ip}:{f}/{s}"))  # Request specific fragment ACK from an IP.
+                else:
+                    if  _mcPending[ pky_t ]['members'][ ip ]['tries'] < 0:
+                        # NOTE: Wait for another cycle to create a gap to let things settle.
+                        if  pky_t not in bads:
+                            bads[ pky_t ] = {'members': []}
+                        if  ip  not in bads[ pky_t ]['members']:
+                            bads[ pky_t ]['members'].append( ip )
+                _mcPending[ pky_t ]['members'][ ip ]['tries'] -= 1
+
+    for pky_t in bads:
+        # First delete all the members.
+        for ip in bads[ pky_t ]['members']:
+            del _mcPending[ pky_t ]['members'][ ip ]
+            logger.error(f"Key:{pky_t} have NOT be acknowledge by {ip}" ,extra=LOG_EXTRA)
+
+        if  len(_mcPending[ pky_t ]['members']) == 0:
+            del _mcPending[ pky_t ]
+
+def _check_recv_assembly() -> None:
+    """Check the assembly list of fragments for a message.
+    """
+    bads = {}
+    for aky_t in _mcArrived.keys(): # aky_t: tuple = (sender ,frg_c ,key_s ,tsm)
+        elps = (time.time_ns() - _mcArrived[ aky_t ]['initon']) / ONE_MIN_NS
+        if  elps > 0.6: # At least 2/3 of a second old.
+            if  _mcArrived[ aky_t ]['tries'] > 0:
+                for seq in range( 0 ,len(_mcArrived[ aky_t ])):
+                    if  _mcArrived[ aky_t ][ seq ] is None:
+                        _mcQueue.put((OpCode.REQ ,time.time_ns() ,aky_t[1] ,aky_t[0] ,f"{SRC_IP_ADD[0]}:{seq}"))
+            else:
+                if  _mcPending[ aky_t ]['tries'] < 0:
+                    # NOTE: Wait for another cycle to create a gap to let things settle.
+                    if  aky_t not in bads:
+                        bads[ aky_t ] = None
+            _mcArrived[ aky_t ]['tries'] -= 1
+
+    for aky_t in bads:
+        lst  = [seq for seq in range( 0, len(_mcArrived[ aky_t ])) if _mcArrived[ aky_t ][ seq ] is None]
+        logger.error(f"Key:{aky_t} message incomplete.  Missing fragments: {lst}" ,extra=LOG_EXTRA)
+        del _mcArrived[ aky_t ]
+
 def _decode_message( key_t: tuple ,val_o: object ,sender: str ) -> None:
     """Decode the message from the sender.
 
@@ -1348,6 +1478,16 @@ def _decode_message( key_t: tuple ,val_o: object ,sender: str ) -> None:
                 _mc = {k: checksum( mcc[ k ]) for k in _ks}
                 msg = (opc ,tsm ,nms ,None ,None ,_mc)
                 logger.info(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
+
+        case OpCode.MET:    # Metrics.
+            if  logger.level == logging.DEBUG:
+                _mc = _get_cache_metrics( nms )
+                msg = (opc ,tsm ,nms ,None ,None ,_mc)
+                logger.info(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
+
+        case OpCode.NEW:    # New member.
+            if  sender not in _mcMember:
+                _mcMember[ sender ] = pky[ 2 ]  # Timestamp
 
         case OpCode.RST:    # Reset.
             for n in filter( lambda k: k == nms or nms is None ,_mcCache.keys() ):
@@ -1460,66 +1600,21 @@ def _housekeeper() -> None:
     Return:
         None
     """
-    QUANTA:int = 0.75   # Seconds.
+    QUANTA:int = 2  # Seconds.
 
     # Keep the format consistent to make it easy for the test to parse.
     msg = (OpCode.NEW.value ,None ,None ,None ,None ,'McCache housekeeper is ready.')
     logger.debug(f"Im:{SRC_IP_ADD}\tFr:\tMsg:{msg}" ,extra=LOG_EXTRA)
 
     while True:
-        time.sleep( QUANTA )
-
-        # Message pending acknowledgement.
+        time.sleep( _mcConfig.deamon_sleep )
+        # Check sent messages that are pending acknowledgement.
         #
-        bads = {}   # A bad list of unackowledge parkets to delete outside of the iteration.
-        for pky_t in _mcPending.keys():
-            _ ,_ ,tsm = pky_t     # pky = (nms ,key ,tsm)   # Key for a message pending acknowledgement.
-            elps:float = round((time.time_ns() - tsm) * 0.000000001 ,4)  # Convert to second.
-            if  elps >= QUANTA:
-                for ip  in  _mcPending[ pky_t ]['members'].keys():
-                    if  len(_mcPending[ pky_t ]['message']) == len(_mcPending[ pky_t ]['members'][ ip ]['unack']):
-                        # Nothing was acknowledged.
-                        _mcQueue.put((OpCode.RAK.name ,pky_t[2] ,pky_t[1] ,pky_t[0] ,None))   # Request ACK fotr the entire message.
-                    else:
-                        s = len(_mcPending[ pky ]['message'] )
-                        for f in range( 0 ,s ):
-                            if  f in _mcPending[ pky ]['members'][ ip ]['unack']:
-                                _mcQueue.put((OpCode.RAK.name ,pky_t[2] ,pky_t[1] ,pky_t[0] ,f"{f}/{s}")) # Request specific fragment ACK .
+        _check_sent_pending()
 
-                    _mcPending[ pky_t ]['members'][ ip ]['tries'] += 1
-                    if  _mcPending[ pky_t ]['members'][ ip ]['tries'] > 3:    # Max of 3 tries.
-                        if  pky_t not in bads:
-                            bads[ pky_t ] = {'members': []}
-                        if  ip  not in bads[ pky_t ]['members']:
-                            bads[ pky_t ]['members'].append( ip )
-
-        # TODO: How should we handle unacknowledge fragments/message?
-        for pky_t in  bads:
-            for ip  in  bads[ pky_t ]['members']:
-                del _mcPending[ pky_t ]['members'][ ip ]
-
-                logger.error(f"Key:{pky_t} have NOT be acknowledge by {ip}" ,extra=LOG_EXTRA)
-                #_mcQueue.put((OpCode.DEL ,time.time_ns() ,pky[1] ,pky[0] ,None))
-
-            if  len(_mcPending[ pky_t ]['members']) == 0:
-                del _mcPending[ pky_t ]
-
-        # Message pending assembly.
+        # Check receive fragments pending assembly into a message.
         #
-        bads = {}
-        for aky_t in _mcArrived.keys():
-            # TODO: How should we time out?
-            if  elps > QUANTA * 2:
-                bads[ aky_t ] = None
-                lst  = [s for s in range( 0, len(_mcArrived[ aky_t ])) if _mcArrived[ aky_t ][s] is None]
-                logger.error(f"Key:{aky_t} message incomplete.  Missing fragments: {lst}" ,extra=LOG_EXTRA)
-            else:
-                for seq in range( 0 ,len(_mcArrived[ aky_t ])):
-                    if  _mcArrived[ aky_t ][ seq ] is None:
-                        _mcQueue.put((OpCode.REQ ,time.time_ns() ,pky[1] ,pky[0] ,f"{SRC_IP_ADD[0]}:{seq}"))
-
-        for aky_t in bads:
-            del _mcArrived[ pky ]
+        _check_recv_assembly()
 
 def _listener() -> None:
     """Listen in the group for new cache operation from all members.
@@ -1574,6 +1669,9 @@ random.seed(_mcConfig.monkey_tantrum)
 # Main section to start the background daemon threads.
 #
 atexit.register(_goodbye)   # SEE: https://docs.python.org/3.8/library/atexit.html#module-atexit
+
+if  sys.platform == 'win32':
+    psutil.getloadavg()     # Windows only simulate the load, so pre-warm it the background.
 
 t1 = threading.Thread(target=_multicaster ,daemon=True ,name="McCache multicaster")
 t1.start()
