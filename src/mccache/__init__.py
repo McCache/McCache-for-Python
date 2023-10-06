@@ -119,36 +119,12 @@ class Cache(collections.abc.MutableMapping):
         self.__maxsize = maxsize
         # McCache addition.
         self.__name:str = None
-        self.__initOn   = time.time_ns()    # The time the cache was initialized in nano seconds.
-        self.__hitOn    = time.time_ns()    # Last time the cache was hit.
-        self.__lookups  = 0                 # Total number of lookups since the cache initialization.
-        self.__updates  = 0                 # Total number of updates since the cache initialization.
-        self.__deletes  = 0                 # Total number of deletes since the cache initialization.
-        self.__avgHits  = 0                 # Total number of hits to the cache for the average load in 1 minutes spike window.
-        self.__avgLoad  = 0                 # The average load between calls that is within 10 minutes apart.
-
-    def __setload__(self ,isUpdate: bool ) -> None:
-        # Collect McCache metric and how rapid the cache being hit on.
-        # Not interested in lookups.
-        if  isUpdate:
-            self.__updates += 1
-        else:
-            self.__deletes += 1
-
-        _since  = time.time_ns() - self.__hitOn
-        self.__hitOn   =  time.time_ns()
-        self.__avgHits += 1
-
-        if  _since <= ONE_MIN_NS:
-            self.__avgLoad = ((self.__avgLoad * self.__avgHits) + _since) / (self.__avgHits + 1)
-            self.__avgHits += 1
 
     def __repr__(self):
         return f"{self.__class__.__name__}({repr(self.__data)} ,maxsize={self.__maxsize} ,currsize={self.__currsize}))"
 
     def __getitem__(self, key):
         try:
-            self.__lookups  += 1    # McCache
             return self.__data[key]
         except KeyError:
             return self.__missing__(key)
@@ -172,7 +148,6 @@ class Cache(collections.abc.MutableMapping):
         # McCache addition.
         if  multicast:
             _mcQueue.put((OpCode.UPD ,time.time_ns() ,self.name ,key ,value))
-            self.__setload__( isUpdate=True )
 
     def __delitem__(self, key, multicast = True):   # noqa: RUF100 FBT002  McCache
         size = self.__size.pop(key)
@@ -182,7 +157,6 @@ class Cache(collections.abc.MutableMapping):
         # McCache addition.
         if  multicast:
             _mcQueue.put((OpCode.DEL ,time.time_ns() ,self.name ,key ,None))
-            self.__setload__( isUpdate=False )
 
     def __contains__(self, key):
         return key in self.__data
@@ -904,11 +878,6 @@ def clear_cache( name: str | None = None ) -> None:
     """
     _mcQueue.put((OpCode.RST ,time.time_ns() ,name ,None ,None))
 
-def get_cluster_metrics( name: str | None = None ) -> None:
-    """Inquire the metrics for all the distributed caches.
-    """
-    _mcQueue.put((OpCode.MET ,time.time_ns() ,name ,None ,None))
-
 def get_cache_checksum( name: str | None = None ,key: str | None = None ) -> None:
     """Inquire the checksum for all the distributed caches.
     """
@@ -1073,75 +1042,6 @@ def _log_debug_msg( opc: str ,tsm: int = None ,nms: str = None ,key: object = No
     msg = (opc ,tsm ,nms ,key ,crc ,val)
     logger.debug(f"Im:{SRC_IP_ADD}\tFr:{frm}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
-def _get_size( obj: object, seen: set | None = None ):
-    """Recursively finds size of objects.
-
-    Credit goes to:
-    https://goshippo.com/blog/measure-real-size-any-python-object
-
-    Args:
-        seen:   A collection of seen objets.
-    Return:
-    """
-    size = sys.getsizeof( obj )
-    if  seen is None:
-        seen =  set()
-    obj_id = id( obj )
-    if  obj_id in seen:
-        return 0
-    # Important mark as seen *before* entering recursion to gracefully handle
-    # self-referential objects
-    seen.add( obj_id )
-    if  isinstance( obj ,dict ):
-        size += sum([_get_size( v ,seen ) for v in obj.values()])
-        size += sum([_get_size( k ,seen ) for k in obj.keys()])
-    elif hasattr( obj ,'__dict__' ):
-        size += _get_size( obj.__dict__ ,seen )
-    elif hasattr( obj ,'__iter__' ) and not isinstance( obj ,(str, bytes, bytearray)):
-        size += sum([_get_size( i ,seen ) for i in obj])
-    return size
-
-def _get_cache_metrics( name: str | None = None ) -> dict:
-    """Return the metrics collected for the entire cache.
-
-        SEE: https://psutil.readthedocs.io/en/latest/
-
-    Args:
-        name:   The name of the cache.
-
-    """
-    gbl: dict = {}
-    nms: dict = {}
-
-    if  not name:
-        gbl = { '_process_': {
-                    'avgload':      psutil.getloadavg(),    # NOTE: Not accurate on windows.
-                    'cputimes':     psutil.cpu_times(),
-                    'memoryinfo':   psutil.Process().memory_info()
-                },
-                '_mccache_': {
-                    'count':    len( _mcCache),
-                    'size(Mb)': round(_get_size(_mcCache   ) / ONE_MIB ,4),
-                    'avgload':  round(mean([_mcCache[ n ].avgload for n in _mcCache.keys()]) ,4),
-                    'avghits':  sum([_mcCache[ n ].avghits for n in _mcCache.keys()]),
-                    'lookups':  sum([_mcCache[ n ].lookups for n in _mcCache.keys()]),
-                    'updates':  sum([_mcCache[ n ].updates for n in _mcCache.keys()]),
-                    'deletes':  sum([_mcCache[ n ].deletes for n in _mcCache.keys()]),
-                },
-            }   # Global stats.
-    nms =   {n: {   'count':    len( _mcCache[ n ]),
-                    'size(Mb)': round(_get_size(_mcCache[ n ]) / ONE_MIB ,4),
-                    'avgload':  round(          _mcCache[ n ].avgload    ,4),
-                    'avghits':  _mcCache[ n ].avghits,
-                    'lookups':  _mcCache[ n ].lookups,
-                    'updates':  _mcCache[ n ].updates,
-                    'deletes':  _mcCache[ n ].deletes,
-                }
-                for n in _mcCache.keys() if n == name or name is None
-        }   # Namespace stats.
-
-    return gbl | nms    # Python v3.9 way to merge 2 dictionaries.
-
 def _get_socket(is_sender: SocketWorker) -> socket.socket:
     """Get a configured socket for either the sender or receiver.
 
@@ -1285,11 +1185,11 @@ def _collect_fragment( pkt_b: bytes ,sender: str ) -> bool:
 
     aky_t: tuple = (sender ,frg_c ,key_s ,tsm)    # Pending assembly key.
     if  aky_t not in _mcArrived:
-        _mcArrived[ aky_t ] = [ None ] * frg_c    # Initialize all the slots.
-        # TODO: Use this new format.
-#       _mcArrived[ aky_t ] = {'message': [None] * frg_c ,'tries': 0 ,'initon': time.time_ns()}  # Initialize all the slots.
-
-    _mcArrived[ aky_t ][ seq ] = pkt_b
+        _mcArrived[ aky_t ] = { 'message': [None] * frg_c,  # Pre-allocated the list.
+                                'tries': 3,
+                                'initon': time.time_ns()
+                            }
+    _mcArrived[ aky_t ]['message'][ seq ] = pkt_b
 
     return  aky_t if len(_mcArrived[ aky_t ]) and all([ f is not None for f in _mcArrived[ aky_t ]]) else None
 
@@ -1343,9 +1243,6 @@ def _assemble_message( aky_t: tuple ,sender: str ) -> (tuple ,object):
     if  val_s == len( val_b ):
         val_o = pickle.loads(bytes( val_b ))    # De-Serialized the value.
 
-#   print(f"key_b ={len(key_b):4},  {' '.join(format(x, '02x') for x in key_b)}")
-#   print(f"val_b ={len(val_b):4},  {' '.join(format(x, '02x') for x in val_b)}")
-#
     return  key_t ,val_o
 
 def _send_fragment( sock:socket.socket ,fragment: bytes ) -> None:
@@ -1392,7 +1289,7 @@ def _check_sent_pending() -> None:
                                 _mcQueue.put((OpCode.RAK.name ,pky_t[2] ,pky_t[1] ,pky_t[0] ,f"{ip}:{f}/{s}"))  # Request specific fragment ACK from an IP.
                 else:
                     if  _mcPending[ pky_t ]['members'][ ip ]['tries'] < 0:
-                        # NOTE: Wait for another cycle to create a gap to let things settle.
+                        # NOTE: Wait for another cycle to let things settle.
                         if  pky_t not in bads:
                             bads[ pky_t ] = {'members': []}
                         if  ip  not in bads[ pky_t ]['members']:
@@ -1421,7 +1318,7 @@ def _check_recv_assembly() -> None:
                         _mcQueue.put((OpCode.REQ ,time.time_ns() ,aky_t[1] ,aky_t[0] ,f"{SRC_IP_ADD[0]}:{seq}"))
             else:
                 if  _mcPending[ aky_t ]['tries'] < 0:
-                    # NOTE: Wait for another cycle to create a gap to let things settle.
+                    # NOTE: Wait for another cycle to let things settle.
                     if  aky_t not in bads:
                         bads[ aky_t ] = None
             _mcArrived[ aky_t ]['tries'] -= 1
@@ -1476,12 +1373,6 @@ def _decode_message( key_t: tuple ,val_o: object ,sender: str ) -> None:
                 # NOTE: Don't dump the raw data out for security reason.
                 _ks = [ key ] if key else sorted(list( mcc.keys()))
                 _mc = {k: checksum( mcc[ k ]) for k in _ks}
-                msg = (opc ,tsm ,nms ,None ,None ,_mc)
-                logger.info(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
-
-        case OpCode.MET:    # Metrics.
-            if  logger.level == logging.DEBUG:
-                _mc = _get_cache_metrics( nms )
                 msg = (opc ,tsm ,nms ,None ,None ,_mc)
                 logger.info(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
@@ -1669,9 +1560,6 @@ random.seed(_mcConfig.monkey_tantrum)
 # Main section to start the background daemon threads.
 #
 atexit.register(_goodbye)   # SEE: https://docs.python.org/3.8/library/atexit.html#module-atexit
-
-if  sys.platform == 'win32':
-    psutil.getloadavg()     # Windows only simulate the load, so pre-warm it the background.
 
 t1 = threading.Thread(target=_multicaster ,daemon=True ,name="McCache multicaster")
 t1.start()
