@@ -127,7 +127,7 @@ class Cache(collections.abc.MutableMapping):
         self.__updates  = 0                 # Total number of updates since the cache initialization.
         self.__deletes  = 0                 # Total number of deletes since the cache initialization.
         self.__avgHits  = 0                 # Total number of hits to the cache for the average load in 1 minutes spike window.
-        self.__avgLoad  = 0                 # The average load between calls that is within 10 minutes apart.
+        self.__avgSpan  = 0                 # The average load between calls that is within 10 minutes apart.
 
     def __setload__(self ,is_update: bool ) -> None:    # noqa: FBT001
         # Collect McCache metric and how rapid the cache being hit on.
@@ -141,8 +141,8 @@ class Cache(collections.abc.MutableMapping):
         self.__hitOn   =  time.time_ns()
         self.__avgHits += 1
 
-        if  _since <= ONE_MIN_NS:
-            self.__avgLoad = ((self.__avgLoad * self.__avgHits) + _since) / (self.__avgHits + 1)
+        if  _since <= (ONE_NS_SEC * 60):    # NOTE: Less than 1 minute
+            self.__avgSpan = ((self.__avgSpan * self.__avgHits) + _since) / (self.__avgHits + 1)
             self.__avgHits += 1
 
     def __repr__(self):
@@ -272,9 +272,9 @@ class Cache(collections.abc.MutableMapping):
         return self.__avgHits
 
     @property
-    def avgload(self) -> int:
-        """The average load of the cache."""
-        return self.__avgLoad
+    def avgspan(self) -> int:
+        """The average span since last hit of the cache."""
+        return self.__avgSpan
 
 
 class FIFOCache(Cache):
@@ -837,7 +837,7 @@ _mcMember:  dict[str   ,int]  = {}  # Private dictionary to manage members in th
 _mcQueue:   queue.Queue = queue.Queue()
 
 ONE_MIB     = 1_048_576             # 1 Mib
-ONE_MIN_NS  = 60_000_000_000        # One minute Nano sec.
+ONE_NS_SEC  = 10_000_000_000        # One Nano second.
 MAGIC_BYTE  = 0b11111001            # 241 (Pattern + Version)
 HEADER_SIZE = 16                    # The fixed length header for each fragment packet.
 SEASON_TIME = 0.6                   # Seasoning time (seconds) to wait before considering a retry.
@@ -1145,7 +1145,7 @@ def _get_cache_metrics( name: str | None = None ) -> dict:
                 '_mccache_': {
                     'count':    len( _mcCache),
                     'size(Mb)': round(_get_size(_mcCache   ) / ONE_MIB ,4),
-                    'avgload':  round(mean([_mcCache[ n ].avgload for n in _mcCache.keys()]) ,4),
+                    'avgspan':  round(mean([_mcCache[ n ].avgspan for n in _mcCache.keys()]) ,4),
                     'avghits':  sum([_mcCache[ n ].avghits for n in _mcCache.keys()]),
                     'lookups':  sum([_mcCache[ n ].lookups for n in _mcCache.keys()]),
                     'updates':  sum([_mcCache[ n ].updates for n in _mcCache.keys()]),
@@ -1154,7 +1154,7 @@ def _get_cache_metrics( name: str | None = None ) -> dict:
             }   # Global stats.
     nms =   {n: {   'count':    len( _mcCache[ n ]),
                     'size(Mb)': round(_get_size(_mcCache[ n ]) / ONE_MIB ,4),
-                    'avgload':  round(          _mcCache[ n ].avgload    ,4),
+                    'avgspan':  round(          _mcCache[ n ].avgspan    ,4),
                     'avghits':  _mcCache[ n ].avghits,
                     'lookups':  _mcCache[ n ].lookups,
                     'updates':  _mcCache[ n ].updates,
@@ -1204,7 +1204,7 @@ def _get_socket(is_sender: SocketWorker) -> socket.socket:
 
     return  sock
 
-def _make_pending_ack( key: tuple ,val: object ,members: dict ,frame_size: int | None = None ) -> dict:
+def _make_pending_ack( key_t: tuple ,val_o: object ,members: dict ,frame_size: int ) -> dict:
     """Make a dictionary entry for the management of acknowledgements.
 
     The input key and value shall be concatenated into a single out going binary message.
@@ -1242,16 +1242,16 @@ def _make_pending_ack( key: tuple ,val: object ,members: dict ,frame_size: int |
     Raise:
         BufferError:    When the serialized key or value size is greater than unsigned two bytes.
     """
-    tsm: int = key[ 2 ]                     # 8 bytes unsigned nanoseconds for timestamp.
-    key_b: bytes = pickle.dumps( key )      # Serialized the key.
+    tsm: int = key_t[ 2 ]                   # 8 bytes unsigned nanoseconds for timestamp.
+    key_b: bytes = pickle.dumps( key_t )    # Serialized the key.
     key_s: int = len( key_b )
     if  key_s > UINT2:   # 2 bytes unsigned.
-        raise BufferError(f"Pickled key for {key} size is {key_s}") # noqa: EM102
+        raise BufferError(f"Pickled key for {key_t} size is {key_s}") # noqa: EM102
 
-    val_b: bytes = pickle.dumps( val )      # Serialized the message.
+    val_b: bytes = pickle.dumps( val_o )    # Serialized the message.
     val_s: int = len( val_b )
     if  val_s > UINT2:   # 2 bytes unsigned.
-        raise BufferError(f"Pickled val for {key} size is {val_s}") # noqa: EM102
+        raise BufferError(f"Pickled val for {key_t} size is {val_s}") # noqa: EM102
 
     bgn: int
     end: int
@@ -1259,7 +1259,7 @@ def _make_pending_ack( key: tuple ,val: object ,members: dict ,frame_size: int |
     frg_b: bytes
     pay_b: bytes  = key_b + val_b  # Total binary payload to be send out.
     pay_s: int = len( pay_b )
-    frg_m: int = (frame_size if frame_size else _mcConfig.packet_mtu) - HEADER_SIZE    # Max frame size.
+    frg_m: int = frame_size - HEADER_SIZE # Max frame size.
     frg_c:int = int( pay_s / frg_m) +1
 
     ack = { 'message': [None] * frg_c,  # Pre-allocated the list.
@@ -1397,7 +1397,8 @@ def _check_sent_pending() -> None:
     bads = {}   # A bad list of unacknowledge packets to delete outside of the iteration.
     for pky_t in _mcPending.keys():
         for ip in _mcPending[ pky_t ]['members'].keys():
-            elps = (time.time_ns() - _mcPending[ pky_t ]['initon']) / ONE_MIN_NS
+            elps = (time.time_ns() - _mcPending[ pky_t ]['initon']) / ONE_NS_SEC
+
             if  elps > SEASON_TIME: # At least 2/3 of a second old.
                 if  _mcPending[ pky_t ]['members'][ ip ]['tries'] > 0:
                     if  len(_mcPending[ pky_t ]['message']) == len(_mcPending[ pky_t ]['members'][ ip ]['unack']):
@@ -1431,7 +1432,8 @@ def _check_recv_assembly() -> None:
     """
     bads = {}
     for aky_t in _mcArrived.keys(): # aky_t: tuple = (sender ,frg_c ,key_s ,tsm)
-        elps = (time.time_ns() - _mcArrived[ aky_t ]['initon']) / ONE_MIN_NS
+        elps = (time.time_ns() - _mcArrived[ aky_t ]['initon']) / ONE_NS_SEC
+
         if  elps > SEASON_TIME: # At least 2/3 of a second old.
             if  _mcArrived[ aky_t ]['tries'] > 0:
                 for seq in range( 0 ,len(_mcArrived[ aky_t ])):
@@ -1579,7 +1581,7 @@ def _multicaster() -> None:
             val: object = msg[4]    # Value
             crc: str    = None      # Checksum
 
-            pky = (nms ,key ,tsm)   # Key for this message pending acknowledgement.
+            pky_t = (nms ,key ,tsm)   # Key for this message pending acknowledgement.
             match opc:
                 case OpCode.REQ:    # Request retransmit of a single fragment.
                     # NOTE: The fragment number is communicated in the value formatted as FromIP:Index
@@ -1588,25 +1590,25 @@ def _multicaster() -> None:
                     #
                     fr_ip: str =     val.split(':')[0]
                     frg_i: int = int(val.split(':')[1])
-                    if  pky in _mcPending[ pky ] and frg_i in _mcPending[ pky ]['value']:
+                    if  pky_t in _mcPending[ pky_t ] and frg_i in _mcPending[ pky_t ]['value']:
                         # Send an individual fragment out.
-                        _send_fragment( sock ,_mcPending[ pky ]['value'][ frg_i ] )
+                        _send_fragment( sock ,_mcPending[ pky_t ]['value'][ frg_i ] )
                     else:
                         # Inform the requestor that we have an error on our side.
-                        _mcQueue.put((OpCode.ERR ,pky[3] ,pky[0] ,pky[1] ,None))
-                        logger.error(f"{fr_ip} requested fragment{frg_i:3} for {pky} doesn't exist!")
+                        _mcQueue.put((OpCode.ERR ,pky_t[3] ,pky_t[0] ,pky_t[1] ,None))
+                        logger.error(f"{fr_ip} requested fragment{frg_i:3} for {pky_t} doesn't exist!")
                 case _:
                     crc = checksum( val )
                     if  logger.level == logging.DEBUG:
                         msg = (opc ,tsm ,nms ,key ,crc ,None)
                         logger.debug(f"Im:{SRC_IP_ADD}\tFr:{' '*len(SRC_IP_ADD.split(':')[0])}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
-                    if  pky not in _mcPending and (opc in {OpCode.DEL ,OpCode.UPD}):
+                    if  pky_t not in _mcPending and (opc in {OpCode.DEL ,OpCode.UPD}):
                         # Acknowledgement is needed for Insert ,Update and Delete.
-                        _mcPending[ pky ] = _make_pending_ack( pky ,(opc ,crc ,val) ,_mcMember ,_mcConfig.packet_mtu )
+                        _mcPending[ pky_t ] = _make_pending_ack( pky_t ,(opc ,crc ,val) ,_mcMember ,_mcConfig.packet_mtu )
 
                     # Send all the message fragments out.
-                    for frg_b in _mcPending[ pky ]['message']:
+                    for frg_b in _mcPending[ pky_t ]['message']:
                         _send_fragment( sock ,frg_b )
         except  Exception as ex:    # noqa: BLE001
             logger.error( ex )
