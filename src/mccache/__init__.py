@@ -49,6 +49,7 @@ import heapq
 import logging
 import os
 import pickle
+import psutil
 import queue
 import random
 import socket
@@ -59,6 +60,7 @@ import time
 
 from dataclasses    import dataclass
 from enum           import Enum ,IntEnum ,StrEnum
+from statistics     import mean
 from struct         import pack, unpack
 
 # TODO: Figure out how to setup this package.
@@ -1285,11 +1287,11 @@ def _collect_fragment( pkt_b: bytes ,sender: str ) -> bool:
 
     aky_t: tuple = (sender ,frg_c ,key_s ,tsm)    # Pending assembly key.
     if  aky_t not in _mcArrived:
-        _mcArrived[ aky_t ] = [ None ] * frg_c    # Initialize all the slots.
-        # TODO: Use this new format.
-#       _mcArrived[ aky_t ] = {'message': [None] * frg_c ,'tries': 0 ,'initon': time.time_ns()}  # Initialize all the slots.
-
-    _mcArrived[ aky_t ][ seq ] = pkt_b
+        _mcArrived[ aky_t ] = { 'message': [None] * frg_c,  # Pre-allocated the list.
+                                'tries': 3,
+                                'initon': time.time_ns()
+                            }
+    _mcArrived[ aky_t ]['message'][ seq ] = pkt_b
 
     return  aky_t if len(_mcArrived[ aky_t ]) and all([ f is not None for f in _mcArrived[ aky_t ]]) else None
 
@@ -1343,9 +1345,6 @@ def _assemble_message( aky_t: tuple ,sender: str ) -> (tuple ,object):
     if  val_s == len( val_b ):
         val_o = pickle.loads(bytes( val_b ))    # De-Serialized the value.
 
-#   print(f"key_b ={len(key_b):4},  {' '.join(format(x, '02x') for x in key_b)}")
-#   print(f"val_b ={len(val_b):4},  {' '.join(format(x, '02x') for x in val_b)}")
-#
     return  key_t ,val_o
 
 def _send_fragment( sock:socket.socket ,fragment: bytes ) -> None:
@@ -1392,7 +1391,7 @@ def _check_sent_pending() -> None:
                                 _mcQueue.put((OpCode.RAK.name ,pky_t[2] ,pky_t[1] ,pky_t[0] ,f"{ip}:{f}/{s}"))  # Request specific fragment ACK from an IP.
                 else:
                     if  _mcPending[ pky_t ]['members'][ ip ]['tries'] < 0:
-                        # NOTE: Wait for another cycle to create a gap to let things settle.
+                        # NOTE: Wait for another cycle to let things settle.
                         if  pky_t not in bads:
                             bads[ pky_t ] = {'members': []}
                         if  ip  not in bads[ pky_t ]['members']:
@@ -1421,7 +1420,7 @@ def _check_recv_assembly() -> None:
                         _mcQueue.put((OpCode.REQ ,time.time_ns() ,aky_t[1] ,aky_t[0] ,f"{SRC_IP_ADD[0]}:{seq}"))
             else:
                 if  _mcPending[ aky_t ]['tries'] < 0:
-                    # NOTE: Wait for another cycle to create a gap to let things settle.
+                    # NOTE: Wait for another cycle to let things settle.
                     if  aky_t not in bads:
                         bads[ aky_t ] = None
             _mcArrived[ aky_t ]['tries'] -= 1

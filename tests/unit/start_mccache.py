@@ -32,8 +32,8 @@ for h in mc.logger.handlers:
         h.formatter._fmt = "%(lineno)04d %(asctime)s.%(msecs)03d %(message)s"
         h.formatter._style._fmt = "%(lineno)05d %(asctime)s.%(msecs)03d %(message)s"
         # If debugging, output line number of source file for easy reference
-        h.formatter._fmt = "%(lineno)04d %(asctime)s.%(msecs)03d %(message)s"
-        h.formatter._style._fmt = "%(lineno)05d %(asctime)s.%(msecs)03d %(message)s"
+        # h.formatter._fmt = "%(lineno)04d %(asctime)s.%(msecs)03d %(message)s"
+        # h.formatter._style._fmt = "%(lineno)05d %(asctime)s.%(msecs)03d %(message)s"
 
 cache = mc.get_cache()
 bgn = time.time()
@@ -68,5 +68,5 @@ while (end - bgn) < (duration*60):   # Seconds.
     end = time.time()
 
 stats = mc._get_cache_metrics()
-mc.logger.info(f"Cahce stats. {stats}")
+mc.logger.info(f"Cache stats. {stats}")
 mc.logger.info(f"Done  testing.")
