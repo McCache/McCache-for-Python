@@ -888,7 +888,7 @@ def get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
             cache = _mcCache[ name ]
 
         if  not cache:
-#           cache = TTLCache( maxsize=_mcConfig.maxsize ,ttl=_mcConfig.cache_ttl )
+#           cache = TTLCache( maxsize=_mcConfig.cache_size ,ttl=_mcConfig.cache_ttl )
             cache = LRUCache( maxsize=_mcConfig.cache_size )
             _mcCache[ name ] = cache
 
