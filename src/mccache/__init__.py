@@ -125,6 +125,7 @@ class Cache(collections.abc.MutableMapping):
 
     def __getitem__(self, key):
         try:
+            self.__lookups  += 1    # McCache
             return self.__data[key]
         except KeyError:
             return self.__missing__(key)
