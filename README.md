@@ -1,4 +1,4 @@
-# McCache for Python
+# McCache for Python - This packageis still under development.
 <!--  Not working in GitHub
 <style scoped>
 table {
