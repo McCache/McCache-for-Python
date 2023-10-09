@@ -141,12 +141,13 @@ We suggest the following testing to collect metrics of your application running 
 The following are parameters you can tune to fit your needs.
 |Name                  |Default          |Comment|
 |:---------------------|:----------------|:------|
-|MCCACHE_TTL           |900              |The number of seconds a cached entry will live without activity.  This is use by the default `TLRUCache`.<br><b>SEE</b>: https://cachetools.readthedocs.io/en/latest/|
-|MCCACHE_MTU           |1472             |The size of the smallest transfer unit of the network packet between all the network interfaces.|
-|MCCACHE_MAXSIZE       |512              |The maximum entries per cache.|
+|MCCACHE_CACHE_TTL     |900              |The number of seconds a cached entry will live without activity.  This is use by the default `TLRUCache`.<br><b>SEE</b>: https://cachetools.readthedocs.io/en/latest/|
+|MCCACHE_CACHE_SIZE    |512              |The maximum entries per cache.|
+|MCCACHE_PACKET_MTU    |1472             |The size of the smallest transfer unit of the network packet between all the network interfaces.|
 |MCCACHE_MULTICAST_IP  |224.0.0.3 [:4000]|The multicast IP address and the optional port number for your group to multicast within.|
 |MCCACHE_MULTICAST_HOPS|1                |The maxinum network hop. 1 is just within the local subnet. [1-8]|
 |MCCACHE_MONKEY_TANTRUM|0                |The percentage of packets the test monkey will drop.  This should only be used in a test environment. [0-99]|
+|MCCACHE_DEAMON_SLEEP  |2.0              |The snooze duration for the deamon housekeeper before checking the state of the cache.|
 |MCCACHE_RANDOM_SEED   |4th IPv4 Octet   |The seed to assist with **repeatable** random stress testing.|
 |MCCACHE_DEBUG_FILE    |None             |The local filename where output log messages are appended to.|
 |MCCACHE_LOG_FORMAT    |None             |The custom logging format for your project.|
@@ -154,8 +155,8 @@ The following are parameters you can tune to fit your needs.
 ### pyproject.toml
 ```toml
 [tool.mccache]
-ttl = 900
-mtu = 1472
+cache_ttl = 900
+packet_mtu = 1472
 ```
 ### Environment variables
 ```bash
