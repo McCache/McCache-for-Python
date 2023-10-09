@@ -45,8 +45,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.mccache]
-ttl = 900
-mtu = 1472
+# MUST be in lowercase.
+cache_ttl = 900
+packet_mtu = 1472
 
 [tool.hatch.version]
 path = "src/mccache/__about__.py"
