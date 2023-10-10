@@ -32,8 +32,8 @@ FOR /f "tokens=*" %%v IN ('powershell get-date -format "{_yyyyMMdd_HHmm}"') DO S
 :: Parse the command line parameters with the following format:
 :: run_test.bat [ key1 val1 [key2 val2 [key3 val3 [...]]]]
 :: where the case insensitive keys:
-::  MAX_KEYS
-::  RUN_MINS
+::  MAX_KEYS    The maximum unique keys to use.
+::  RUN_MINS    The maximum duration, in minutes, for this test run.
 
 :: Setup the variable RUN_MAX_KEYS to be passed into the container composer.
 SET RUN_MAX_KEYS=30
@@ -82,9 +82,10 @@ ECHO:
 :: ECHO Extension:    %~x0
 :: ECHO:
 
-:: Change over to the directory where this script resides.
-PUSHD %~p0
-pause
+:: Change over to the project root directory no matter where this script is invoked.
+SET     ROOTDIR=%~p0
+SET     ROOTDIR=%ROOT:tests\=%
+PUSHD  %ROOTDIR%
 
 :: Create the log directory if it doesn't exist, else empty the directory before we start.
 ::
@@ -93,11 +94,12 @@ IF NOT EXIST  log (MD log) ELSE (DEL /q log\*)
 :: Bring up the cluster of containers and wait until we are done exercising the cache.
 ::
 ECHO Starting the test cluster.
-%CONTAINER_EXE% up
+:: Keep in forgound
+%CONTAINER_EXE% up  --build
 
 :: Wait for the test run to be completed in the cluster and test the output log.
 ECHO Run test using the output log from the cluster.
-pytest -q .
+pipenv run  pytest -q .
 
 :EOF_SCRIPT
 POPD
