@@ -47,12 +47,13 @@ RUN         mkdir   -p  /home/${USRGRP}/log \
 #
 USER        ${USRGRP}
 
+# Install runtime dependencies.
+#
+RUN         pip     install -r  requirements.txt
+
 # Pickup the McCache project from the source directory.
 #
 ENV         PYTHONPATH=/home/${USRGRP}/src
-
-# TODO: Install the McCache project using pyproject.toml
-#
 
 # Start the test run.
 #

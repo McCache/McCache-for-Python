@@ -3,15 +3,27 @@ set -xv
 
 # Check if either podman or docker is installed.
 #
+which podman-compose    2> /dev/null
+if  (($? == 0)) then
+    CONTAINER_EXE=podman-compose
+else
+    which docker-compose    2> /dev/null
+    if  (($? == 0)) then
+        CONTAINER_EXE=docker-compose
+    else
+        echo "ERROR! Neither podman-compose or docker-compose is setup in your PATH.  Cannot continue ..."
+        exit  1
+    fi
+fi
 
 # Setup the variable RUN_TIMESTAMP to be passed into the container composer.
 export RUN_TIMESTAMP=$(date +'_%Y%m%d_%H%M')
 
 # Parse the command line parameters with the following format:
-# run_test  [ key1 val1 [key2 val2 [key3 val3 [...]]]]
+# run_test  -k ###  -m ###
 # where the case insensitive keys:
-#   MAX_KEYS
-#   RUN_MINS
+#   -k :    The maximum unique keys to use.
+#   -m :    The maximum duration, in minutes, for this test run.
 
 # Setup the variable RUN_MAX_KEYS to be passed into the container composer.
 export RUN_MAX_KEYS=30
@@ -20,12 +32,32 @@ export RUN_MAX_KEYS=30
 export RUN_MINUTES=3
 
 # Start of CLI.
-
-echo Invalid parameter value.  Try the following:
-echo    %0  '[MAX_KEYS ###] [RUN_MINS ###]'
-
+while getopts "k:m:" opt; do
+    case  $opt  in
+        k)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+            then
+                RUN_MAX_KEYS=${OPTARG}
+            else
+                echo "Option for -k MUST be a positive integer."
+                exit  1
+            fi
+            ;;
+        m)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+            then
+                RUN_MINUTES=${OPTARG}
+            else
+                echo "Option for -m MUST be a positive integer."
+                exit  1
+            fi
+            ;;
+        *)  echo  Invalid parameter value.  Try the following:
+            echo  $0  '[-k ###] [-m ###]'
+            exit  1
+            ;;
+    esac
+done
+echo ${RUN_MAX_KEYS} ${RUN_MINUTES}
 # End of CLI.
-
 
 echo Running McCache test with envar:
 echo    RUN_TIMESTAMP: ${RUN_TIMESTAMP}
@@ -33,17 +65,25 @@ echo    RUN_MAX_KEYS:  ${RUN_MAX_KEYS}
 echo    RUN_MINUTES:   ${RUN_MINUTES}
 echo
 
+# The following are CLI input parameter you can use to parse out the script name information.
+# echo ${0}
 
-# Change over to the directory where this script resides.
+# Change over to the project root directory no matter where this script is invoked.
 pushd ${0%*/*}
 
 # Create the log directory if it doesn't exist, else empty the directory before we start.
 #
+if [ ! -d log ]; then
+    mkdir -p log
+else
+    rm    -f log/*
+fi
+exit
 
 # Bring up the cluster of containers and wait until we are done exercising the cache.
 #
 echo Starting the test cluster.
-${CONTAINER_EXE} up
+${CONTAINER_EXE} up --build     # Keep in forground.
 
 # Wait for the test run to be completed in the cluster and test the output log.
 run Run test using the output log from the cluster.
