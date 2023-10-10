@@ -1020,20 +1020,22 @@ def _load_config():
         # NOTE: Config from environment variables trump over config read from a file.
         if  envar in os.environ and cfvar in  fldtyp:
             # Dynamically set the config properties.
-            if   fldtyp[ cfvar ] is int   and isinstance(os.environ[ envar ] ,int):
-                setattr( config ,cfvar              ,int(os.environ[ envar ]))
-            elif fldtyp[ cfvar ] is float and isinstance(os.environ[ envar ] ,float):
-                setattr( config ,cfvar            ,float(os.environ[ envar ]))
+            if   fldtyp[ cfvar ] is int   and     str(os.environ[ envar ]).isnumeric():
+                setattr( config ,cfvar           ,int(os.environ[ envar ]))
+            elif fldtyp[ cfvar ] is float and not str(os.environ[ envar ]).isnumeric() and str(os.environ[ envar ]).replace('.' ,'').isnumeric():
+                setattr( config ,cfvar         ,float(os.environ[ envar ]))
             else:
-                setattr( config ,cfvar              ,str(os.environ[ envar ]))
+                setattr( config ,cfvar           ,str(os.environ[ envar ]))
 
                 if  cfvar == 'log_format':
                     LOG_FORMAT = config.log_format
 
         if  cfvar == 'multicast_ip':
             if ':' in config.multicast_ip:
-                config.multicast_ip   =     config.multicast_ip.split(':')[0]
-                config.multicast_port = int(config.multicast_ip.split(':')[1])
+                mcip = config.multicast_ip.split(':')
+                config.multicast_ip   =     mcip[0]
+                if  len(mcip) > 1:
+                    config.multicast_port = int(mcip[1])
 
             if  _is_valid_multicast_ip( config.multicast_ip ):
                 cfgip =  config.multicast_ip
