@@ -54,7 +54,7 @@ services:
 #    volumes:
 #      - ./log:/home/mccache/log
 #    command: python tests/unit/start_mccache.py ;exit
-##   command: sleep 15m
+##   command: sleep 25m
 #
 #  node04:
 #    build: .
@@ -71,7 +71,7 @@ services:
 #    volumes:
 #      - ./log:/home/mccache/log
 #    command: python tests/unit/start_mccache.py ;exit
-##   command: sleep 15m
+##   command: sleep 25m
 #
 #  node05:
 #    build: .
@@ -88,8 +88,8 @@ services:
 #    volumes:
 #      - ./log:/home/mccache/log
 #    command: python tests/unit/start_mccache.py ;exit
-##   command: sleep 15m
-
+##   command: sleep 25m
+#
 # node06:
 #   build: .
 #   image: mccache-img
@@ -105,6 +105,7 @@ services:
 #   volumes:
 #     - ./log:/home/mccache/log
 #   command: python tests/unit/start_mccache.py ;exit
+##  command: sleep 25m
 #
 # node07:
 #   build: .
@@ -121,6 +122,7 @@ services:
 #   volumes:
 #     - ./log:/home/mccache/log
 #   command: python tests/unit/start_mccache.py ;exit
+##  command: sleep 25m
 #
 # node08:
 #   build: .
@@ -137,6 +139,7 @@ services:
 #   volumes:
 #     - ./log:/home/mccache/log
 #   command: python tests/unit/start_mccache.py ;exit
+##  command: sleep 25m
 #
 # node09:
 #   build: .
@@ -153,3 +156,4 @@ services:
 #   volumes:
 #     - ./log:/home/mccache/log
 #   command: python tests/unit/start_mccache.py ;exit
+##  command: sleep 25m
