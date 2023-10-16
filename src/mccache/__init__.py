@@ -1139,33 +1139,27 @@ def _get_cache_metrics( name: str | None = None ) -> dict:
     """Return the metrics collected for the entire cache.
 
         SEE: https://psutil.readthedocs.io/en/latest/
+        SEE: https://github.com/McCache/McCache-for-Python/blob/main/docs/BENCHMARK.md
 
     Args:
-        name:   The name of the cache.
-
+        name:   The case sensitive name of the cache.
+    Return:
+        Dictionary of cache statistics.
     """
+    prc: dict = {}
     gbl: dict = {}
     nms: dict = {}
 
-    if  not name:
-        gbl = { '_process_': {
-                    'avgload':      psutil.getloadavg(),    # NOTE: Not accurate on windows.
-                    'cputimes':     psutil.cpu_times(),
-                    'memoryinfo':   psutil.Process().memory_info()
-                },
-                '_mccache_': {
-                    'count':    len( _mcCache),
-                    'size(Mb)': round(_get_size(_mcCache   ) / ONE_MIB ,4),
-                    'avgspan':  round(mean([_mcCache[ n ].avgspan for n in _mcCache.keys()]) ,4),
-                    'avghits':  sum([_mcCache[ n ].avghits for n in _mcCache.keys()]),
-                    'lookups':  sum([_mcCache[ n ].lookups for n in _mcCache.keys()]),
-                    'updates':  sum([_mcCache[ n ].updates for n in _mcCache.keys()]),
-                    'deletes':  sum([_mcCache[ n ].deletes for n in _mcCache.keys()]),
-                },
-            }   # Global stats.
+    prc = { '_process_': {
+                'avgload':      psutil.getloadavg(),    # NOTE: Simulated on window platform.
+                'cputimes':     psutil.cpu_times(),
+                'meminfo':      psutil.Process().memory_info(), # Memory info for current process.
+                'netioinfo':    psutil.net_io_counters()
+            }
+        }   # Process stats.
     nms =   {n: {   'count':    len( _mcCache[ n ]),
-                    'size(Mb)': round(_get_size(_mcCache[ n ]) / ONE_MIB ,4),
-                    'avgspan':  round(          _mcCache[ n ].avgspan    ,4),
+                    'size':     round(_get_size(_mcCache[ n ])        / ONE_MIB    ,4),
+                    'avgspan':  round(          _mcCache[ n ].avgspan / ONE_NS_SEC ,4),
                     'avghits':  _mcCache[ n ].avghits,
                     'lookups':  _mcCache[ n ].lookups,
                     'updates':  _mcCache[ n ].updates,
@@ -1173,8 +1167,19 @@ def _get_cache_metrics( name: str | None = None ) -> dict:
                 }
                 for n in _mcCache.keys() if n == name or name is None
         }   # Namespace stats.
+    if  not name:
+        gbl = { '_mccache_': {
+                    'count':    len( _mcCache),
+                    'size':     round(_get_size(_mcCache  ) / ONE_MIB ,4),
+                    'avgspan':  round(    mean([_mcCache[ n ].avgspan for n in _mcCache.keys()]) / ONE_NS_SEC ,4),
+                    'avghits':  sum([_mcCache[ n ].avghits for n in _mcCache.keys()]),
+                    'lookups':  sum([_mcCache[ n ].lookups for n in _mcCache.keys()]),
+                    'updates':  sum([_mcCache[ n ].updates for n in _mcCache.keys()]),
+                    'deletes':  sum([_mcCache[ n ].deletes for n in _mcCache.keys()]),
+                },
+            }   # Global stats.
 
-    return gbl | nms    # Python v3.9 way to merge 2 dictionaries.
+    return prc | gbl | nms  # Python v3.9 way to merge multiple dictionaries.
 
 def _get_socket(is_sender: SocketWorker) -> socket.socket:
     """Get a configured socket for either the sender or receiver.
