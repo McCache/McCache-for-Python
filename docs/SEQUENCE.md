@@ -7,7 +7,6 @@ The following are the operation code that are send between nodes to communicate 
 |BYE    |Member announcing it is leaving the group.|
 |DEL    |Member requesting the group to evict the cache entry.|
 |ERR    |Member announcing an error to the group.|
-|INI    |Member announcing its initialization to the group.|
 |INQ    |Member inquiring about a cache entry from the group.|
 |MET    |Member inquiring about the cache metrics from the group.|
 |NEW    |New member annoucement to join the group.|
