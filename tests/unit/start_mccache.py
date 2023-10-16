@@ -71,6 +71,4 @@ while (end - bgn) < (duration*60):   # Seconds.
             _ = cache.get( key ,None )
     end = time.time()
 
-#stats = mc._get_cache_metrics()
-#mc.logger.info(f"Cache stats. {stats}")
 mc.logger.info(f"Done  testing.")
