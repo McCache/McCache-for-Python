@@ -754,6 +754,14 @@ class TLRUCache(_TimedCache):
 
 # McCache Section.
 
+ONE_MIB     = 1_048_576             # 1 Mib
+ONE_NS_SEC  = 10_000_000_000        # One Nano second.
+MAGIC_BYTE  = 0b11111001            # 241 (Pattern + Version)
+HEADER_SIZE = 16                    # The fixed length header for each fragment packet.
+SEASON_TIME = 0.6                   # Seasoning time (seconds) to wait before considering a retry.
+HUNDRED     = 100                   # Hundred percent.
+UINT2       = 65535                 # Unsigned 2 bytes.
+
 class EnableMultiCast(Enum):
     YES = True      # Multicast out the change.
     NO  = False     # Do not multicast out the change.  This is the default.
@@ -769,6 +777,7 @@ class McCacheOption(StrEnum):
     # TODO: Drop the TTL feature.
     MCCACHE_CACHE_TTL       = 'MCCACHE_CACHE_TTL'
     MCCACHE_CACHE_SIZE      = 'MCCACHE_CACHE_SIZE'
+    MCCACHE_CACHE_SYNC      = 'MCCACHE_CACHE_SYNC'
     MCCACHE_PACKET_MTU      = 'MCCACHE_PACKET_MTU'
     MCCACHE_MULTICAST_IP    = 'MCCACHE_MULTICAST_IP'
     MCCACHE_MULTICAST_PORT  = 'MCCACHE_MULTICAST_PORT'
@@ -814,13 +823,14 @@ class OpCode(StrEnum):
 class McCacheConfig:
     cache_ttl: int = 900            # Total Time to Live in seconds for a cached entry.
     cache_size: int = 512           # Max entries.
+    cache_sync: str = 'FULL'        # Cache coherence syncing level. [Full ,Part]
     packet_mtu: int = 1472          # Maximum Transmission Unit of your network packet payload.  Ethernet frame is 1500 minus header.
                                     # SEE: https://www.youtube.com/watch?v=Od5SEHEZnVU and https://www.youtube.com/watch?v=GjiDmU6cqyA
     multicast_ip: str = '224.0.0.3' # Unassigned multi-cast IP.
     multicast_port: int = 4000      # Unofficial port.  Was for Diablo II game.
     multicast_hops: int = 1         # Only local subnet.
-    monkey_tantrum: int = 0         # Chaos monkey tantrum % level (0-99).
-    deamon_sleep: int = 2.0         # House keeping snooze seconds (0.33-99.0).
+    monkey_tantrum: int = 0         # Chaos monkey tantrum % level (0 - 99).
+    deamon_sleep: int = SEASON_TIME # House keeping snooze seconds (0.33 - 3.0).
     random_seed: int = int(str(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]).split(".")[3])
     debug_logfile: str = 'log/debug.log'
     log_format: str = f"%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d.%(thread)05d)[%(levelname)s {__app__}@%(lineno)d] %(message)s"
@@ -836,14 +846,6 @@ _mcPending: dict[tuple ,dict] = {}  # Private dictionary to manage send fragment
 _mcMember:  dict[str   ,int]  = {}  # Private dictionary to manage members in the group.  IP: Timestamp.
 _mcQueue:   queue.Queue = queue.Queue()
 
-ONE_MIB     = 1_048_576             # 1 Mib
-ONE_NS_SEC  = 10_000_000_000        # One Nano second.
-MAGIC_BYTE  = 0b11111001            # 241 (Pattern + Version)
-HEADER_SIZE = 16                    # The fixed length header for each fragment packet.
-SEASON_TIME = 0.6                   # Seasoning time (seconds) to wait before considering a retry.
-HUNDRED     = 100                   # Hundred percent.
-UINT2       = 65535                 # Unsigned 2 bytes.
-
 # Setup normal and short IP addresses for logging and other use.
 _mySelf = { me[4][0] for me in socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET ) }
 
@@ -857,6 +859,7 @@ except socket.gaierror:
     pass
 LOG_FORMAT: str = McCacheConfig.log_format
 SRC_IP_ADD: str = f"{LOG_EXTRA['ipv4']}:{os.getpid()}"   # Source IP address.
+FRM_IP_PAD: str = ' '*len(LOG_EXTRA['ipv4'])
 logger: logging.Logger = logging.getLogger()    # Root logger.
 
 
@@ -970,7 +973,7 @@ def _is_valid_multicast_ip( ip: str ) -> bool:
         }
     }
 
-    sgm = [ int(d) for d in ip.split(".")]
+    sgm = [ int(d) for d in ip.split(".")]  # IP address segments.
     return  not(len(sgm) == 4 and   # noqa: PLR2004
                 sgm[0] == 224 and   # noqa: PLR2004
                 sgm[0] in mcips and
@@ -992,7 +995,6 @@ def _load_config():
     Return:
         Dataclass   A new configuration.
     """
-    global   LOG_FORMAT # noqa: PLW0603
     tmlcfg = {}
     config = McCacheConfig()
     config.random_seed = int(str(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]).split(".")[3])
@@ -1027,24 +1029,22 @@ def _load_config():
             else:
                 setattr( config ,cfvar           ,str(os.environ[ envar ]))
 
-                if  cfvar == 'log_format':
-                    LOG_FORMAT = config.log_format
+        if  cfvar == 'cache_sync':
+            config.cache_sync = str(config.cache_sync).upper()
 
-        if  cfvar == 'multicast_ip':
-            if ':' in config.multicast_ip:
-                mcip = config.multicast_ip.split(':')
-                config.multicast_ip   =     mcip[0]
-                if  len(mcip) > 1:
-                    config.multicast_port = int(mcip[1])
+        if  cfvar == 'multicast_ip' and ':' in config.multicast_ip:
+            mcip = config.multicast_ip.split(':')
+            config.multicast_ip = mcip[0]
+            if  len(mcip) > 1:
+                config.multicast_port = int(mcip[1])
 
-            if  _is_valid_multicast_ip( config.multicast_ip ):
-                cfgip =  config.multicast_ip
-                _mcip = _mcConfig.multicast_ip
-                _port = _mcConfig.multicast_port
-                logger.warning(f"{cfgip} is an invalid multicast IP address!  Defaulting to IP: {_mcip}:{_port}", extra=LOG_EXTRA)
-                config.multicast_ip   = _mcConfig.multicast_ip
-                config.multicast_port = _mcConfig.multicast_port
-
+        if  _is_valid_multicast_ip( config.multicast_ip ):
+            cfgip =  config.multicast_ip
+            _mcip = _mcConfig.multicast_ip
+            _port = _mcConfig.multicast_port
+            logger.warning(f"{cfgip} is an invalid multicast IP address!  Defaulting to IP: {_mcip}:{_port}", extra=LOG_EXTRA)
+            config.multicast_ip   = _mcConfig.multicast_ip
+            config.multicast_port = _mcConfig.multicast_port
     return  config
 
 def _get_mccache_logger( debug_log: str | None = None ) -> logging.Logger:
@@ -1293,7 +1293,7 @@ def _collect_fragment( pkt_b: bytes ,sender: str ) -> bool:
     mgc:   int      # Packet magic byte.
     seq:   int      # Fragment sequence
     frg_c: int      # Fragment size/count.
-    key_s: int      # key size
+    key_s: int      # Key size
     tsm:   int      # Timestamp
     hdr_b: bytes    # Packet header
 
