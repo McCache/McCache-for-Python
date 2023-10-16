@@ -1026,17 +1026,21 @@ def _load_config():
                 setattr( config ,cfvar           ,int(os.environ[ envar ]))
             elif fldtyp[ cfvar ] is float and not str(os.environ[ envar ]).isnumeric() and str(os.environ[ envar ]).replace('.' ,'').isnumeric():
                 setattr( config ,cfvar         ,float(os.environ[ envar ]))
+            if   fldtyp[ cfvar ] is int   and     str(os.environ[ envar ]).isnumeric():
+                setattr( config ,cfvar           ,int(os.environ[ envar ]))
+            elif fldtyp[ cfvar ] is float and not str(os.environ[ envar ]).isnumeric() and str(os.environ[ envar ]).replace('.' ,'').isnumeric():
+                setattr( config ,cfvar         ,float(os.environ[ envar ]))
             else:
+                setattr( config ,cfvar           ,str(os.environ[ envar ]))
                 setattr( config ,cfvar           ,str(os.environ[ envar ]))
 
         if  cfvar == 'cache_sync':
             config.cache_sync = str(config.cache_sync).upper()
 
-        if  cfvar == 'multicast_ip' and ':' in config.multicast_ip:
-            mcip = config.multicast_ip.split(':')
-            config.multicast_ip = mcip[0]
-            if  len(mcip) > 1:
-                config.multicast_port = int(mcip[1])
+        if  cfvar == 'multicast_ip':
+            if ':' in config.multicast_ip:
+                config.multicast_ip   =     config.multicast_ip.split(':')[0]
+                config.multicast_port = int(config.multicast_ip.split(':')[1])
 
         if  _is_valid_multicast_ip( config.multicast_ip ):
             cfgip =  config.multicast_ip
