@@ -7,7 +7,7 @@ table {
 </style>
 -->
 ## Overview
-McCache is a distributed in-memory caching library that is build on the [`cachetools`](https://pypi.org/project/cachetools/) package.
+McCache is a distributed in-memory write through caching library that is build on the [`cachetools`](https://pypi.org/project/cachetools/) package.
 It uses UDP multicasting as the performant transport hence the name "Multi-Cast Cache", playfully abbreviated to "`McCache`".
 
 The goals of this package are:

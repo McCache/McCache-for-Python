@@ -861,6 +861,7 @@ except socket.gaierror:
     pass
 LOG_FORMAT: str = McCacheConfig.log_format
 SRC_IP_ADD: str = f"{LOG_EXTRA['ipv4']}:{os.getpid()}"   # Source IP address.
+SRC_IP_ADD: str = f"{LOG_EXTRA['ipv4']} "   # Source IP address.
 FRM_IP_PAD: str = ' '*len(LOG_EXTRA['ipv4'])
 logger: logging.Logger = logging.getLogger()    # Root logger.
 
@@ -1428,8 +1429,8 @@ def _check_sent_pending() -> None:
             for ip in _mcPending[ pky_t ]['members'].keys():
                 if  _mcPending[ pky_t ]['members'][ ip ]['tries'] > 0:
                     # DEBUG:
-                    if  _mcPending[ pky_t ]['members'][ ip ]['tries'] == 1: # Down to 1 last try.
-                        msg = (OpCode.FYI ,None ,None ,None ,None ,f"{pky_t} need ack. {_mcPending[ pky_t ]}")
+                    if  _mcPending[ pky_t ]['members'][ ip ]['tries'] == 0: # Down to zero last try.
+                        msg = (OpCode.FYI ,pky_t[2] ,pky_t[0] ,pky_t[1] ,None ,f"Acknowledgment needed. {_mcPending[ pky_t ]}")
                         logger.debug(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
                     if  len(_mcPending[ pky_t ]['message']) == len(_mcPending[ pky_t ]['members'][ ip ]['unack']):
@@ -1448,16 +1449,22 @@ def _check_sent_pending() -> None:
                         bads[ pky_t ] = {'members': []}
                     if  ip  not in bads[ pky_t ]['members']:
                         bads[ pky_t ]['members'].append( ip )
+
                 _mcPending[ pky_t ]['members'][ ip ]['tries'] -= 1
 
     # Delete away the unacknowledge packets.
     for pky_t in bads:
-        for ip in bads[ pky_t ]['members']:
-            del _mcPending[ pky_t ]['members'][ ip ]
-            logger.error(f"Key:{pky_t} have NOT be acknowledge by {ip}" ,extra=LOG_EXTRA)
+        try:
+            _lock.acquire()
+            for ip in bads[ pky_t ]['members']:
+                msg = (OpCode.ERR ,pky_t[2] ,pky_t[0] ,pky_t[1] ,None ,f"{ip} NOT acknowledge. Members: {_mcPending[ pky_t ]['members']}")
+                logger.debug(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
+                del _mcPending[ pky_t ]['members'][ ip ]
 
-        if  len(_mcPending[ pky_t ]['members']) == 0:
-            del _mcPending[ pky_t ]
+            if  len(_mcPending[ pky_t ]['members']) == 0:
+                del _mcPending[ pky_t ]
+        finally:
+            _lock.release()
 
 def _check_recv_assembly() -> None:
     """Check the assembly list of fragments for a message.
@@ -1517,21 +1524,30 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sender: str ) ->
     match opc:
         case OpCode.ACK:    # Acknowledgment.
             if  pky in _mcPending:
-                if  sender \
-                    in  _mcPending[ pky ]['members']:
-                    del _mcPending[ pky ]['members'][ sender ]
+                try:
+                    _lock.acquire()
+                    if  sender \
+                        in  _mcPending[ pky ]['members']:
+                        del _mcPending[ pky ]['members'][ sender ]
+                        # DEBUG
+                        msg = (opc ,tsm ,nms ,key ,None ,f"Acknowledged by {sender}.")
+                        logger.debug(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
+                    else:
+                        # Usually this node join the cluster after the other members self annoucement.
+                        msg = (opc ,tsm ,nms ,key ,None ,f"NOT expected from {sender}.")
+                        logger.debug(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
-                    msg = (opc ,tsm ,nms ,None ,None ,f"{pky} is acknowledged by {sender}.")
-                    logger.debug(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
-                else:
-                    msg = (opc ,tsm ,nms ,None ,None ,f"{pky} is NOT expected from {sender}.")
-                    logger.info(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
-
-                if  len(_mcPending[ pky ]['members']) == 0:
-                    del _mcPending[ pky ]
-
-                    msg = (opc ,tsm ,nms ,None ,None ,f"{pky} is fully acknowledged.")
-                    logger.debug(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
+                    if  len(_mcPending[ pky ]['members']) == 0:
+                        del _mcPending[ pky ]
+                        # DEBUG
+                        msg = (opc ,tsm ,nms ,key ,None ,f"Fully acknowledged.")
+                        logger.debug(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
+                finally:
+                    _lock.release()
+                    # DEBUG
+                    if  pky in _mcPending:
+                        msg = (opc ,tsm ,nms ,key ,None ,f"members: {_mcPending[ pky ]['members']}")
+                        logger.debug(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
             else:
                 msg = (opc ,tsm ,nms ,None ,None ,f"{pky} NOT found for acknowledgment from {sender}.")
                 logger.warn(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
@@ -1564,10 +1580,23 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sender: str ) ->
                 logger.info(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
         case OpCode.NEW:    # New member.
-            if  sender not in _mcMember:
+            if  sender not in _mySelf and sender not in _mcMember:
                 _mcMember[ sender ] = tsm   # Timestamp
 
         case OpCode.RAK:    # Re-Acknowledgement
+            # DEBUG received RAK from requestor.
+            if  aky_t   in  _mcArrived:
+                msg = (OpCode.FYI ,tsm ,nms ,key ,None ,"{aky_t} exist in _mcArrived.")
+            else:
+                msg = (OpCode.FYI ,tsm ,nms ,key ,None ,"{aky_t} NOT exist in _mcArrived.")
+            logger.info(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
+            if  key     in  mcc:
+                msg = (OpCode.FYI ,tsm ,nms ,key ,None ,"{key} exist in _mcCache.")
+            else:
+                msg = (OpCode.FYI ,tsm ,nms ,key ,None ,"{key} NOT exist in _mcCache.")
+            logger.info(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
+            #
+
             if  aky_t not in _mcArrived and key in mcc:
                 _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None))
 
@@ -1605,7 +1634,9 @@ def _goodbye() -> None:
     """
     _mcQueue.put((OpCode.MET ,time.time_ns() ,None ,None ,None))
     _mcQueue.put((OpCode.BYE ,time.time_ns() ,None ,None ,None))
-    time.sleep( 1 )
+    if  logger.level == logging.DEBUG:
+        _mcQueue.put((OpCode.INQ ,time.time_ns() ,None ,None ,None))
+    time.sleep( 2 )
 
 def _multicaster() -> None:
     """Dequeue and multicast out the cache operation to all the members in the group.
@@ -1736,7 +1767,7 @@ def _listener() -> None:
             pkt_b ,sender = sock.recvfrom( _mcConfig.packet_mtu )
             fr_ip = sender[0]
             # Maintain the cluster membership.
-            if  fr_ip not in _mcMember:
+            if  fr_ip not in _mySelf and fr_ip not in _mcMember:
                 _mcMember[ fr_ip ] = None
 
             # NOTE: Ignore our own messages and we have collected all the fragments for a message.

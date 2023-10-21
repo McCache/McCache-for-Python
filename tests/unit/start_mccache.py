@@ -32,8 +32,8 @@ for h in mc.logger.handlers:
         h.formatter._fmt = "%(asctime)s.%(msecs)03d %(message)s"
         h.formatter._style._fmt = "%(asctime)s.%(msecs)03d %(message)s"
         # If debugging, output line number of source file for easy reference
-        # h.formatter._fmt = "%(lineno)04d %(asctime)s.%(msecs)03d %(message)s"
-        # h.formatter._style._fmt = "%(lineno)05d %(asctime)s.%(msecs)03d %(message)s"
+        # h.formatter._fmt = "%(asctime)s.%(msecs)03d L#%(lineno)04d %(message)s"
+        # h.formatter._style._fmt = "%(asctime)s.%(msecs)03d L#%(lineno)04d %(message)s"
 
 NEXT_QSEC = 5   # Quanta seconds.
 cache = mc.get_cache()
@@ -47,7 +47,7 @@ end = time.time()
 mc.logger.setLevel( logging.DEBUG ) # Enable detail logging in McCache for testing.
 mc.logger.info(f"Start testing with: Random seed={rndseed:3} Duration={duration:3} min.")
 
-ctr = 0
+ctr = 0 # Counter
 while (end - bgn) < (duration*60):   # Seconds.
     time.sleep( random.randint(1 ,75)/1000.0 )  # Milliseconds
     ctr += 1
@@ -71,4 +71,9 @@ while (end - bgn) < (duration*60):   # Seconds.
             _ = cache.get( key ,None )
     end = time.time()
 
-mc.logger.info(f"Done  testing.")
+# NOTE: Don't dump the raw data out for security reason.
+_mc = {k: mc.checksum( cache[ k ]) for k in sorted( cache.keys() )}
+msg = (mc.OpCode.INQ ,time.time_ns() ,cache.name ,None ,None ,_mc)
+mc.logger.info(f"Im:{mc.SRC_IP_ADD}\tFr:{mc.FRM_IP_PAD}\tMsg:{msg}" ,extra=mc.LOG_EXTRA)
+
+mc.logger.info(f"Im:{mc.SRC_IP_ADD}\tFr:{mc.FRM_IP_PAD}\tDone  testing." ,extra=mc.LOG_EXTRA)
