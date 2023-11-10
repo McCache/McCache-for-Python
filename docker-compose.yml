@@ -10,47 +10,52 @@ services:
     image: mccache-img
     container_name: mccache01
     environment:
-      - MCCACHE_RANDOM_SEED=1
+#     - TEST_IN_DEVMODE=1
+      - TEST_RANDOM_SEED=11
+      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100} # Default to 100 key entries.
+      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5} # Default to   5 minutes.
+      - TEST_MONKEY_TANTRUM=0
+      #
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-      - MCCACHE_MONKEY_TANTRUM=0
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug01.${RUN_TIMESTAMP}.log
       - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
-      - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30}   # Default to 30 key entries.
-      - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}    # Default to  3 minutes.
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug01${RUN_TIMESTAMP}.log
     volumes:
       - ./log:/home/mccache/log
-#   command: python tests/unit/start_mccache.py ;exit
-    command: sleep 25m
+    command: python tests/unit/start_mccache.py ;exit
+#   command: sleep 25m
 
   node02:
     build: .
     image: mccache-img
     container_name: mccache02
     environment:
-      - MCCACHE_RANDOM_SEED=2
+#     - TEST_IN_DEVMODE=1
+      - TEST_RANDOM_SEED=12
+      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100} # Default to 100 key entries.
+      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5} # Default to   5 minutes.
+      - TEST_MONKEY_TANTRUM=0
+      #
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-      - MCCACHE_MONKEY_TANTRUM=0
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug02.${RUN_TIMESTAMP}.log
       - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
-      - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30}   # Default to 30 key entries.
-      - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}    # Default to  3 minutes.
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug02${RUN_TIMESTAMP}.log
     volumes:
       - ./log:/home/mccache/log
-#   command: python tests/unit/start_mccache.py ;exit
-    command: sleep 25m
+    command: python tests/unit/start_mccache.py ;exit
+#   command: sleep 25m
 
 #  node03:
 #    build: .
 #    image: mccache-img
 #    container_name: mccache03
 #    environment:
-#      - MCCACHE_RANDOM_SEED=3
-#      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#      - MCCACHE_MONKEY_TANTRUM=0
-#      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug03.${RUN_TIMESTAMP}.log
-#      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
-#      - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30}   # Default to 30 key entries.
-#      - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}    # Default to  3 minutes.
+#     - TEST_IN_DEVMODE=1
+#     - TEST_RANDOM_SEED=13
+#     - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100} # Default to 100 key entries.
+#     - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5} # Default to   5 minutes.
+#     - TEST_MONKEY_TANTRUM=0
+#     - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
+#     - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug03${RUN_TIMESTAMP}.log
 #    volumes:
 #      - ./log:/home/mccache/log
 #    command: python tests/unit/start_mccache.py ;exit
@@ -61,13 +66,14 @@ services:
 #    image: mccache-img
 #    container_name: mccache04
 #    environment:
-#      - MCCACHE_RANDOM_SEED=4
-#      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#      - MCCACHE_MONKEY_TANTRUM=0
-#      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug04.${RUN_TIMESTAMP}.log
-#      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
-#      - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30}   # Default to 30 key entries.
-#      - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}    # Default to  3 minutes.
+#     - TEST_IN_DEVMODE=1
+#     - TEST_RANDOM_SEED=14
+#     - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100} # Default to 100 key entries.
+#     - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5} # Default to   5 minutes.
+#     - TEST_MONKEY_TANTRUM=0
+#     - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
+#     - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug04${RUN_TIMESTAMP}.log
 #    volumes:
 #      - ./log:/home/mccache/log
 #    command: python tests/unit/start_mccache.py ;exit
@@ -78,82 +84,87 @@ services:
 #    image: mccache-img
 #    container_name: mccache05
 #    environment:
-#      - MCCACHE_RANDOM_SEED=5
-#      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#      - MCCACHE_MONKEY_TANTRUM=0
-#      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug05.${RUN_TIMESTAMP}.log
-#      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
-#      - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30}   # Default to 30 key entries.
-#      - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}    # Default to  3 minutes.
+#     - TEST_IN_DEVMODE=1
+#     - TEST_RANDOM_SEED=15
+#     - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100} # Default to 100 key entries.
+#     - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5} # Default to   5 minutes.
+#     - TEST_MONKEY_TANTRUM=0
+#     - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
+#     - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug05${RUN_TIMESTAMP}.log
 #    volumes:
 #      - ./log:/home/mccache/log
 #    command: python tests/unit/start_mccache.py ;exit
 ##   command: sleep 25m
 #
-# node06:
-#   build: .
-#   image: mccache-img
-#   container_name: mccache06
-#   environment:
-#     - MCCACHE_RANDOM_SEED=6
+#  node06:
+#    build: .
+#    image: mccache-img
+#    container_name: mccache06
+#    environment:
+#     - TEST_IN_DEVMODE=1
+#     - TEST_RANDOM_SEED=16
+#     - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100} # Default to 100 key entries.
+#     - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5} # Default to   5 minutes.
+#     - TEST_MONKEY_TANTRUM=0
 #     - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#     - MCCACHE_MONKEY_TANTRUM=0
-#     - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug06.${RUN_TIMESTAMP}.log
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
-#     - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
-#     - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}   # Default to  3 minutes.
-#   volumes:
-#     - ./log:/home/mccache/log
-#   command: python tests/unit/start_mccache.py ;exit
-##  command: sleep 25m
+#     - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug06${RUN_TIMESTAMP}.log
+#    volumes:
+#      - ./log:/home/mccache/log
+#    command: python tests/unit/start_mccache.py ;exit
+##   command: sleep 25m
 #
-# node07:
-#   build: .
-#   image: mccache-img
-#   container_name: mccache07
-#   environment:
-#     - MCCACHE_RANDOM_SEED=7
+#  node07:
+#    build: .
+#    image: mccache-img
+#    container_name: mccache07
+#    environment:
+#     - TEST_IN_DEVMODE=1
+#     - TEST_RANDOM_SEED=17
+#     - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100} # Default to 100 key entries.
+#     - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5} # Default to   5 minutes.
+#     - TEST_MONKEY_TANTRUM=0
 #     - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#     - MCCACHE_MONKEY_TANTRUM=0
-#     - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug07.${RUN_TIMESTAMP}.log
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
-#     - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
-#     - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}   # Default to  3 minutes.
-#   volumes:
-#     - ./log:/home/mccache/log
-#   command: python tests/unit/start_mccache.py ;exit
-##  command: sleep 25m
+#     - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug07${RUN_TIMESTAMP}.log
+#    volumes:
+#      - ./log:/home/mccache/log
+#    command: python tests/unit/start_mccache.py ;exit
+##   command: sleep 25m
 #
-# node08:
-#   build: .
-#   image: mccache-img
-#   container_name: mccache08
-#   environment:
-#     - MCCACHE_RANDOM_SEED=8
+#  node08:
+#    build: .
+#    image: mccache-img
+#    container_name: mccache08
+#    environment:
+#     - TEST_IN_DEVMODE=1
+#     - TEST_RANDOM_SEED=18
+#     - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100} # Default to 100 key entries.
+#     - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5} # Default to   5 minutes.
+#     - TEST_MONKEY_TANTRUM=0
 #     - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#     - MCCACHE_MONKEY_TANTRUM=0
-#     - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug08.${RUN_TIMESTAMP}.log
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
-#     - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
-#     - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}   # Default to  3 minutes.
-#   volumes:
-#     - ./log:/home/mccache/log
-#   command: python tests/unit/start_mccache.py ;exit
-##  command: sleep 25m
+#     - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug08${RUN_TIMESTAMP}.log
+#    volumes:
+#      - ./log:/home/mccache/log
+#    command: python tests/unit/start_mccache.py ;exit
+##   command: sleep 25m
 #
-# node09:
-#   build: .
-#   image: mccache-img
-#   container_name: mccache09
-#   environment:
-#     - MCCACHE_RANDOM_SEED=9
+#  node09:
+#    build: .
+#    image: mccache-img
+#    container_name: mccache09
+#    environment:
+#     - TEST_IN_DEVMODE=1
+#     - TEST_RANDOM_SEED=19
+#     - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100} # Default to 100 key entries.
+#     - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5} # Default to   5 minutes.
+#     - TEST_MONKEY_TANTRUM=0
 #     - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#     - MCCACHE_MONKEY_TANTRUM=0
-#     - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug09.${RUN_TIMESTAMP}.log
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d %(message)s
-#     - MCCACHE_MAX_ENTRIES=${RUN_MAX_KEYS:-30} # Default to 30 key entries.
-#     - MCCACHE_RUN_DURATION=${RUN_MINUTES:-3}   # Default to  3 minutes.
-#   volumes:
-#     - ./log:/home/mccache/log
-#   command: python tests/unit/start_mccache.py ;exit
-##  command: sleep 25m
+#     - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug09${RUN_TIMESTAMP}.log
+#    volumes:
+#      - ./log:/home/mccache/log
+#    command: python tests/unit/start_mccache.py ;exit
+##   command: sleep 25m

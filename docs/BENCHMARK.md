@@ -6,12 +6,12 @@ Lenovo P14s laptop
 ```
 O/S:    Windows 11 Pro
 CPU:    AMD Ryzen 7 Pro 6850U, 8 cores
-Clock:  2.7 GHz
+Clock:  2.7 GHz (Base)  4.7 GHz (Turbo)
 RAM:    32 Gib
 ```
 
 ### Container
-**Podman** v4.5.1.  Five nodes are spun up via `docker-compose.yml` with the following command:
+**Podman** v4.5.1.  Five nodes were spun up via `docker-compose.yml` with the following command:
 ```
 podman-compose  up  --build  -d
 ```
@@ -32,13 +32,13 @@ grep  MET  ./log/debug*log  |  head -1
     },
     '_mccache_': {
         'count': 1,
-        'size': 0.0051, 'avgspan': 0.011, 'avghits': 3660,
-        'lookups': 1850, 'updates': 1567, 'deletes': 263
+        'size': 0.0051,  'avgspan': 0.011, 'avghits': 3660,
+        'lookups': 1850, 'updates': 1567,  'deletes': 263
     },
     'default': {
         'count': 11,
-        'size': 0.0049, 'avgspan': 0.011, 'avghits': 3660,
-        'lookups': 1850, 'updates': 1567, 'deletes': 263
+        'size': 0.0049,  'avgspan': 0.011, 'avghits': 3660,
+        'lookups': 1850, 'updates': 1567,  'deletes': 263
     }
 })
 ```
