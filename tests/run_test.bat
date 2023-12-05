@@ -32,44 +32,81 @@ FOR /f "tokens=*" %%v IN ('powershell get-date -format "{_yyyyMMdd_HHmm}"') DO S
 :: Parse the command line parameters with the following format:
 :: run_test.bat [ key1 val1 [key2 val2 [key3 val3 [...]]]]
 :: where the case insensitive keys:
-::  MAX_KEYS    The maximum unique keys to use.
-::  RUN_MINS    The maximum duration, in minutes, for this test run.
+::  TEST_MAX_ENTRIES    The maximum unique keys to use.
+::  TEST_RUN_DURATION   The maximum duration, in minutes, for this test run.
+::  TEST_SLEEP_SPAN     The maximum range for the random duration to sleep.
+::  TEST_SLEEP_UNIT     The unit for the sleep duration. 1 = 1s ,10 = 0.1s ,100 = 0.01s ,1000 = 0.001s
+::  TEST_MONKEY_TANTRUM The maximum percentage of simulated drop packets. 0-20
 
-:: Setup the variable RUN_MAX_KEYS to be passed into the container composer.
-SET RUN_MAX_KEYS=30
+:: Setup the variable TEST_MAX_ENTRIES to be passed into the container composer.
+SET TEST_MAX_ENTRIES=30
 
-:: Setup the variable RUN_MINUTES  to be passed into the container composer.
-SET RUN_MINUTES=3
+:: Setup the variable TEST_RUN_DURATION to be passed into the container composer.
+SET TEST_RUN_DURATION=3
+
+:: Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
+SET TEST_SLEEP_SPAN=75
+
+:: Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
+SET TEST_SLEEP_UNIT=100
+
+:: Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
+SET TEST_MONKEY_TANTRUM=0
 
 :: Start of CLI.
 :SOF_CLI
-IF  /I "MAX_KEYS"=="%1" GOTO :SET_MAX_KEYS
-IF  /I "RUN_MINS"=="%1" GOTO :SET_RUN_MINS
-IF  /I         ""=="%1" GOTO :EOF_CLI
+IF  /I "TEST_MAX_ENTRIES"   =="%1" GOTO :SET_TEST_MAX_ENTRIES
+IF  /I "TEST_RUN_DURATION"  =="%1" GOTO :SET_TEST_RUN_DURATION
+IF  /I "TEST_SLEEP_SPAN"    =="%1" GOTO :SET_TEST_SLEEP_SPAN
+IF  /I "TEST_SLEEP_UNIT"    =="%1" GOTO :SET_TEST_SLEEP_UNIT
+IF  /I "TEST_MONKEY_TANTRUM"=="%1" GOTO :SET_TEST_MONKEY_TANTRUM
+IF  /I ""                   =="%1" GOTO :EOF_CLI
 
 ECHO Invalid parameter value.  Try the following:
-ECHO    %0  [MAX_KEYS ###] [RUN_MINS ###]
+ECHO    %0  [TEST_MAX_ENTRIES ###] [TEST_RUN_DURATION ###] [TEST_SLEEP_SPAN ###] [TEST_SLEEP_UNIT ###]
 GOTO :EOF_SCRIPT
 
-:SET_MAX_KEYS
-SET RUN_MAX_KEYS=%2
+:SET_TEST_MAX_ENTRIES
+SET TEST_MAX_ENTRIES=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
 
-:SET_RUN_MINS
-SET RUN_MINUTES=%2
+:SET_TEST_RUN_DURATION
+SET TEST_RUN_DURATION=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
+
+:SET_TEST_SLEEP_SPAN
+SET TEST_SLEEP_SPAN=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+:SET_TEST_SLEEP_UNIT
+SET TEST_SLEEP_UNIT=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+:SET_TEST_MONKEY_TANTRUM
+SET TEST_MONKEY_TANTRUM=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
 :: End of CLI.
 :EOF_CLI
 
 
 ECHO Running McCache test with envar:
-ECHO    RUN_TIMESTAMP: %RUN_TIMESTAMP%
-ECHO    RUN_MAX_KEYS:  %RUN_MAX_KEYS%
-ECHO    RUN_MINUTES:   %RUN_MINUTES%
+ECHO    RUN_TIMESTAMP:      %RUN_TIMESTAMP%
+ECHO    TEST_MAX_ENTRIES:   %TEST_MAX_ENTRIES%
+ECHO    TEST_RUN_DURATION:  %TEST_RUN_DURATION%
+ECHO    TEST_SLEEP_SPAN:    %TEST_SLEEP_SPAN%
+ECHO    TEST_SLEEP_UNIT:    %TEST_SLEEP_UNIT%
+ECHO    TEST_MONKEY_TANTRUM:%TEST_MONKEY_TANTRUM%
 ECHO:
 
 :: The following are CLI input parameter you can use to parse out the script name information.

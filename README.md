@@ -42,11 +42,6 @@ if 'key' not in c:
 ```
 In the above example, there is **nothing** different in the usage of `McCache` from a regular Python dictionary.  However, the benefit is in a clustered environment where the other member's cache are kept coherent with the changes to your local cache.
 
-## Saving
-Removing an external dependency in your architecture reduces it's <strong>complexity</strong> and not to mention some cost saving.
-SEE: [Cloud Savings](https://github.com/McCache/McCache-for-Python/blob/main/docs/SAVING.md)
-
-
 ## Guidelines
 The following are some loose guidelines to help you assess if the `McCache` library is right for your project.
 
@@ -56,6 +51,7 @@ The following are some loose guidelines to help you assess if the `McCache` libr
 * You have a **medium** size set of objects to cache.
 * Your cached objects do not mutate **frequently**.
 * Your cached objects size is **small**.
+* Your all nodes clock are **well** synchronized.
 * Your cluster environment is secured by **other** means.
 
 The adjectives used above have been intended to be loose and should be quantified to your environment and needs.
@@ -74,6 +70,10 @@ We suggest the following testing to collect metrics of your application running 
 3. Configure to enable the debug logging by providing a path for your log file.
 4. Run your application for an extended period and exit.  A metric summary will be logged out.
 5. Review the metrics to quantify the fit to your application and environment.  **SEE**: [Benchmark](https://github.com/McCache/McCache-for-Python/blob/main/BENCHMARK.md#Container)
+
+## Saving
+Removing an external dependency in your architecture reduces it's <strong>complexity</strong> and not to mention some cost saving.
+SEE: [Cloud Savings](https://github.com/McCache/McCache-for-Python/blob/main/docs/SAVING.md)
 
 ## Configuration
 The following are environment variables you can tune to fit your production environment needs.
@@ -114,6 +114,13 @@ SEE: <a href="https://cachetools.readthedocs.io/en/latest/">cachetools</a></td>
     <br><b>SEE</b>: https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml</td>
   </tr>
   <tr>
+    <td><sub>MCCACHE_SEND_LATENCY</sub></td>
+    <td>0.01</td>
+    <td>The pause second between each send message. A congestion control value to slow down the rapid sending out of messages.
+    <br>0.01 = 10 ms</td>
+  </tr>
+  send_latency
+  <tr>
     <td><sub>MCCACHE_MULTICAST_HOPS</sub></td>
     <td>1</td>
     <td>The maxinum network hop. 1 is just within the local subnet. [1-9]</td>
@@ -143,9 +150,9 @@ SEE: <a href="https://cachetools.readthedocs.io/en/latest/">cachetools</a></td>
   </tr>
   <tr>
     <td><sub>TEST_SLEEP_SPAN</sub></td>
-    <td>50</td>
+    <td>100</td>
     <td>The range span where a randomly generated to pause in between cache test operation.
-      The range of random number is between 1 and 50.<br>
+      The range of random number is between 1 and 100.<br>
       The smaller the number, the tighter/rapid the operation applied to the cache.
       Tune this number down to add stress to the test.</td>
   </tr>
@@ -210,6 +217,9 @@ Given the size of each field in the header, we have a limitation of a maximum 25
 The multicasting member will keep track of all the send fragments to all the member in the cluster.  Each member will re-assemble fragments back into a message.  Dropped fragment will be requested for a re-transmission.  Once each member have acknowledge receipt of all fragments, the message for that member is considered complete and be deleted from pending of acknowledgement.  Each member is always listening to traffic and maintaining its own members list.
 
 Collision happens when two or more nodes make a change to a same key at the same time.  The timestamp that is attached to the update is not granular enough to serialize the operation.  In this case, a warning is log and multi-cast out the eviction of this key to prevent the cache from becoming in-coherent.
+
+## Limitation
+* The clocks in a distributed environment is never as accurate (due to clock drift) as we want it to be in a high update environment.  On a Local Area Network, the accuracy could go down to 1ms but 10ms is a safer assumption.  SEE: [NTP](https://timetoolsltd.com/ntp/ntp-timing-accuracy/)
 
 ## Miscellaneous
 SEE: [Determine the size of the MTU in your network.](https://www.youtube.com/watch?v=Od5SEHEZnVU)

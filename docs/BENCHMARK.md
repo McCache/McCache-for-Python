@@ -62,3 +62,17 @@ The above have been manully formatted for readability.
 
 ### Cloud VM
 TBD
+
+### Stress Testing Parameters
+Cache in-coherence is when at least two nodes have different values for the same key.  To stress they `McCahe`, the following is some guidelines to jkeep is realistic:
+* Do **not** saturate your machine.  Stay within 80% or less of  CPU utilization.
+* Keep the number of docker/podman containers to total number of cores on your machine minus one .
+
+The following testing parameters that did **not** produce any cache in-coherence after five consecutive runs among the nodes in my local docker/podman cluster.
+
+
+|Nodes|MAX_ENTRIES|RUN_DURATION|SLEEP_SPAN|SLEEP_UNIT|Status|Comment|
+|:---:|:---------:|:----------:|:--------:|:--------:|:----:|-------|
+| 9   | 100       | 10         | 50       | 5        | OK   |Run for 10 minutes with a maximum of 100 unique keys where a cache operation occurs between 0.2 - 10 seconds.|
+| 9   | 100       | 10         | 10       | 5        |      |Run for 10 minutes with a maximum of 100 unique keys where a cache operation occurs between 0.2 - 2 seconds.|
+| 9   | 200       | 10         | 10       | 5        |      |Run for 10 minutes with a maximum of 200 unique keys where a cache operation occurs between 0.2 - 2 seconds.|

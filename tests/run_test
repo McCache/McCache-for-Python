@@ -24,19 +24,31 @@ export RUN_TIMESTAMP=$(date +'_%Y%m%d_%H%M')
 # where the case insensitive keys:
 #   -k :    The maximum unique keys to use.
 #   -m :    The maximum duration, in minutes, for this test run.
+#   -s :    The maximum range for the random duration to sleep.
+#   -u :    The unit for the sleep duration. 1 = 1s ,10 = 0.1s ,100 = 0.01s ,1000 = 0.001s
+#   -t :    The maximum percentage of simulated drop packets.
 
-# Setup the variable RUN_MAX_KEYS to be passed into the container composer.
-export RUN_MAX_KEYS=30
+# Setup the variable TEST_MAX_ENTRIES to be passed into the container composer.
+export TEST_MAX_ENTRIES=30
 
-# Setup the variable RUN_MINUTES  to be passed into the container composer.
-export RUN_MINUTES=3
+# Setup the variable TEST_RUN_DURATION  to be passed into the container composer.
+export TEST_RUN_DURATION=3
+
+# Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
+export TEST_SLEEP_SPAN=75
+
+# Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
+export TEST_SLEEP_UNIT=100
+
+# Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
+export TEST_MONKEY_TANTRUM=0
 
 # Start of CLI.
-while getopts "k:m:" opt; do
+while getopts "k:m:s:u:t:" opt; do
     case  $opt  in
         k)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
             then
-                RUN_MAX_KEYS=${OPTARG}
+                TEST_MAX_ENTRIES=${OPTARG}
             else
                 echo "Option for -k MUST be a positive integer."
                 exit  1
@@ -44,25 +56,52 @@ while getopts "k:m:" opt; do
             ;;
         m)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
             then
-                RUN_MINUTES=${OPTARG}
+                TEST_RUN_DURATION=${OPTARG}
             else
                 echo "Option for -m MUST be a positive integer."
                 exit  1
             fi
             ;;
+        s)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+            then
+                TEST_SLEEP_SPAN=${OPTARG}
+            else
+                echo "Option for -s MUST be a positive integer."
+                exit  1
+            fi
+            ;;
+        u)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+            then
+                TEST_SLEEP_UNIT=${OPTARG}
+            else
+                echo "Option for -u MUST be a positive integer. 1 = 1s ,10 = 0.1s ,100 = 0.01s ,1000 = 0.001s"
+                exit  1
+            fi
+            ;;
+        t)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+            then
+                TEST_MONKEY_TANTRUM=${OPTARG}
+            else
+                echo "Option for -u MUST be a positive integer. 0-20"
+                exit  1
+            fi
+            ;;
         *)  echo  Invalid parameter value.  Try the following:
-            echo  $0  '[-k ###] [-m ###]'
+            echo  $0  '[-k ###] [-m ###] [-s ###] [-u ###] [-t ###]'
             exit  1
             ;;
     esac
 done
-echo ${RUN_MAX_KEYS} ${RUN_MINUTES}
+echo ${TEST_MAX_ENTRIES} ${TEST_RUN_DURATION}
 # End of CLI.
 
 echo Running McCache test with envar:
-echo    RUN_TIMESTAMP: ${RUN_TIMESTAMP}
-echo    RUN_MAX_KEYS:  ${RUN_MAX_KEYS}
-echo    RUN_MINUTES:   ${RUN_MINUTES}
+echo    RUN_TIMESTAMP:      ${RUN_TIMESTAMP}
+echo    TEST_MAX_ENTRIES:   ${TEST_MAX_ENTRIES}
+echo    TEST_RUN_DURATION:  ${TEST_RUN_DURATION}
+echo    TEST_SLEEP_SPAN:    ${TEST_SLEEP_SPAN}
+echo    TEST_SLEEP_UNIT:    ${TEST_SLEEP_UNIT}
+echo    TEST_MONKEY_TANTRUM:${TEST_MONKEY_TANTRUM}
 echo
 
 # The following are CLI input parameter you can use to parse out the script name information.
@@ -78,7 +117,6 @@ if [ ! -d log ]; then
 else
     rm    -f log/*
 fi
-exit
 
 # Bring up the cluster of containers and wait until we are done exercising the cache.
 #
@@ -86,7 +124,7 @@ echo Starting the test cluster.
 ${CONTAINER_EXE} up --build     # Keep in forground.
 
 # Wait for the test run to be completed in the cluster and test the output log.
-run Run test using the output log from the cluster.
+echo Run test using the output log from the cluster.
 pipenv run  pytest -q .
 
 popd
