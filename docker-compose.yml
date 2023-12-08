@@ -24,10 +24,13 @@ services:
       - TEST_SCRIPT="tests/unit/start_mccache.py"
       #
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug01${RUN_TIMESTAMP}.log
     volumes:
       - ./log:/home/mccache/log
+      - ./src:/home/mccache/src
+      - ./tests:/home/mccache/tests
     command: python tests/unit/start_mccache.py ;exit
 #   command: sleep  25m
 
@@ -46,10 +49,13 @@ services:
       - TEST_SCRIPT="tests/unit/start_mccache.py"
       #
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug02${RUN_TIMESTAMP}.log
     volumes:
       - ./log:/home/mccache/log
+      - ./src:/home/mccache/src
+      - ./tests:/home/mccache/tests
     command: python tests/unit/start_mccache.py ;exit
 #   command: sleep  25m
 
@@ -68,57 +74,66 @@ services:
       - TEST_SCRIPT="tests/unit/start_mccache.py"
       #
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug03${RUN_TIMESTAMP}.log
     volumes:
       - ./log:/home/mccache/log
+      - ./src:/home/mccache/src
+      - ./tests:/home/mccache/tests
     command: python tests/unit/start_mccache.py ;exit
 #   command: sleep  25m
 
-  node04:
-    build: .
-    image: mccache-img
-    container_name: mccache04
-    environment:
-      - TEST_IN_DEVMODE=1
-      - TEST_RANDOM_SEED=19
-      - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
-      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s
-      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
-      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-10}    # Default to  10 minutes.
-      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to   0 percent.
-      - TEST_SCRIPT="tests/unit/start_mccache.py"
-      #
-      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug04${RUN_TIMESTAMP}.log
-    volumes:
-      - ./log:/home/mccache/log
-    command: python tests/unit/start_mccache.py ;exit
-#   command: sleep  25m
-
-  node05:
-    build: .
-    image: mccache-img
-    container_name: mccache05
-    environment:
-      - TEST_IN_DEVMODE=1
-      - TEST_RANDOM_SEED=23
-      - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
-      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s
-      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
-      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-10}    # Default to  10 minutes.
-      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to   0 percent.
-      - TEST_SCRIPT=${TEST_SCRIPT:-"tests/unit/start_mccache.py"}
-      #
-      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug05${RUN_TIMESTAMP}.log
-    volumes:
-      - ./log:/home/mccache/log
-    command: python tests/unit/start_mccache.py ;exit
-#   command: sleep  25m
-
+#  node04:
+#    build: .
+#    image: mccache-img
+#    container_name: mccache04
+#    environment:
+#      - TEST_IN_DEVMODE=1
+#      - TEST_RANDOM_SEED=19
+#      - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
+#      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s
+#      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
+#      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-10}    # Default to  10 minutes.
+#      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to   0 percent.
+#      - TEST_SCRIPT="tests/unit/start_mccache.py"
+#      #
+#      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+##     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+#      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
+#      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug04${RUN_TIMESTAMP}.log
+#    volumes:
+#      - ./log:/home/mccache/log
+#      - ./src:/home/mccache/src
+#      - ./tests:/home/mccache/tests
+#    command: python tests/unit/start_mccache.py ;exit
+##   command: sleep  25m
+#
+#  node05:
+#    build: .
+#    image: mccache-img
+#    container_name: mccache05
+#    environment:
+#      - TEST_IN_DEVMODE=1
+#      - TEST_RANDOM_SEED=23
+#      - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
+#      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s
+#      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
+#      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-10}    # Default to  10 minutes.
+#      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to   0 percent.
+#      - TEST_SCRIPT=${TEST_SCRIPT:-"tests/unit/start_mccache.py"}
+#      #
+#      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+##     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+#      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
+#      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug05${RUN_TIMESTAMP}.log
+#    volumes:
+#      - ./log:/home/mccache/log
+#      - ./src:/home/mccache/src
+#      - ./tests:/home/mccache/tests
+#    command: python tests/unit/start_mccache.py ;exit
+##   command: sleep  25m
+#
 #  node06:
 #    build: .
 #    image: mccache-img
@@ -134,10 +149,13 @@ services:
 #      - TEST_SCRIPT="tests/unit/start_mccache.py"
 #      #
 #      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+##     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+#      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
 #      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug06${RUN_TIMESTAMP}.log
 #    volumes:
 #      - ./log:/home/mccache/log
+#      - ./src:/home/mccache/src
+#      - ./tests:/home/mccache/tests
 #    command: python tests/unit/start_mccache.py ;exit
 ##   command: sleep  25m
 #
@@ -156,13 +174,15 @@ services:
 #      - TEST_SCRIPT="tests/unit/start_mccache.py"
 #      #
 #      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+##     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+#      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
 #      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug07${RUN_TIMESTAMP}.log
 #    volumes:
 #      - ./log:/home/mccache/log
+#      - ./src:/home/mccache/src
+#      - ./tests:/home/mccache/tests
 #    command: python tests/unit/start_mccache.py ;exit
 ##   command: sleep  25m
-
 #  node08:
 #    build: .
 #    image: mccache-img
@@ -178,10 +198,13 @@ services:
 #      - TEST_SCRIPT="tests/unit/start_mccache.py"
 #      #
 #      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+##     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+#      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
 #      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug08${RUN_TIMESTAMP}.log
 #    volumes:
 #      - ./log:/home/mccache/log
+#      - ./src:/home/mccache/src
+#      - ./tests:/home/mccache/tests
 #    command: python tests/unit/start_mccache.py ;exit
 ##   command: sleep  25m
 #
@@ -200,9 +223,12 @@ services:
 #      - TEST_SCRIPT="tests/unit/start_mccache.py"
 #      #
 #      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#      - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+##     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
+#      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
 #      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug09${RUN_TIMESTAMP}.log
 #    volumes:
 #      - ./log:/home/mccache/log
+#      - ./src:/home/mccache/src
+#      - ./tests:/home/mccache/tests
 #    command: python tests/unit/start_mccache.py ;exit
 ##   command: sleep  25m

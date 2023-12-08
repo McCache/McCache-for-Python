@@ -1,6 +1,9 @@
+import base64
 import datetime
+import hashlib
 import logging
 import os
+import pickle
 import random
 import socket
 import time
@@ -32,10 +35,10 @@ duration = 5    # Five minute.
 if 'TEST_RUN_DURATION' in os.environ:
     duration = int(os.environ['TEST_RUN_DURATION'])  # In minutes.
 
-for h in mc.logger.handlers:
-    if  h.formatter._fmt == mc.LOG_FORMAT.replace('{__app__}' ,mc.__app__):
-        h.formatter._fmt = "%(asctime)s.%(msecs)03d L#%(lineno)04d %(message)s"
-        h.formatter._style._fmt = "%(asctime)s.%(msecs)03d L#%(lineno)04d %(message)s"
+# for h in mc.logger.handlers:
+#     if  h.formatter._fmt == mc.LOG_FORMAT.replace('{__app__}' ,mc.__app__):
+#         h.formatter._fmt = "%(asctime)s.%(msecs)03d L#%(lineno)04d %(message)s"
+#         h.formatter._style._fmt = "%(asctime)s.%(msecs)03d L#%(lineno)04d %(message)s"
 
 NEXT_SSEC = 5   # Synchronize seconds.
 cache = mc.get_cache()
@@ -65,16 +68,31 @@ while (end - bgn) < (duration*60):  # Seconds.
     match   opc:
         case 0:
             if  key in cache:
+                msg = (mc.OpCode.FYI ,time.time_ns() ,cache.name ,key ,None ,f"DEL {key} from test script.")
+                mc.logger.info(f"Im:{mc.SRC_IP_ADD}\tFr:{mc.FRM_IP_PAD}\tMsg:{msg}" ,extra=mc.LOG_EXTRA)
+
                 # Evict cache.
                 del cache[ key ]
         case 1|2|3:
             if  key not in cache:
+                val = (mc.SRC_IP_SEQ ,datetime.datetime.utcnow() ,ctr) # The mininum fields to totally randomize the value.
+                pkl: bytes = pickle.dumps( val )
+                crc: str   = base64.b64encode( hashlib.md5( pkl ).digest() ).decode()  # noqa: S324
+                msg = (mc.OpCode.FYI ,time.time_ns() ,cache.name ,key ,crc ,f"INS {key}={val} from test script.")
+                mc.logger.info(f"Im:{mc.SRC_IP_ADD}\tFr:{mc.FRM_IP_PAD}\tMsg:{msg}" ,extra=mc.LOG_EXTRA)
+
                 # Insert cache.
-                cache[ key ] = (datetime.datetime.utcnow() ,ctr)
+                cache[ key ] = val
         case 4|5|6|7|8: # Simulate much more updates than inserts.
             if  key in cache:
+                val = (mc.SRC_IP_SEQ ,datetime.datetime.utcnow() ,ctr) # The mininum fields to totally randomize the value.
+                pkl: bytes = pickle.dumps( val )
+                crc: str   = base64.b64encode( hashlib.md5( pkl ).digest() ).decode()  # noqa: S324
+                msg = (mc.OpCode.FYI ,time.time_ns() ,cache.name ,key ,crc ,f"UPD {key}={val} from test script.")
+                mc.logger.info(f"Im:{mc.SRC_IP_ADD}\tFr:{mc.FRM_IP_PAD}\tMsg:{msg}" ,extra=mc.LOG_EXTRA)
+
                 # Update cache.
-                cache[ key ] = (datetime.datetime.utcnow() ,ctr)
+                cache[ key ] = val
         case _:
             # Look up cache.
             _ = cache.get( key ,None )

@@ -59,6 +59,7 @@ import struct
 import sys
 import threading
 import time
+import traceback
 
 from dataclasses import dataclass, fields
 from enum import Enum, StrEnum
@@ -132,9 +133,6 @@ class Cache(collections.abc.MutableMapping):
         self.__deletes  = 0                 # Total number of deletes since the cache initialization.
         self.__avgHits  = 0                 # Total number of hits to the cache for the average load in 1 minutes spike window.
         self.__avgSpan  = 0                 # The average load between calls that is within 10 minutes apart.
-        # DEBUG
-        if  IN_DEVMODE:
-            self.__prvtsm   = 0
 
     def __setload__(self ,is_update: bool ) -> None:    # noqa: FBT001
         # Collect McCache metric and how rapid the cache being hit on.
@@ -180,34 +178,34 @@ class Cache(collections.abc.MutableMapping):
 
         # McCache addition.
         # NOTE: On Darwin, time.monotonic_ns() return the most granular value.
-        # DEBUG
         if  not tsm:
             tsm = time.time_ns()
-        if  IN_DEVMODE and logger.level == logging.DEBUG:
-            if  tsm:
-                _ts = tsm
-            else:
-                _ts = time.time_ns()
-            msg = (OpCode.FYI ,tsm ,self.name ,key ,None ,f"   Cache.__setitem__() Timestamp: Prv: {self.__prvtsm} ,Inp: {tsm} ,Asg: {_ts} ,Ctr: {time.time_ns()} ,multicast: {multicast}")
-            logger.warning(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
-        tsm = _ts
-
-        # Maintain the metadata for the key.
+        # Maintain the metadata for the local key.
         # TODO: Look into https://github.com/flier/pyfasthash for a faster hash.
         pkl: bytes = pickle.dumps( value )
         crc: str   = base64.b64encode( hashlib.md5( pkl ).digest() ).decode()  # noqa: S324
         self.__meta[ key ] = {'tsm': tsm ,'crc': crc ,'del': False}
 
+        # DEBUG
+        if  logger.level == logging.DEBUG and _mcConfig.in_devmode:
+            msg = (OpCode.FYI ,tsm ,self.name ,key ,crc ,f"1. type(multicast) is {type(multicast)} valus is {multicast}")
+            logger.debug(f"Im:{SRC_IP_ADD}\t   {FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
+
         if  multicast:
+            # DEBUG
+            if  logger.level == logging.DEBUG and _mcConfig.in_devmode:
+                msg = (OpCode.FYI ,tsm ,self.name ,key ,crc ,f"2. type(multicast) is {type(multicast)} valus is {multicast}")
+                logger.debug(f"Im:{SRC_IP_ADD}\t   {FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
+
             # TODO: Reconcile the format with the format that is send out.
             _mcQueue.put((OpCode.UPD ,tsm ,self.name ,key ,value ,crc))
-#           _mcQueue.put((OpCode.UPD ,self.name ,key ,tsm ,value ,crc ,None))
+#           _mcQueue.put((OpCode.UPD ,self.name ,key ,tsm ,crc ,value ,None))
+            # DEBUG
+            if  logger.level == logging.DEBUG and _mcConfig.in_devmode:
+                msg = (OpCode.FYI ,tsm ,self.name ,key ,crc ,f"{OpCode.UPD} Queued. multicast={multicast}")
+                logger.warning(f"Im:{SRC_IP_ADD}\t   {FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
+            #
             self.__setload__( is_update=True )
-        # DEBUG
-        if  IN_DEVMODE and logger.level == logging.DEBUG and self.__prvtsm == tsm:
-            msg = (OpCode.FYI ,tsm ,self.name ,key ,crc ,f"{OpCode.UPD} Timestamp: Prv: {self.__prvtsm} == Cur: {tsm} and Ctr: {time.time_ns()}")
-            logger.warning(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
-            self.__prvtsm = tsm
 
     def __delitem__(self, key, multicast = True ,tsm: int = time.time_ns()):    # noqa: RUF100 FBT002  McCache
         size = self.__size.pop(key)
@@ -215,19 +213,23 @@ class Cache(collections.abc.MutableMapping):
         self.__currsize -= size
 
         # McCache addition.
+        # NOTE: On Darwin, time.monotonic_ns() return the most granular value.
+        if  not tsm:
+            tsm = time.time_ns()
         if  key in self.__meta:
             self.__meta[ key ]['del'] = True
+
         if  multicast:
             crc =  self.__meta[ key ]['crc']
             # TODO: Reconcile the format with the format that is send out.
             _mcQueue.put((OpCode.DEL ,tsm ,self.name ,key ,None ,crc))
 #           _mcQueue.put((OpCode.DEL ,self.name ,key ,tsm ,value ,crc ,None))
+            # DEBUG
+            if  logger.level == logging.DEBUG and _mcConfig.in_devmode:
+                msg = (OpCode.FYI ,tsm ,self.name ,key ,crc ,f"{OpCode.DEL} Queued. multicast={multicast}")
+                logger.warning(f"Im:{SRC_IP_ADD}\t   {FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
+            #
             self.__setload__( is_update=False )
-        #   DEBUG
-        # if  IN_DEVMODE and logger.level == logging.DEBUG and self.__prvtsm == tsm:
-        #     msg = (OpCode.FYI ,tsm ,self.name ,key ,crc ,f"{OpCode.DEL} Timestamp: Prv: {self.__prvtsm} == Cur: {tsm} and Ctr: {time.time_ns()}")
-        #     logger.warning(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
-        # self.__prvtsm = tsm
 
     def __contains__(self, key):
         return key in self.__data
@@ -398,24 +400,16 @@ class LRUCache(Cache):
             self.__update(key)
         return value
 
-    def __setitem__(self, key, value, multicast = True ,tsm: int = None): # noqa: RUF100 FBT002  McCache
-        # DEBUG
-        # The default for `tsm` must stay as None for this value us passed to the super class.
-        # Having it default to `time.time_ns()` caused some "caching" resulting in the value not monotonic.
-        # if  tsm:
-        #     _ts = tsm
-        # else:
-        #     _ts = time.time_ns()
-        # if  IN_DEVMODE and logger.level == logging.DEBUG:
-        #     msg = (OpCode.FYI ,tsm ,self.name ,key ,None ,f"LRUCache.__setitem__() Timestamp: Prv: {self.__lrutsm} ,Inp: {tsm} ,Asg: {_ts} ,Ctr: {time.time_ns()}")
-        #     logger.warning(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
-        #tsm = _ts
-        #self.__lrutsm = tsm
+    def __setitem__(self, key, value, multicast = True ,tsm: int | None = None): # noqa: RUF100 FBT002  McCache
+        # delete this
+        if  logger.level == logging.DEBUG and IN_DEVMODE:
+            msg = (OpCode.FYI ,tsm ,self.name ,key ,None ,f"0. type(multicast) is {type(multicast)} valus is {multicast}")
+            logger.debug(f"Im:{SRC_IP_ADD}\t   {FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
         #
         super().__setitem__(key, value, multicast, tsm)
         self.__update(key)
 
-    def __delitem__(self, key, multicast = True ,tsm: int = None): # noqa: RUF100 FBT002  McCache
+    def __delitem__(self, key, multicast = True ,tsm: int | None = None): # noqa: RUF100 FBT002  McCache
         super().__delitem__(key, multicast)
         del self.__order[key]
 
@@ -817,7 +811,6 @@ class TLRUCache(_TimedCache):
 # McCache Section.
 
 BACKOFF     = {0 ,1 ,2 ,3 ,5 ,8 ,13}    # Fibonacci backoff.  Seen lots of dropped packets in dev if without backing off.
-IN_DEVMODE  = False                     # To turned debugging logs during development.
 ONE_MIB     = 1_048_576                 # 1 Mib
 ONE_NS_SEC  = 10_000_000_000            # One Nano second.
 MAGIC_BYTE  = 0b11111001                # 241 (Pattern + Version)
@@ -830,11 +823,21 @@ class EnableMultiCast(Enum):
     YES = True      # Multicast out the change.
     NO  = False     # Do not multicast out the change.  This is the default.
 
+    def __repr__(self):
+        return self.value
+
+    def __str__(self):
+        return str(self.value)
 
 class SocketWorker(Enum):
     SENDER = True   # The sender of a message.
     LISTEN = False  # The listener for messages.
 
+    def __repr__(self):
+        return self.value
+
+    def __str__(self):
+        return str(self.value)
 
 class McCacheOption(StrEnum):
     # Constants for linter to catch typos instead of at runtime.
@@ -899,7 +902,7 @@ class McCacheConfig:
     monkey_tantrum: int = 0             # Chaos monkey tantrum % level (0 - 99).
     deamon_sleep: int   = SEASON_TIME   # House keeping snooze seconds (0.33 - 3.0).
     random_seed: int    = int(str(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]).split(".")[3])
-    in_devmode: bool    = IN_DEVMODE    # In development mode.  Default to False.
+    in_devmode: bool    = False         # In development mode.  Default to False.
     log_format: str     = f"%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d.%(thread)05d)[%(levelname)s {__app__}@%(lineno)d] %(message)s"
     debug_logfile: str  = 'log/debug.log'
 
@@ -1528,7 +1531,7 @@ def _check_sent_pending() -> None:
         uak = [ip for ip in _mcPending[ pky_t ]['members'].keys() if len(_mcPending[ pky_t ]['members'][ ip ]['backoff']) == 0]
         if  mbr == len(_mcMember) or uak:
             # Re-queue a full message transmission.  Proactive re-transmit has None value.
-            _mcQueue.put((OpCode.REQ ,tsm ,nms ,key ,crc ,None))
+            _mcQueue.put((OpCode.REQ ,tsm ,nms ,key ,None ,crc))
 
         for ip in uak:
             # Re-start the timeout for
@@ -1551,6 +1554,7 @@ def _check_recv_assembly() -> None:
             if  elps > minw:
                 for seq in range( 0 ,len(_mcArrived[ aky_t ]['message'])):
                     if  _mcArrived[ aky_t ]['message'][ seq ] is None:
+                        # FIXME: Rework the following.
                         _mcQueue.put((OpCode.REQ ,time.time_ns() ,aky_t[1] ,aky_t[0] ,f"{SRC_IP_ADD[0]}:{seq}" ,None))
 
                 _ = _mcArrived[ aky_t ]['backoff'].pop()    # Pop off the head of the backoff pause.
@@ -1605,6 +1609,12 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sender: str ) ->
     val: object = val_o[2]  # Value
     mcc: object = get_cache( nms )
 
+    if  logger.level == logging.DEBUG and _mcConfig.in_devmode:
+        if  not sender:
+            sender = FRM_IP_PAD
+        msg = (opc ,tsm ,nms ,key ,crc ,None)
+        logger.debug(f"Im:{SRC_IP_ADD}\tFr:{sender}\tMsg:{msg}" ,extra=LOG_EXTRA)
+
     match opc:
         case OpCode.ACK:    # Acknowledgment.
             if  pky in _mcPending:
@@ -1612,7 +1622,7 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sender: str ) ->
                     in  _mcPending[ pky ]['members']:
                     del _mcPending[ pky ]['members'][ sender ]
                     #   DEBUG
-                    #   if  IN_DEVMODE and logger.level == logging.DEBUG:
+                    #   if  logger.level == logging.DEBUG and _mcConfig.in_devmode:
                     #       msg = (opc ,tsm ,nms ,key ,crc ,f"Acknowledged by {sender}.")
                     #       logger.debug(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
                 else:
@@ -1623,12 +1633,12 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sender: str ) ->
                 if  len(_mcPending[ pky ]['members']) == 0:
                     del _mcPending[ pky ]
                     #   DEBUG
-                    #   if  IN_DEVMODE and logger.level == logging.DEBUG:
+                    #   if  logger.level == logging.DEBUG and _mcConfig.in_devmode:
                     #       msg = (opc ,tsm ,nms ,key ,crc ,"Fully acknowledged.")
-                    #       logger.debug(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
+                    #       logger.debug(f"Im:{SRC_IP_ADD}\tFr:{sender}\tMsg:{msg}" ,extra=LOG_EXTRA)
             else:
                 msg = (opc ,tsm ,nms ,key ,crc ,f"{pky} NOT found for acknowledgment from {sender}.")
-                logger.warning(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
+                logger.warning(f"Im:{SRC_IP_ADD}\tFr:{sender}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
         case OpCode.BYE:    # Goobye from member.
             if  sender in _mcMember:
@@ -1637,7 +1647,7 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sender: str ) ->
         case OpCode.DEL:    # Delete.
             if  key in mcc:
                 # TODO: Should we check for collision?
-                mcc.__delitem__( key ,EnableMultiCast.NO )
+                mcc.__delitem__( key ,None )
             # Acknowledge it.
             _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc))
 
@@ -1661,8 +1671,8 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sender: str ) ->
                 _mcMember[ sender ] = tsm   # Timestamp
 
         case OpCode.RAK:    # Re-Acknowledgement
-            #   DEBUG received RAK from requestor.
-            if  IN_DEVMODE and logger.level == logging.DEBUG:
+            #   DEBUG
+            if  logger.level == logging.DEBUG and _mcConfig.in_devmode:
                 if  aky_t   in  _mcArrived:
                     msg = (OpCode.FYI ,tsm ,nms ,key ,None ,f"{aky_t} exist in _mcArrived.")
                 else:
@@ -1674,12 +1684,12 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sender: str ) ->
                 else:
                     msg = (OpCode.FYI ,tsm ,nms ,key ,None ,f"{key} NOT exist in _mcCache.")
                 logger.info(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
-            #
+
             if  aky_t in _mcArrived:
                 # We keep the arrived messages around to be clened up by house keeping.
                 _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc))
                 #   DEBUG
-                if  IN_DEVMODE and logger.level == logging.DEBUG:
+                if  logger.level == logging.DEBUG and _mcConfig.in_devmode:
                     msg = (OpCode.ACK ,tsm ,nms ,key ,None ,f"{key} Re-Acknowledge.")
                     logger.info(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
             # TODO: Didn't receive anything and need sender to resend.
@@ -1698,14 +1708,19 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sender: str ) ->
                 srl =  mcc.getmeta( key )['tsm']
                 myc =  mcc.getmeta( key )['crc']
             if  srl <  tsm: # Local timestamp is older than the arriving message timestamp.
-                mcc.__setitem__( key ,val ,EnableMultiCast.NO ,tsm )
+                #   DEBUG
+                if  logger.level == logging.DEBUG and _mcConfig.in_devmode:
+                    msg = (OpCode.FYI ,tsm ,nms ,key ,crc ,f"Calling: __setitem__( {key} ,{crc} ,{EnableMultiCast.NO} ,{tsm} )")
+                    logger.info(f"Im:{SRC_IP_ADD}\tFr:{sender}\tMsg:{msg}" ,extra=LOG_EXTRA)
+
+                mcc.__setitem__( key ,val ,None ,tsm )  # EnableMultiCast.NO set to False doesn't inside of "__setitem__()"
             elif srl== tsm and crc == myc:
                 # Re-transmit message.
                 pass
             elif srl>  tsm and crc != myc:
                 # TODO: Look into using the node with the largest 4th IP octet as the tie breaker?
                 msg = (OpCode.NOP ,tsm ,nms ,key ,f"Collision: Not updating! {crc} <> {myc}" ,None)
-                logger.warning(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
+                logger.warning(f"Im:{SRC_IP_ADD}\tFr:{sender}\tMsg:{msg}" ,extra=LOG_EXTRA)
                 # NOTE: Cache in-consistent, evict this key from all members.
                 _mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,None ,crc))
             val = None
@@ -1715,7 +1730,7 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sender: str ) ->
         case _:
             pass
 
-    if  logger.level == logging.DEBUG:
+    if  logger.level == logging.DEBUG and not _mcConfig.in_devmode:
         if  not sender:
             sender = FRM_IP_PAD
         msg = (opc ,tsm ,nms ,key ,crc ,val)
@@ -1789,6 +1804,7 @@ def _multicaster() -> None:
                             #       fr_ip: str     Who requested a re-transmit?
                             #       frg_i: int     Which fragment is requested?
                             #
+                            #   logger.debug(f"val = {val}")    #   1702067353.267835 L#1807 val = 0OA9pyKW2dVa1fiM1/98xg==
                             fr_ip: str =     val.split(':')[0]
                             frg_i: int = int(val.split(':')[1])
                             if  pky_t in _mcPending and frg_i in _mcPending[ pky_t ]['message']:
@@ -1796,9 +1812,11 @@ def _multicaster() -> None:
                             else:
                                 # Inform the requestor that we have an error on our side.
                                 # _mcQueue.put((OpCode.ERR ,pky_t[3] ,pky_t[0] ,pky_t[1] ,None ,None))
-                                logger.error(f"{fr_ip} requested fragment{frg_i:3} for {pky_t} doesn't exist!")
+                                msg = (opc ,tsm ,nms ,key ,crc ,f"{fr_ip} requested fragment{frg_i:3} for {pky_t} doesn't exist!")
+                                logger.error(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
                     else:
-                        logger.error(f"{pky_t} no longer exist in pending!")
+                        msg = (opc ,tsm ,nms ,key ,crc ,f"{pky_t} no longer exist in pending!")
+                        logger.error(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
                 case _:
                     ack: dict = _make_pending_ack( pky_t ,(opc ,crc ,val) ,_mcMember ,_mcConfig.packet_mtu )
@@ -1819,7 +1837,7 @@ def _multicaster() -> None:
                 msg = (opc ,tsm ,nms ,key ,crc ,None)
                 logger.debug(f"Im:{SRC_IP_ADD}\tFr:{FRM_IP_PAD}\tMsg:{msg}" ,extra=LOG_EXTRA)
 
-            if  OpCode.MET:  # Metrics.
+            if  opc == OpCode.MET:  # Metrics.
                 # Query out the local metrics.
                 _mc = _get_cache_metrics( nms )
                 msg = (opc ,tsm ,nms ,None ,None ,_mc)
@@ -1907,12 +1925,13 @@ def _listener() -> None:
                         _mcMember[ fr_ip ] = aky_t[ 3 ]   # aky_t = (sender ,frg_c ,key_s ,tsm)   # Pending assembly key.
         except  Exception as ex:    # noqa: BLE001
             logger.error( ex )
+            traceback.print_exc()
 
 
 # Main Initialization Section.
 #
 logger: logging.Logger = logging.getLogger()    # Root logger.
-_mcConfig = _load_config()
+_mcConfig  = _load_config()
 IN_DEVMODE = _mcConfig.in_devmode
 if  _mcConfig.log_format and _mcConfig.log_format != LOG_FORMAT:
     LOG_FORMAT = _mcConfig.log_format
