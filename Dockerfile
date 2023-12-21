@@ -13,9 +13,14 @@
 #   SEE: https://dzone.com/articles/podman-compose-vs-docker-compose
 #
 
+#RG         IMAGE_VERSION=3.8.18
+#RG         IMAGE_VERSION=3.9.18
+#RG         IMAGE_VERSION=3.10.13
+#RG         IMAGE_VERSION=3.11.6
+ARG         IMAGE_VERSION=3.11.7
+#RG         IMAGE_VERSION=3.12.0
 #RG         IMAGE_VERSION=latest
 #RG         IMAGE_VERSION=slim
-ARG         IMAGE_VERSION=3.11.6
 FROM        python:${IMAGE_VERSION}
 
 ENV         USRGRP=mccache

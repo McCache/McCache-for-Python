@@ -208,7 +208,7 @@ Three deamon threads are started when this package is initialized.  They are:
 2. **Listener**. &nbsp;Whose job is to listen for change operation messages multicasted by other members in the cluster.
 3. **Housekeeper**. &nbsp;Whose job is manage the acknowledgement of multicasted messages.
 
-**UPD** was selected for its speed but it is unreliable.  We have to implement a guaranteed message transfer protocol over it.  We did consider TCP but will have to implement management of peer-to-peer connections.  Multi-casting is implmented on top of UDP and we selected it.
+**UPD** is unreliable.  We have to implement a guaranteed message transfer protocol over it.  We did consider TCP but will have to implement management of peer-to-peer connection manager.  Multi-casting is implmented on top of UDP and we selected it.  In the future as our knowledge expand, we can return to re-evaluate this decision.
 
 A message may be larger than the UDP payload size.  Regardless, we always chunk up the message into fragments plus a header that fully fit into the UPD payload.  Each UDP payload is made up of a fixed length header follow by a variable length message fragment.  The message is further broken up into the key and fragment section as depicted below:
 
@@ -219,10 +219,13 @@ The multicasting member will keep track of all the send fragments to all the mem
 Collision happens when two or more nodes make a change to a same key at the same time.  The timestamp that is attached to the update is not granular enough to serialize the operation.  In this case, a warning is log and multi-cast out the eviction of this key to prevent the cache from becoming in-coherent.
 
 ## Limitation
+* Even though the latency is low, it is still **eventually** be consistent.  There is a very micro chance that an event can split in just before the cache is updated.
 * The clocks in a distributed environment is never as accurate (due to clock drift) as we want it to be in a high update environment.  On a Local Area Network, the accuracy could go down to 1ms but 10ms is a safer assumption.  SEE: [NTP](https://timetoolsltd.com/ntp/ntp-timing-accuracy/)
 
 ## Miscellaneous
-SEE: [Determine the size of the MTU in your network.](https://www.youtube.com/watch?v=Od5SEHEZnVU)
+* SEE: [Determine the size of the MTU in your network.](https://www.youtube.com/watch?v=Od5SEHEZnVU)
+* SEE: [Network maximum transmission unit (MTU) for your EC2 instance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/network_mtu.html)
+Different cloud provider uses different size.
 
 ## Background Story
 This project started as a forum for a diverse bunch of experience colleagues to learn `Python`.  Very soon we decided that we need a more  challenging and real project to implement.  We wanted to learn network and threading programming.  We seach for sample code and ended up with some mutli-casting chat server example as our starting point.  We also talked about all the external services used in some application architecture and wonder if they could be removed to reduce complexity and cost.
