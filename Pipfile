@@ -11,9 +11,6 @@ name = "testpypi"
 [packages]
 psutil = ">=5.9.5"
 
-# Developement tools.
-# Install using:  pipenv install [package] --dev
-
 # Optional production cloud specific packages.
 # Install using:  pipenv install [package] --catgeories cloud_logger cloud_secret
 #
@@ -29,6 +26,9 @@ psutil = ">=5.9.5"
 #google-cloud-secret-manager = ">=2.16"
 #boto3 = ">=1.26"
 #oci = ">=2.104"
+
+# Developement tools.
+# Install using:  pipenv install [package] --dev
 
 [dev-packages]                  # As of 2023-09-04.
 cachetools = ">=5.3.0"          # McCache is build from this library.

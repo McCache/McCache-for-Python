@@ -212,14 +212,14 @@ Three deamon threads are started when this package is initialized.  They are:
 
 A message may be larger than the UDP payload size.  Regardless, we always chunk up the message into fragments plus a header that fully fit into the UPD payload.  Each UDP payload is made up of a fixed length header follow by a variable length message fragment.  The message is further broken up into the key and fragment section as depicted below:
 
-Given the size of each field in the header, we have a limitation of a maximum 255 fragments per message.
+Given the size of each field in the header, we have a limitation of a maximum 255 fragments per message.  The size maximum size of your message shall be 255 multiple by the `packet_mtu` size set in the configuration.
 
 The multicasting member will keep track of all the send fragments to all the member in the cluster.  Each member will re-assemble fragments back into a message.  Dropped fragment will be requested for a re-transmission.  Once each member have acknowledge receipt of all fragments, the message for that member is considered complete and be deleted from pending of acknowledgement.  Each member is always listening to traffic and maintaining its own members list.
 
 Collision happens when two or more nodes make a change to a same key at the same time.  The timestamp that is attached to the update is not granular enough to serialize the operation.  In this case, a warning is log and multi-cast out the eviction of this key to prevent the cache from becoming in-coherent.
 
 ## Limitation
-* Even though the latency is low, it is still **eventually** be consistent.  There is a very micro chance that an event can split in just before the cache is updated.
+* Even though the latency is low, it is still **eventually** be consistent.  There is a very micro chance that an event can slip in just cache is read with the old value.
 * The clocks in a distributed environment is never as accurate (due to clock drift) as we want it to be in a high update environment.  On a Local Area Network, the accuracy could go down to 1ms but 10ms is a safer assumption.  SEE: [NTP](https://timetoolsltd.com/ntp/ntp-timing-accuracy/)
 
 ## Miscellaneous
