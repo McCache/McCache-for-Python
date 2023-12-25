@@ -178,6 +178,7 @@ unfixable = [
 max-complexity = 14
 
 [tool.ruff.pylint]
+max-args = 8
 max-branches = 14
 
 [tool.ruff.isort]

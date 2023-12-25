@@ -49,9 +49,7 @@ end = time.time()
 # Random test section.
 #
 #mc.logger.setLevel( logging.DEBUG ) # Enable detail logging in McCache for testing.
-mc.logger.info(f"Test config: Seed={rndseed:3} ,Duration={duration:3} min ,Keys={entries:3} ,Span={sleepspan:3} ,Unit={sleepunit:3}")
-
-mc.get_cache_checksum( cache.name ) # Query the cache to make sure it is empty.
+mc.logger.info(f"{mc.SRC_IP_ADD} Test config: Seed={rndseed:3} ,Duration={duration:3} min ,Keys={entries:3} ,Span={sleepspan:3} ,Unit={sleepunit:3}")
 
 ctr:int = 0     # Counter
 while (end - bgn) < (duration*60):  # Seconds.
@@ -73,8 +71,7 @@ while (end - bgn) < (duration*60):  # Seconds.
 
                 # DEBUG trace.
                 if  mc.logger.level == logging.DEBUG and mc._mcConfig.debug_level >= mc.McCacheDebugLevel.EXTRA:
-                    msg = (mc.OpCode.DEL ,time.time_ns() ,cache.name ,key ,crc ,f"DEL {key} test.")
-                    mc.logger.info(f"Im:{mc.SRC_IP_ADD}\t   {mc.FRM_IP_PAD}\tMsg: {msg}" ,extra=mc.LOG_EXTRA)
+                    mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f"DEL {key} from test script." )
 
                 # Evict cache.
                 del cache[ key ]
@@ -82,10 +79,9 @@ while (end - bgn) < (duration*60):  # Seconds.
                 # DEBUG trace.
                 if  mc.logger.level == logging.DEBUG and mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLOUS:
                     if  key in cache:
-                        msg = (mc.OpCode.DEL ,time.time_ns() ,cache.name ,key ,crc ,f"ERR:{key} still persist in cache!")
+                        mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f"ERR:{key} still persist in cache!" )
                     else:
-                        msg = (mc.OpCode.UPD ,time.time_ns() ,cache.name ,key ,crc ,f"OK: {key} deleted from cache.")
-                    mc.logger.error(f"Im:{mc.SRC_IP_ADD}\t   {mc.FRM_IP_PAD}\tMsg: {msg}" ,extra=mc.LOG_EXTRA)
+                        mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f"OK: {key} deleted from cache." )
         case 1|2|3:
             if  key not in cache:
                 val = (mc.SRC_IP_SEQ ,datetime.datetime.now(datetime.UTC) ,ctr) # The mininum fields to totally randomize the value.
@@ -94,8 +90,7 @@ while (end - bgn) < (duration*60):  # Seconds.
 
                 # DEBUG trace.
                 if  mc.logger.level == logging.DEBUG and mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLOUS:
-                    msg = (mc.OpCode.UPD ,time.time_ns() ,cache.name ,key ,crc ,f"INS {key}={val} test.")
-                    mc.logger.info(f"Im:{mc.SRC_IP_ADD}\t   {mc.FRM_IP_PAD}\tMsg: {msg}" ,extra=mc.LOG_EXTRA)
+                    mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f"INS {key}={val} from test script." )
 
                 # Insert cache.
                 cache[ key ] = val
@@ -103,13 +98,12 @@ while (end - bgn) < (duration*60):  # Seconds.
                 # DEBUG trace.
                 if  mc.logger.level == logging.DEBUG and mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLOUS:
                     if  key not in cache:
-                        msg = (mc.OpCode.UPD ,time.time_ns() ,cache.name ,key ,crc ,f"ERR:{key} NOT persisted in cache!")
+                        mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f"ERR:{key} NOT persisted in cache!" )
                     else:
                         if  val != cache[ key ]:
-                            msg = (mc.OpCode.UPD ,time.time_ns() ,cache.name ,key ,crc ,f"ERR:{key} value is incoherent in cache!")
+                            mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f"ERR:{key} value is incoherent in cache!" )
                         else:
-                            msg = (mc.OpCode.UPD ,time.time_ns() ,cache.name ,key ,crc ,f"OK: {key} persisted in cache.")
-                    mc.logger.error(f"Im:{mc.SRC_IP_ADD}\t   {mc.FRM_IP_PAD}\tMsg: {msg}" ,extra=mc.LOG_EXTRA)
+                            mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f"OK: {key} persisted in cache." )
         case 4|5|6|7|8|9:   # Simulate much more updates than inserts.
             if  key in cache:
                 val = (mc.SRC_IP_SEQ ,datetime.datetime.now(datetime.UTC) ,ctr) # The mininum fields to totally randomize the value.
@@ -118,8 +112,7 @@ while (end - bgn) < (duration*60):  # Seconds.
 
                 # DEBUG trace.
                 if  mc.logger.level == logging.DEBUG and mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLOUS:
-                    msg = (mc.OpCode.UPD ,time.time_ns() ,cache.name ,key ,crc ,f"UPD {key}={val} in test script.")
-                    mc.logger.info(f"Im:{mc.SRC_IP_ADD}\t   {mc.FRM_IP_PAD}\tMsg: {msg}" ,extra=mc.LOG_EXTRA)
+                    mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f"UPD {key}={val} in test script." )
 
                 # Update cache.
                 cache[ key ] = val
@@ -152,13 +145,8 @@ time.sleep(NEXT_SSEC +(NEXT_SSEC - (bgnsec % NEXT_SSEC)))   # Try to get the clu
 end = time.time()
 
 # Format ouput to be consistent with the McCache log format.
-msg = (mc.OpCode.NOP ,None ,None ,None ,None ,'Done  testing.')
-mc.logger.info(f"Im:{mc.SRC_IP_ADD}\t   {mc.FRM_IP_PAD}\tMsg: {msg}" ,extra=mc.LOG_EXTRA)
-
-msg = (mc.OpCode.NOP ,None ,None ,None ,None ,'Querying cache checksum.')
-mc.logger.info(f"Im:{mc.SRC_IP_ADD}\t   {mc.FRM_IP_PAD}\tMsg: {msg}" ,extra=mc.LOG_EXTRA)
+mc.logger.info(f"{mc.SRC_IP_ADD} Done testing. Querying final cache checksum.")
 
 mc.get_cache_checksum( cache.name ) # Query the cache at exit.
 
-msg = (mc.OpCode.NOP ,None ,None ,None ,None ,'Exiting.')
-mc.logger.info(f"Im:{mc.SRC_IP_ADD}\t   {mc.FRM_IP_PAD}\tMsg: {msg}" ,extra=mc.LOG_EXTRA)
+mc.logger.info(f"{mc.SRC_IP_ADD} Exiting.")
