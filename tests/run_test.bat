@@ -1,7 +1,8 @@
+:: Dependent on your environment having the Unix/Linux utilties.  SEE: Installing Git with Optional Unix tools.
 :: SEE: https://ss64.com/nt/syntax-variables.html
 :: Change the following to ECHO ON to trace the execution.
 @ECHO OFF
-@ECHO ON
+::@ECHO ON
 
 :: Check if either podman or docker is installed.
 ::
@@ -39,13 +40,13 @@ FOR /f "tokens=*" %%v IN ('powershell get-date -format "{_yyyyMMdd_HHmm}"') DO S
 ::  TEST_MONKEY_TANTRUM The maximum percentage of simulated drop packets. 0-20
 
 :: Setup the variable TEST_MAX_ENTRIES to be passed into the container composer.
-SET TEST_MAX_ENTRIES=30
+SET TEST_MAX_ENTRIES=100
 
 :: Setup the variable TEST_RUN_DURATION to be passed into the container composer.
-SET TEST_RUN_DURATION=3
+SET TEST_RUN_DURATION=5
 
 :: Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
-SET TEST_SLEEP_SPAN=75
+SET TEST_SLEEP_SPAN=100
 
 :: Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
 SET TEST_SLEEP_UNIT=100
@@ -121,7 +122,7 @@ ECHO:
 
 :: Change over to the project root directory no matter where this script is invoked.
 SET     ROOTDIR=%~p0
-SET     ROOTDIR=%ROOT:tests\=%
+SET     ROOTDIR=%ROOTDIR:tests\=%
 PUSHD  %ROOTDIR%
 
 :: Create the log directory if it doesn't exist, else empty the directory before we start.
@@ -136,7 +137,11 @@ ECHO Starting the test cluster.
 
 :: Wait for the test run to be completed in the cluster and test the output log.
 ECHO Run test using the output log from the cluster.
-pipenv run  pytest -q .
+
+:: Extract out and clean up the INQ result from each of the debug log files into a result file.
+tail log/debug0*.log |grep "INQ" |grep -Ev "Fr:|Multicasted" |sed "s/{/\n  /" |tr "}" "\n"  > log/result.txt
+
+:: pipenv run  pytest -q .
 
 :EOF_SCRIPT
 POPD

@@ -1469,7 +1469,7 @@ def _collect_fragment( pkt_b: bytes ,sender: str ) -> ():
         # Packet is "unicasted", but not to me.
         return  False
 
-    # Packet is multicast to all members.
+    # Packet is to be multicast to all members.
     aky_t: tuple = (sender ,frg_c ,key_s ,tsm)    # Pending assembly key.
     if  aky_t not in _mcArrived:
         _mcArrived[ aky_t ] = { 'initon':  tsm,

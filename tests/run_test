@@ -29,13 +29,13 @@ export RUN_TIMESTAMP=$(date +'_%Y%m%d_%H%M')
 #   -t :    The maximum percentage of simulated drop packets.
 
 # Setup the variable TEST_MAX_ENTRIES to be passed into the container composer.
-export TEST_MAX_ENTRIES=30
+export TEST_MAX_ENTRIES=100
 
 # Setup the variable TEST_RUN_DURATION  to be passed into the container composer.
-export TEST_RUN_DURATION=3
+export TEST_RUN_DURATION=5
 
 # Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
-export TEST_SLEEP_SPAN=75
+export TEST_SLEEP_SPAN=100
 
 # Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
 export TEST_SLEEP_UNIT=100
@@ -125,6 +125,10 @@ ${CONTAINER_EXE} up     # Keep in foreground.
 
 # Wait for the test run to be completed in the cluster and test the output log.
 echo Run test using the output log from the cluster.
+
+# Extract out and clean up the INQ result from each of the debug log files into a result file.
+tail log/debug0*.log |grep "INQ" |grep -Ev "Fr:|Multicasted" |sed "s/{/\n  /" |tr "}" "\n"  > log/result.txt
+
 pipenv run  pytest -q .
 
 popd
