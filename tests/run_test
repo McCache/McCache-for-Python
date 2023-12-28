@@ -43,8 +43,11 @@ export TEST_SLEEP_UNIT=100
 # Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
 export TEST_MONKEY_TANTRUM=0
 
+# Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
+export TEST_CLUSTER_SIZE=3
+
 # Start of CLI.
-while getopts "k:m:s:u:t:" opt; do
+while getopts "k:m:s:u:t:c:" opt; do
     case  $opt  in
         k)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
             then
@@ -86,6 +89,14 @@ while getopts "k:m:s:u:t:" opt; do
                 exit  1
             fi
             ;;
+        c)  if  [[ $OPTARG =~ ^[2-9]$ ]]
+            then
+                TEST_CLUSTER_SIZE=${OPTARG}
+            else
+                echo "Option for -c MUST be a positive integer. 2-9"
+                exit  1
+            fi
+            ;;
         *)  echo  Invalid parameter value.  Try the following:
             echo  $0  '[-k ###] [-m ###] [-s ###] [-u ###] [-t ###]'
             exit  1
@@ -102,6 +113,7 @@ echo    TEST_RUN_DURATION:  ${TEST_RUN_DURATION}
 echo    TEST_SLEEP_SPAN:    ${TEST_SLEEP_SPAN}
 echo    TEST_SLEEP_UNIT:    ${TEST_SLEEP_UNIT}
 echo    TEST_MONKEY_TANTRUM:${TEST_MONKEY_TANTRUM}
+echo    TEST_CLUSTER_SIZE:  ${TEST_CLUSTER_SIZE}
 echo
 
 # The following are CLI input parameter you can use to parse out the script name information.
@@ -118,10 +130,19 @@ else
     rm    -f log/*
 fi
 
+# Initialize a minimum of three nodes.
+NODE01=node01
+NODE02=node02
+NODE03=node03
+
+for v in $(seq 1 ${TEST_CLUSTER_SIZE}); do  NODE0${v}=node0${v}; done
+
 # Bring up the cluster of containers and wait until we are done exercising the cache.
 #
 echo Starting the test cluster.
-${CONTAINER_EXE} up     # Keep in foreground.
+# Keep in foregound with the maximum of 9 nodes as specified in "docker-compose.yml"
+${CONTAINER_EXE} up  %NODE01% %NODE02% %NODE03% %NODE04% %NODE05% %NODE06% %NODE07% %NODE08% %NODE09%
+
 
 # Wait for the test run to be completed in the cluster and test the output log.
 echo Run test using the output log from the cluster.
