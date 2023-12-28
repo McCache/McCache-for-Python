@@ -132,7 +132,7 @@ IF NOT EXIST  log (MD log) ELSE (DEL /q log\*)
 ::
 ECHO Starting the test cluster.
 :: Keep in forgound
-%CONTAINER_EXE% up  --build
+%CONTAINER_EXE% up      &:: Keep in foreground.
 
 :: Wait for the test run to be completed in the cluster and test the output log.
 ECHO Run test using the output log from the cluster.
