@@ -1806,7 +1806,7 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                 pass
             elif lts >  tsm and crc != lcs:
                 # TODO: Look into using the node with the largest 4th IP octet as the tie breaker?
-                _log_ops_msg( logging.WARNING ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"Cache incoherent: Evict {key}! {lcs} <> {crc}" )
+                _log_ops_msg( logging.WARNING ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"Cache incoherent: Evict {key}! {lts} > {tsm} and {lcs} <> {crc}" )
 
                 # NOTE: Cache in-consistent, evict this key from all members.
                 del mcc[ key ]
