@@ -105,6 +105,13 @@ target-version = ["py310"]
 line-length = 160   # But you should exercise good judgement and keep it as short as possible.
 skip-string-normalization = true
 
+[tool.pytest.ini_options]
+pythonpath = "src"
+testpaths = [
+    "tests/unit",
+    "tests/e2e",
+]
+
 [tool.ruff]
 target-version = "py310"
 line-length = 160
@@ -178,6 +185,7 @@ unfixable = [
 max-complexity = 14
 
 [tool.ruff.pylint]
+max-args = 8
 max-branches = 14
 
 [tool.ruff.isort]

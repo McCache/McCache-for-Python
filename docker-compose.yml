@@ -24,8 +24,8 @@ services:
       - TEST_SCRIPT="tests/unit/start_mccache.py"
       #
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
-      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug01${RUN_TIMESTAMP}.log
     volumes:
       - ./log:/home/mccache/log
@@ -49,8 +49,8 @@ services:
       - TEST_SCRIPT="tests/unit/start_mccache.py"
       #
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
-      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug02${RUN_TIMESTAMP}.log
     volumes:
       - ./log:/home/mccache/log
@@ -74,15 +74,15 @@ services:
       - TEST_SCRIPT="tests/unit/start_mccache.py"
       #
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
-      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug03${RUN_TIMESTAMP}.log
     volumes:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     command: python tests/unit/start_mccache.py ;exit
-#   command: sleep  25m
+#   command: sleep  25m#
 
   node04:
     build: .
@@ -99,16 +99,15 @@ services:
       - TEST_SCRIPT="tests/unit/start_mccache.py"
       #
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
-      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug04${RUN_TIMESTAMP}.log
     volumes:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     command: python tests/unit/start_mccache.py ;exit
-#   command: sleep  25m
-
+#   command: sleep  25m#
   node05:
     build: .
     image: mccache-img
@@ -124,16 +123,15 @@ services:
       - TEST_SCRIPT=${TEST_SCRIPT:-"tests/unit/start_mccache.py"}
       #
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
-      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug05${RUN_TIMESTAMP}.log
     volumes:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     command: python tests/unit/start_mccache.py ;exit
-#   command: sleep  25m
-
+#   command: sleep  25m#
   node06:
     build: .
     image: mccache-img
@@ -149,16 +147,15 @@ services:
       - TEST_SCRIPT="tests/unit/start_mccache.py"
       #
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
-      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug06${RUN_TIMESTAMP}.log
     volumes:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     command: python tests/unit/start_mccache.py ;exit
-#   command: sleep  25m
-
+#   command: sleep  25m#
   node07:
     build: .
     image: mccache-img
@@ -174,16 +171,15 @@ services:
       - TEST_SCRIPT="tests/unit/start_mccache.py"
       #
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
-      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug07${RUN_TIMESTAMP}.log
     volumes:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     command: python tests/unit/start_mccache.py ;exit
-#   command: sleep  25m
-
+#   command: sleep  25m#
   node08:
     build: .
     image: mccache-img
@@ -199,16 +195,15 @@ services:
       - TEST_SCRIPT="tests/unit/start_mccache.py"
       #
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
-      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug08${RUN_TIMESTAMP}.log
     volumes:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     command: python tests/unit/start_mccache.py ;exit
-#   command: sleep  25m
-
+#   command: sleep  25m#
   node09:
     build: .
     image: mccache-img
@@ -224,8 +219,8 @@ services:
       - TEST_SCRIPT="tests/unit/start_mccache.py"
       #
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
-#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [L#%(lineno)04d %(levelname)s] %(message)s
-      - MCCACHE_LOG_FORMAT=%(created)f L#%(lineno)04d %(message)s
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
+      - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug09${RUN_TIMESTAMP}.log
     volumes:
       - ./log:/home/mccache/log

@@ -12,7 +12,7 @@ name = "testpypi"
 psutil = ">=5.9.5"
 
 # Optional production cloud specific packages.
-# Install using:  pipenv install [package] --catgeories cloud_logger cloud_secret
+# Install using:  pipenv install [package] --catgeories "cloud_logger cloud_secret"
 #
 # DON'T install multiple vendors.  Install ONLY one.
 
@@ -42,7 +42,9 @@ mypy = ">=1.5.1"                # Static type checker for Python.
 #blue = ">=0.9.1"               # Less uncompromising code formatter compared to 'black'.
 ruff = ">=0.0.287"              # Extremely fast Python linter.  Use this as the default.
 vulture = ">=2.9.1"             # Dead code scanner.
-pytest = ">=7.4.0"              # Unit testing framework.
+pytest = ">=7.4.3"              # Unit testing framework.
+pytest-bdd = ">=7.0.1"          # Subset of Gherkin language for Behavioral Driven Development.
+pytest-docker = ">=2.0.1"       # Docker based image testing.
 coverage = ">=7.3.1"            # Measure code coverage.
 hatch = ">=1.7.0"               # The build tool.
 faker = ">=20.0.3"              # Test data faker.
