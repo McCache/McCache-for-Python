@@ -9,28 +9,27 @@ import time
 import threading
 
 from collections import OrderedDict
-#from collections.abc import dict_items, dict_keys ,dict_values
 from inspect import getframeinfo, stack
 from typing import Any ,Iterable
 
 
 class Cache( OrderedDict ):
+#class Cache( dict ):
     """Cache based of the dict object.
 
     Functionality:
         - Maintain usage metrics.
         - Default as LFU cache.
         - Optionally with a time-to-live eviction.
-        - Soft delete expired entries until eviction.
     """
     ONE_NS_SEC  = 10_000_000_000    # One Nano second.
     ONE_NS_MIN  = ONE_NS_SEC *60    # One Nano minute.
     TSM_VERSION = time.monotonic_ns if sys.platform == 'darwin' else time.time_ns
 
-    def __init__(self ,*args ,**kwargs) -> None:
+    def __init__(self ,other=(), /, **kwargs) -> None:  # NOTE: The / as an argument marks the end of arguments that are positional.
         """Cache constructor.
-
-        Args:
+        other:
+        kwargs:
             name    :str    Name for this instance of the cache.
             max     :int    Max entries threshold for triggering entries eviction. Default to `256`.
             size    :int    Max size in bytes threshold for triggering entries eviction. Default to `64K`.
@@ -50,6 +49,7 @@ class Cache( OrderedDict ):
         self.__queue    :queue.Queue    = None
         self.__debug    :bool   = False # Internal debug is disabled.
         self.__logmsg   :str    = 'L#{lno:>4}\tIm:{to}\tOp:{opc}\tTs:{tsm}\tNm:{nms}\tKy:{key}\tCk:{crc}\tMg:{msg}'
+        self.__meta     :dict   = {}
         # Public instance metrics.
         self.__resetmetrics()
 
@@ -89,11 +89,15 @@ class Cache( OrderedDict ):
         self.spikes   :int    = 0   # Total number of hits to the cache where previous hit was <= 5 seconds ago.
         self.spikeDur :float  = 0.0 # Average spike duration between updates.
 
-    # Public instance properits.
+    # Public instance properties in alphabetical order.
     #
     @property
-    def name(self) -> str:
-        return  self.__name
+    def logger(self) -> logging.Logger:
+        return  self.__logger
+
+    @property
+    def logmsg(self) -> str:
+        return  self.__logmsg
 
     @property
     def maxlen(self) -> int:
@@ -104,71 +108,55 @@ class Cache( OrderedDict ):
         return  self.__maxsize
 
     @property
-    def ttl(self) -> int:
-        return  self.__ttl
+    def metadata(self) -> dict:
+        return  self.__meta
+
+    @property
+    def name(self) -> str:
+        return  self.__name
 
     @property
     def touchon(self) -> int:
         return  self.__touchon
 
     @property
-    def logger(self) -> logging.Logger:
-        return  self.__logger
+    def ttl(self) -> int:
+        return  self.__ttl
 
     @property
     def queue(self) -> queue.Queue:
         return  self.__queue
 
-    @property
-    def logmsg(self) -> str:
-        return  self.__logmsg
-
-    # Private dictionary magic/dunder methods section.
+    # Private dictionary magic/dunder methods overwrite section.
     #
-    def __getitem__(self ,__key: Any ) -> Any:
-        if  self.__contains__( __key ):
-            val = super().__getitem__( __key )
-            if  not val['_del']:    # Active ,not soft deleted.
-                self.lookups += 1
-                return val['_val']  # Unwrap the value.
-        raise KeyError( __key )
-
     def __delitem__(self ,__key: Any ,__multicast: bool = True ,tsm: int = None) -> None:
-        if  tsm is None:
-            tsm = Cache.TSM_VERSION()
-        if  self.__contains__( __key ):
-             val = super().__getitem__( __key )
-             val['_del'] = True
-             self.move_to_end( __key ,last=True )    # FIFO
-             # TODO: Flesh out how exactly do we do soft delete.  In the mean time we do hard delete.
-             if  self.__queue and __multicast:
-                 self.__queue.put(('DEL' ,tsm ,self.__name ,__key ,val['_crc'] ,None))
-             self._setspike()
+        self.move_to_end( __key ,last=True )    # FIFO
         super().__delitem__( __key )
+        # TODO: Flesh out how exactly do we do soft delete.  In the mean time we do hard delete.
+        self.__meta[ __key ]['del'] = True
+        del self.__meta[ __key ]
+        if  self.__queue and __multicast:
+            if  tsm is None:
+                tsm = Cache.TSM_VERSION()
+            self.__queue.put(('DEL' ,tsm ,self.__name ,__key ,self.__meta[ __key ]['crc'] ,None))
+        self.deletes += 1
+        self._setspike()
 
-    def __setitem__(self ,__key: Any ,__value: Any ,__multicast: bool = True ,tsm: int = None) -> None:
-        t = self.__name
-        update  :bool = self.__contains__( __key )
-        if  tsm is None:
-            tsm =  Cache.TSM_VERSION()
-        md5 = hashlib.md5( bytearray(str( __value) ,encoding='utf-8') ).digest()    # Keep it small until we need to display it.
-        val = {'_tsm': tsm ,'_del': False ,'_crc': md5 ,'_val': __value}            # Wrap the value with metadata.
+    def __getitem__(self, __key: Any) -> Any:
+        val = super().__getitem__( __key )
+        self.lookups += 1
+        return val
+
+    def __setitem__(self, __key: Any, __value: Any ,__multicast: bool = True ,tsm: int = None) -> None:
+        update: bool = self.__contains__( __key )   # If exist we are in UPD mode, else INS mode.
 
         # NOTE: Very coarse way to check for eviction.  Not meant to be precise.
         #if (super().__sizeof__() + sys.getsizeof( val ) > self.__maxsize) or (super().__len__() > self.__maxlen -1):
         #    self._evictitems( tsm=tsm ,multicast=__multicast )
 
-        super().__setitem__( __key ,val )
-        if  self.__queue and __multicast:
-            self.__queue.put(('UPD' if update else 'INS' ,tsm ,self.__name ,__key ,md5 ,__value))
+        super().__setitem__(__key, __value)
+        self._postset( __key ,__value ,tsm ,update ,__multicast )
         self._setspike()
-
-        # Increment metrics.
-        if  update:
-            self.updates += 1
-            self.move_to_end( __key ,last=True )    # FIFO
-        else:
-            self.inserts += 1
 
     # This class private method section.
     #
@@ -177,17 +165,34 @@ class Cache( OrderedDict ):
         if  self.__ttl > 0:
             now = Cache.TSM_VERSION()
             ttl = self.__ttl * Cache.ONE_NS_MIN     # Convert minutes in nano second.
-            for key ,val in super().items():
-                if  now - val['_tsm'] > ttl:
+            for key ,val in self.__meta.items():
+                if  now - val['tsm'] > ttl:
                     val = self._pop( key )
-                    if  self.__queue and multicast and not val['_del']: # Not soft delete.:
-                        md5 =  val['_crc'] if isinstance( val ,dict ) and '_val' in val else None
+                    if  self.__queue and multicast and not val['del']: # Not soft delete.:
+                        md5 =  val['crc'] if isinstance( val ,dict ) and 'val' in val else None
                         self.__queue.put(('EVT' ,tsm ,self.__name ,key ,md5 ,None))
         if  evt == 0:
             key ,val = self._popitem( last=False )  # FIFO.
-            md5 =  val['_crc'] if isinstance( val ,dict ) and '_val' in val else None
+            md5 =  val['crc'] if isinstance( val ,dict ) and 'val' in val else None
             if  self.__queue and multicast:
                 self.__queue.put(('EVT' ,tsm ,self.__name ,key ,md5 ,None))
+
+    def _postset(self ,key: Any ,value: Any ,tsm: int ,update: bool , multicast: bool):
+        if  tsm is None:
+            tsm =  Cache.TSM_VERSION()
+        md5 = hashlib.md5( bytearray(str( value ) ,encoding='utf-8') ).digest()    # Keep it small until we need to display it.
+        met = {'tsm': tsm ,'crc': md5 ,'del': False}
+        self.__meta[ key ] = met  # Only after a successful set by parent.
+
+        if  self.__queue and multicast:
+            self.__queue.put(('UPD' if update else 'INS' ,tsm ,self.__name ,key ,md5 ,value))
+
+        # Increment metrics.
+        if  update:
+            self.updates += 1
+            self.move_to_end( key ,last=True )    # FIFO
+        else:
+            self.inserts += 1
 
     def _setspike(self ,now: int = None ) -> None:
         if  now is None:
@@ -198,6 +203,7 @@ class Cache( OrderedDict ):
             self.__touchon  = now
             if  span <= (5 * Cache.ONE_NS_SEC): # 5 seconds.
                 self.spikeDur = ((self.spikeDur * self.spikes) + span) / (self.spikes + 1)
+
                 self.spikes  += 1
 
     def _log_ops_msg(self,
@@ -233,73 +239,52 @@ class Cache( OrderedDict ):
     # SEE: https://www.programiz.com/python-programming/methods/dictionary/copy
     # SEE: https://www.geeksforgeeks.org/ordereddict-in-python/
     #
-    def clear(self) -> None:
-        self.__resetmetrics()
-        return super().clear()
 
-    def copy(self) -> dict:
-        raise NotImplementedError("Cache should NOT be shallow copied.")
-
-    @classmethod
-    def fromkeys(cls ,__iterable: Iterable ,__value: None = None) -> dict:
-        self = cls()
-        for key in __iterable:
-            self[ key ] = __value
-#       return self
-        raise NotImplementedError("Use dict.fromkeys method instead.")
+#   def clear(self) -> None: ...
+#   def copy(self) -> dict: ...
+#   @classmethod
+#   def fromkeys(cls ,__iterable: Iterable ,__value: None = None) -> dict: ...
 
     def get(self ,__key: Any ,__default: Any | None=None ) -> dict:
-        vl = super().get( __key ,__default )
-        if  isinstance( vl ,dict ) and '_val' in vl:
-            return ['_val']    # Unwrap the value.
-        else:
-            return vl
+        val = super().get( __key ,__default )
+        self.lookups += 1
+        return val
 
-    def _items(self):
-        return super().items()  # Raw wrapped data with metadata.
-
-    def items(self):
-        # TODO: Figure out a better way to return the items in the expected "dict_items" view.
-        return OrderedDict([(e[0] ,e[1]['_val']) for e in super().items()]).items()
-
-    def _pop(self ,__key: Any ,__default: Any | None=None ) -> Any:
-        # NOTE: OrderedDict.pop() doesn't call internal dunder method.
-        val = super().pop( __key ,__default)
-        self.deletes -= 1
-        self._setspike()
-        return  val
+#   def items(self): ...
 
     def pop(self ,__key: Any ,__default: Any | None=None ) -> Any:
-        val = self._pop( __key ,__default )
-        if  isinstance( val ,dict ) and '_val' in val:
-            return val['_val']    # Unwrap the value.
-        else:
-            return val
+        val = super().pop( __key ,__default )
+        # TODO: Flesh out how exactly do we do soft delete.  In the mean time we do hard delete.
+        self.__meta[ __key ]['del'] = True
+        del self.__meta[ __key ]
+        self.deletes += 1
+        self._setspike()
+        return val
 
-    def _popitem(self ,last=True) -> tuple:
-        # NOTE: OrderedDict.popitem() doesn't call internal dunder method.
+    def popitem(self ,last=True) -> tuple:
         key ,val = super().popitem( last )
-        self.deletes -= 1
+        # TODO: Flesh out how exactly do we do soft delete.  In the mean time we do hard delete.
+        self.__meta[ key ]['del'] = True
+        del self.__meta[ key ]
+        self.deletes += 1
         self._setspike()
         return (key ,val)
 
-    def popitem(self ,last=True) -> tuple:
-        key ,val = self._popitem( last )
-        return (key ,val['_val']  if isinstance( val ,dict ) and '_val' in val else val)
-
-    def setdefault(self, __key ,__default: Any | None=None ):
-        if  __key   in  self:
-            return  self[ __key ]['_val']
-        self[ __key ] = __default
+    def setdefault(self, __key: Any ,__default: Any | None=None ) -> Any:
+        if __key in self:
+            return self[__key]
+        self.__setitem__( __key ,__default )
         return __default
 
-    def update(self ,s: Iterable):
-        # TODO: Finish this up.
-        raise NotImplementedError("Cache entry cannot be set this way.")
+    def update(self ,__iterable: Iterable ) -> None:
+        upd = {}
+        for key ,val in __iterable.items():
+            upd[ key ] = {'val': val ,'upd': self.__contains__( key )}    # If exist we are in UPD mode, else INS mode.
+        super().update( __iterable )
+        for key ,val in upd.items():
+            self._postset( key ,val['val'] ,tsm=None ,update=val['upd'] ,multicast=True )
 
-    def values(self):
-        # TODO: Figure out a better way to return the items in the expected "odict_values" view.
-        return OrderedDict([(e[0] ,e[1]['_val']) for e in super().items()]).values()
+#   def values(self): ...
 
 
 if __name__ == "__main__":
