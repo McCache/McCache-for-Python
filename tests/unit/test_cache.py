@@ -32,7 +32,7 @@ class   TestCache:
         c = Cache()
         assert  c.name  == 'default'    ,f"Expect   'name'      should be 'default' ,but actual is {c.name}"
         assert  c.maxlen    == 256      ,f"Expect   'max'       should be 256       ,but actual is {c.maxlen}"
-        assert  c.maxsize   == 65536    ,f"Expect   'size'      should be 65536     ,but actual is {c.maxsize}"
+        assert  c.maxsize   == 256*1024 ,f"Expect   'size'      should be 65536     ,but actual is {c.maxsize}"
         assert  c.ttl       == 0        ,f"Expect   'ttl'       should be 0         ,but actual is {c.ttl}"
         assert  c.logmsg    is not None ,f"Expect   'logmsg'    should NOT be None  ,but actual is {c.logmsg}"
         assert  c.logger    is not None ,f"Expect   'logger'    should NOT be None  ,but actual is {c.logger}"
@@ -63,10 +63,9 @@ class   TestCache:
         assert  e == c1                 ,f"Expect   {e} ,but actual is {c1}"
 
         c2 = Cache([('two', 2), ('one', 1), ('three', 3)])  # Iterable
-        c3 = Cache(one=1, two=2, three=3)
-        c4 = Cache({'one': 1, 'three': 3}, two=2)
-        c5 = Cache(zip(['one', 'two', 'three'], [1, 2, 3]))
-
+        c3 = Cache(one=1, two=2, three=3)                   # Positional
+        c4 = Cache({'one': 1, 'three': 3}, two=2)           # Mapping
+        c5 = Cache(zip(['one', 'two', 'three'], [1, 2, 3])) # Iterable
 
     def test_init_exception_01(self):
         with pytest.raises(Exception ,match=r'An instance of "logging.Logger" is required!'):
@@ -75,7 +74,7 @@ class   TestCache:
         with pytest.raises(Exception ,match=r'An instance of "queue.Queue" is required!'):
             c = Cache( queue=datetime.now() )
 
-    def test_setget_01(self):
+    def test_setgetitem_01(self):   # NOTE: Dunder __setitem__() and __getitem__()
         d = {'a': 1 ,'b': '2' ,'c': True ,'d': [{'e': datetime.now()}] }
         s = 'string value'
         t = datetime.now()
@@ -352,6 +351,8 @@ class   TestCache:
         v = c.deletes
         assert  v == 1      ,f"Expect   1       ,but actual is {v}"
 
+    def test_eviction_01(self):
+        ...
 
 # The MIT License (MIT)
 # Copyright (c) 2023 Edward Lau.
