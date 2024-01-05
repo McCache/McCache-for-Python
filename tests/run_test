@@ -130,10 +130,9 @@ else
     rm    -f log/*
 fi
 
-# Initialize a minimum of three nodes.
+# Initialize a minimum of two nodes.
 NODE01=node01
 NODE02=node02
-NODE03=node03
 
 for v in $(seq 1 ${TEST_CLUSTER_SIZE}); do  NODE0${v}=node0${v}; done
 
@@ -141,7 +140,7 @@ for v in $(seq 1 ${TEST_CLUSTER_SIZE}); do  NODE0${v}=node0${v}; done
 #
 echo Starting the test cluster.
 # Keep in foregound with the maximum of 9 nodes as specified in "docker-compose.yml"
-${CONTAINER_EXE} up  %NODE01% %NODE02% %NODE03% %NODE04% %NODE05% %NODE06% %NODE07% %NODE08% %NODE09%
+${CONTAINER_EXE} up  ${NODE01} ${NODE02} ${NODE03} ${NODE04} ${NODE05} ${NODE06} ${NODE07} ${NODE08} ${NODE09}
 
 
 # Wait for the test run to be completed in the cluster and test the output log.

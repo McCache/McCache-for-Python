@@ -54,6 +54,9 @@ SET TEST_SLEEP_UNIT=100
 :: Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
 SET TEST_MONKEY_TANTRUM=0
 
+:: Setup the variable TEST_CLUSTER_SIZE to be passed into the container composer.
+SET TEST_CLUSTER_SIZE=3
+
 
 :: Start of CLI.
 :SOF_CLI
@@ -62,7 +65,7 @@ IF  /I "TEST_RUN_DURATION"  =="%1" GOTO :SET_TEST_RUN_DURATION
 IF  /I "TEST_SLEEP_SPAN"    =="%1" GOTO :SET_TEST_SLEEP_SPAN
 IF  /I "TEST_SLEEP_UNIT"    =="%1" GOTO :SET_TEST_SLEEP_UNIT
 IF  /I "TEST_MONKEY_TANTRUM"=="%1" GOTO :SET_TEST_MONKEY_TANTRUM
-IF  /I "SIZE"               =="%1" GOTO :SET_TEST_CLUSTER_SIZE
+IF  /I "TEST_CLUSTER_SIZE"  =="%1" GOTO :SET_TEST_CLUSTER_SIZE
 IF  /I ""                   =="%1" GOTO :EOF_CLI
 
 ECHO Invalid parameter value.  Try the following:
@@ -138,10 +141,9 @@ PUSHD  %ROOTDIR%
 ::
 IF NOT EXIST  log (MD log) ELSE (DEL /q log\*)
 
-:: Initialize a minimum of three nodes.
+:: Initialize a minimum of two nodes.
 SET  NODE01=node01
 SET  NODE02=node02
-SET  NODE03=node03
 
 FOR /L %%v  IN ( 1 ,1 ,%TEST_CLUSTER_SIZE% )  DO  SET NODE0%%v=node0%%v
 
