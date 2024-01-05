@@ -55,7 +55,7 @@ class   TestCache:
         assert  c.queue     == q        ,f"Expect   'queue'     should NOT be None  ,but actual is {c.queue}"
         assert  c.metadata  == {}       ,f"Expect   'metadata'  should be dict      ,but actual is {c.metadata}"
 
-    @pytest.mark.xfail(reason="Not done implementing the dunder methods.")
+    #@pytest.mark.xfail(reason="Not done implementing the dunder methods.")
     def test_init_02(self):
         e  = {'three': 3, 'one': 1, 'two': 2}
 
@@ -63,9 +63,16 @@ class   TestCache:
         assert  e == c1                 ,f"Expect   {e} ,but actual is {c1}"
 
         c2 = Cache([('two', 2), ('one', 1), ('three', 3)])  # Iterable
+        assert  e == c2                 ,f"Expect   {e} ,but actual is {c2}"
+
         c3 = Cache(one=1, two=2, three=3)                   # Positional
+        assert  e == c3                 ,f"Expect   {e} ,but actual is {c3}"
+
         c4 = Cache({'one': 1, 'three': 3}, two=2)           # Mapping
+        assert  e == c4                 ,f"Expect   {e} ,but actual is {c4}"
+
         c5 = Cache(zip(['one', 'two', 'three'], [1, 2, 3])) # Iterable
+        assert  e == c5                 ,f"Expect   {e} ,but actual is {c5}"
 
     def test_init_exception_01(self):
         with pytest.raises(Exception ,match=r'An instance of "logging.Logger" is required!'):
@@ -228,10 +235,10 @@ class   TestCache:
 
     def test_fromkeys_01(self):
         k = {'k1', 'k2', 'k3'}
-        e = Cache({'k1': 1 ,'k2': 2 ,'k3': 3})
+        e = Cache({'k1': 5 ,'k2': 5 ,'k3': 5})
         c = Cache()
 
-        v = c.fromkeys( e ,1 )
+        v = c.fromkeys( e ,5 )
         assert  v == e      ,f"Expect   {e}     ,but actual is {v}"
 
     def test_items_01(self):
@@ -311,7 +318,22 @@ class   TestCache:
         c['k1'] = True
         c['k2'] = 7
         c['k3'] = 3.14
+        v = {k: v['crc'] for k ,v in c.metadata.items()}
+        assert  v == e      ,f"Expect   {e}    ,but actual is {v}"
 
+        c = Cache({ 'k3': 3.14, 'k1': True  , 'k2': 7})         # Mapping type
+        v = {k: v['crc'] for k ,v in c.metadata.items()}
+        assert  v == e      ,f"Expect   {e}    ,but actual is {v}"
+        c = Cache([('k2', 7), ('k1', True)  ,('k3', 3.14)])     # Iterable
+        v = {k: v['crc'] for k ,v in c.metadata.items()}
+        assert  v == e      ,f"Expect   {e}    ,but actual is {v}"
+        c = Cache(k1=True, k2=7, k3=3.14)                       # Positional
+        v = {k: v['crc'] for k ,v in c.metadata.items()}
+        assert  v == e      ,f"Expect   {e}    ,but actual is {v}"
+        c = Cache({ 'k1': True, 'k3': 3.14} ,k2=7)              # Mapping
+        v = {k: v['crc'] for k ,v in c.metadata.items()}
+        assert  v == e      ,f"Expect   {e}    ,but actual is {v}"
+        c = Cache(zip(['k1', 'k2', 'k3'], [True, 7, 3.14]))     # Iterable
         v = {k: v['crc'] for k ,v in c.metadata.items()}
         assert  v == e      ,f"Expect   {e}    ,but actual is {v}"
 
@@ -321,14 +343,13 @@ class   TestCache:
         assert  v == e      ,f"Expect   {e}    ,but actual is {v}"
 
         c = Cache()
-        v =     c.setdefault('k1'   ,True   )
-        v =     c.setdefault('k1'   ,False  )
-        v =     c.setdefault('k2'   ,7      )
-        v =     c.setdefault('k2'   ,3      )
-        v =     c.setdefault('k3'   ,3.14   )
-        v =     c.setdefault('k3'   ,1.23   )
-
-        v = {k: v['crc'] for k ,v in c.metadata.items()}
+        _ =     c.setdefault('k1'   ,True   )
+        _ =     c.setdefault('k1'   ,False  )
+        _ =     c.setdefault('k2'   ,7      )
+        _ =     c.setdefault('k2'   ,3      )
+        _ =     c.setdefault('k3'   ,3.14   )
+        _ =     c.setdefault('k3'   ,1.23   )
+        _ = {k: v['crc'] for k ,v in c.metadata.items()}
         assert  v == e      ,f"Expect   {e}    ,but actual is {v}"
 
         del e['k3']
@@ -338,7 +359,6 @@ class   TestCache:
         c['k2'] = 7
         c['k3'] = 3.14
         del c['k3']
-
         v = {k: v['crc'] for k ,v in c.metadata.items()}
         assert  v == e      ,f"Expect   {e}    ,but actual is {v}"
 
