@@ -93,7 +93,6 @@ class Cache( OrderedDict ):
         if  self.__logger is None:
             self._setup_logger()
 
-        # TODO: Figure out the other constructors
         kwargs = { key: val for key ,val in kwargs.items()
                             if  key  not in {'name' ,'max' ,'size' ,'ttl' ,'logmsg' ,'logger' ,'queue' ,'debug'}}
         super().__init__( other ,**kwargs )
@@ -214,7 +213,7 @@ class Cache( OrderedDict ):
         for key ,val in [(k ,v) for k ,v in self.__meta.items() if ttl < now - val['tsm']]:
             _ = super().pop( key )
             evt += 1
-            self._post_del( key=key ,tsm=now ,eviction=True ,multicast=True )
+            self._post_del( key=key ,tsm=now ,is_evictn=True ,queue_out=True )
 
         self.__oldest = min( self.__meta.values() )
         return  evt
@@ -227,22 +226,22 @@ class Cache( OrderedDict ):
         """
         now    = Cache.TSM_VERSION()
         key ,_ = super().popitem( last=False )  # FIFO
-        self._post_del(  key=key ,tsm=now ,eviction=True ,multicast=True )
+        self._post_del(  key=key ,tsm=now ,is_evictn=True ,queue_out=True )
         return  1
 
     def _post_del(self,
             key: Any,
             tsm: int        | None=None,
-            eviction:  bool | None=False,
-            multicast: bool | None=True ) -> None:
+            is_evictn: bool | None=False,
+            queue_out: bool | None=True ) -> None:
         """Post deletion processing.  Update the meatadata and internal metrics.
         Queue out the details if required.
 
         Args:
             key         Post delete processing of metrics for this key.
             tsm         Optional timestamp for the deletion.
-            eviction    Originated from a cache eviction or deletion.
-            multicast   Request queing out opeartion info to external receiver.
+            is_eviction Originated from a cache eviction or deletion.
+            queue_out   Request queing out opeartion info to external receiver.
         """
         if  tsm is None:
             tsm =  Cache.TSM_VERSION()
@@ -252,14 +251,14 @@ class Cache( OrderedDict ):
         self.__meta[ key ]['tsm'] = tsm
         del self.__meta[ key ]
         #
-        if  self.__queue and multicast:
-            opc = 'EVT' if eviction else 'DEL'
+        if  self.__queue and queue_out:
+            opc = 'EVT' if is_evictn else 'DEL'
             self.__queue.put((opc ,tsm ,self.__name ,key ,md5 ,None))
             if  self.__debug:
                 self._log_ops_msg( opc ,tsm ,self.__name ,key ,md5 ,'Queued.')
 
         # Increment metrics.
-        if  eviction:
+        if  is_evictn:
             self.evicts  += 1
         else:
             self.deletes += 1
@@ -272,8 +271,8 @@ class Cache( OrderedDict ):
             key: Any,
             value: Any,
             tsm: int        | None=None,
-            update: bool    | None=True,
-            multicast: bool | None=True ) -> None:
+            is_update: bool | None=True,
+            queue_out: bool | None=True ) -> None:
         """Post insert/update processing.  Update the meatadata and internal metrics.
         Queue out the details if required.
 
@@ -290,14 +289,14 @@ class Cache( OrderedDict ):
         met = {'tsm': tsm ,'crc': md5 ,'del': False}
         self.__meta[ key ] = met
 
-        if  self.__queue and multicast:
-            opc = 'UPD' if update else 'INS'
+        if  self.__queue and queue_out:
+            opc = 'UPD' if is_update else 'INS'
             self.__queue.put((opc ,tsm ,self.__name ,key ,md5 ,value))
             if  self.__debug:
                 self._log_ops_msg( opc ,tsm ,self.__name ,key ,md5 ,'Queued.')
 
         # Increment metrics.
-        if  update:
+        if  is_update:
             self.move_to_end( key ,last=True )    # FIFO
             self.updates += 1
         else:
@@ -327,7 +326,7 @@ class Cache( OrderedDict ):
     def __delitem__(self,
             key: Any,
             tsm: int        | None=None,
-            multicast: bool | None=True ) -> None:
+            queue_out: bool | None=True ) -> None:
         """Dict dunder overwrite.
         Check for ttl evict then call the parent method and then do some house keeping.
 
@@ -344,7 +343,7 @@ class Cache( OrderedDict ):
         if  self.__debug:
             crc = self.__meta['crc'] if 'crc' in self.__meta else None
             self._log_ops_msg( 'DEL' ,tsm ,self.__name ,key ,crc ,f'Deleted via __delitem__()')
-        self._post_del( key=key ,tsm=tsm ,eviction=False ,multicast=multicast )
+        self._post_del( key=key ,tsm=tsm ,is_evictn=False ,queue_out=queue_out )
 
     def __getitem__(self,
             key: Any ) -> Any:
@@ -362,7 +361,6 @@ class Cache( OrderedDict ):
         self.lookups += 1
         return val
 
-    # TODO: Finish this implementation.
     def __iter__(self) -> Iterable:
         """Dict dunder overwrite.
         Check for ttl evict then call the parent method.
@@ -378,7 +376,7 @@ class Cache( OrderedDict ):
             key: Any,
             value: Any,
             tsm: int        | None=None,
-            multicast: bool | None=True ) -> None:
+            queue_out: bool | None=True ) -> None:
         """Dict dunder overwrite.
         Check for ttl evict then call the parent method and then do some house keeping.
 
@@ -403,7 +401,7 @@ class Cache( OrderedDict ):
         if  self.__debug:
             crc = self.__meta['crc'] if 'crc' in self.__meta else None
             self._log_ops_msg( f"{'UPD' if updmode else 'INS'}" ,tsm ,self.__name ,key ,crc ,f"{'Updated' if updmode else 'Inserted'} via __setitem__()")
-        self._post_set( key=key ,value=value ,tsm=tsm ,update=updmode ,multicast=multicast )
+        self._post_set( key=key ,value=value ,tsm=tsm ,is_update=updmode ,queue_out=queue_out )
 
     # Public dictionary methods section.
     #
@@ -432,7 +430,6 @@ class Cache( OrderedDict ):
 
         return super().copy()
 
-    # TODO: Finish this implementation.
     @classmethod
     def fromkeys(cls, iterable, value=None):
         """Create a new ordered dictionary with keys from iterable and values set to value.
@@ -471,6 +468,7 @@ class Cache( OrderedDict ):
         """
         if  self.__ttl > 0:
             _ = self._evict_ttl_items()
+
         return super().items()
 
     def keys(self) -> dict:
@@ -480,6 +478,7 @@ class Cache( OrderedDict ):
         """
         if  self.__ttl > 0:
             _ = self._evict_ttl_items()
+
         return super().keys()
 
     def pop(self,
@@ -502,7 +501,7 @@ class Cache( OrderedDict ):
             self._log_ops_msg( 'POP' ,None ,self.__name ,key ,crc ,f'In pop()')
 
         val = super().pop( key ,default )
-        self._post_del( key=key ,eviction=False ,multicast=True )
+        self._post_del( key=key ,is_evictn=False ,queue_out=True )
         return val
 
     def popitem(self,
@@ -524,7 +523,7 @@ class Cache( OrderedDict ):
             self._log_ops_msg( 'POPI' ,None ,self.__name ,key ,crc ,f'In popitem()')
 
         key ,val = super().popitem( last )
-        self._post_del( key=key ,eviction=False ,multicast=True )
+        self._post_del( key=key ,is_evictn=False ,queue_out=True )
         return (key ,val)
 
     def setdefault(self,
@@ -569,7 +568,7 @@ class Cache( OrderedDict ):
 
         super().update( iterable )
         for key ,val in updates.items():
-            self._post_set( key ,val['val'] ,update=val['upd'] ,multicast=True )
+            self._post_set( key ,val['val'] ,is_update=val['upd'] ,queue_out=True )
 
     def values(self) -> dict:
         """Return an object providing a view on cache's values.
