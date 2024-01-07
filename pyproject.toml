@@ -152,6 +152,9 @@ ignore = [
   # Allow non-abstract empty methods in abstract base classes
   "B027",
 
+  # Boolean default positional argument in function definition
+  "FBT002",
+
   # Allow boolean positional values in function calls, like `dict.get(... True)`
   #"FBT003",
 

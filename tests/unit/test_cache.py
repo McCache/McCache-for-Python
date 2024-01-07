@@ -7,6 +7,7 @@
 import hashlib
 import logging
 import queue
+import time
 
 import pytest
 
@@ -235,11 +236,12 @@ class   TestCache:
 
     def test_fromkeys_01(self):
         k = {'k1', 'k2', 'k3'}
-        e = Cache({'k1': 5 ,'k2': 5 ,'k3': 5})
+        e = {'k1': 5 ,'k2': 5 ,'k3': 5}
         c = Cache()
 
-        v = c.fromkeys( e ,5 )
-        assert  v == e      ,f"Expect   {e}     ,but actual is {v}"
+        v = {k: v for k ,v in c.fromkeys( k ,5 ).items()}
+        assert  v == e                      ,f"Expect   {e}         ,but actual is {v}"
+        assert  v.keys()    == e.keys()     ,f"Expect   {e.keys()}     ,but actual is {v.keys()}"
 
     def test_items_01(self):
         e = {'k1': True ,'k2': 7 ,'k3': 3.14}.items()
@@ -352,27 +354,123 @@ class   TestCache:
         _ = {k: v['crc'] for k ,v in c.metadata.items()}
         assert  v == e      ,f"Expect   {e}    ,but actual is {v}"
 
-        del e['k3']
         c = Cache()
         c['k1'] = True
-        c['k2'] = 3
         c['k2'] = 7
         c['k3'] = 3.14
-        del c['k3']
-        v = {k: v['crc'] for k ,v in c.metadata.items()}
-        assert  v == e      ,f"Expect   {e}    ,but actual is {v}"
-
         v = c.inserts
         assert  v == 3      ,f"Expect   3       ,but actual is {v}"
+
+        c['k3'] = 1.23
         v = c.updates
         assert  v == 1      ,f"Expect   1       ,but actual is {v}"
+
         v = c.lookups
         assert  v == 0      ,f"Expect   0       ,but actual is {v}"
+
+        del c['k2']
+        del c['k3']
         v = c.deletes
-        assert  v == 1      ,f"Expect   1       ,but actual is {v}"
+        assert  v == 2      ,f"Expect   2       ,but actual is {v}"
 
     def test_eviction_01(self):
-        ...
+        c = Cache( max=3 )
+        c['k1'] = 1
+        c['k2'] = 2
+        c['k3'] = 3
+
+        a = len(c)
+        assert  3 == a      ,f"Expect   3       ,but actual is {a}"
+
+        c['k4'] = 4
+        a = len(c)
+        assert  3 == a      ,f"Expect   3       ,but actual is {a}"
+
+        with pytest.raises(KeyError ,match=r'k1'):
+            _ = c['k1'] # Should be evicted.
+
+        c = Cache( size=360 )
+        c['k1'] = 1
+        c['k2'] = 2
+        a = len(c)
+        assert  2 == a      ,f"Expect   2       ,but actual is {a}"
+
+        c['k3'] = 3
+        a = len(c)
+        assert  2 == a      ,f"Expect   2       ,but actual is {a}"
+
+        with pytest.raises(KeyError ,match=r'k1'):
+            _ = c['k1'] # Should be evicted.
+
+        c = Cache( max=3 ,ttl=0.01667 ) # ttl initialized to 1 second.
+        c['k1'] = 1
+        c['k2'] = 2
+        c['k3'] = 3
+        time.sleep(3)   # 3 seconds
+        a = len(c)
+        assert  3 == a      ,f"Expect   3       ,but actual is {a}"
+
+        c['k4'] = 4
+        a = len(c)
+        assert  3 == a      ,f"Expect   3       ,but actual is {a}"
+
+        with pytest.raises(KeyError ,match=r'k1'):
+            _ = c['k1'] # Should be evicted.
+
+    def test_queue(self):
+        q = queue.Queue()
+        c = Cache( queue=q )
+        t = Cache.TSM_VERSION()
+        c['k1'] = True
+        c['k2'] = 3
+        c['k3'] = 3.14
+        c['k3'] = 1.23
+        del c['k3']
+
+        a = q.get()
+        h = hashlib.md5( bytearray(str( True)  ,encoding='utf-8') ).digest()
+        assert  a[0] == 'INS'       ,f"Expect   INS     ,but actual is {a[0]}"
+        assert  a[1] >=  t          ,f"Expect   >={t}   ,but actual is {a[1]}"
+        assert  a[2] == 'default'   ,f"Expect   default ,but actual is {a[2]}"
+        assert  a[3] == 'k1'        ,f"Expect   k1      ,but actual is {a[3]}"
+        assert  a[4] ==  h          ,f"Expect   {h}     ,but actual is {a[4]}"
+        assert  a[5] ==  True       ,f"Expect   True    ,but actual is {a[5]}"
+
+        a = q.get()
+        h = hashlib.md5( bytearray(str( 3   )  ,encoding='utf-8') ).digest()
+        assert  a[0] == 'INS'       ,f"Expect   INS     ,but actual is {a[0]}"
+        assert  a[1] >=  t          ,f"Expect   >={t}   ,but actual is {a[1]}"
+        assert  a[2] == 'default'   ,f"Expect   default ,but actual is {a[2]}"
+        assert  a[3] == 'k2'        ,f"Expect   k2      ,but actual is {a[3]}"
+        assert  a[4] ==  h          ,f"Expect   {h}     ,but actual is {a[4]}"
+        assert  a[5] ==  3          ,f"Expect   3       ,but actual is {a[5]}"
+
+        a = q.get()
+        h = hashlib.md5( bytearray(str( 3.14)  ,encoding='utf-8') ).digest()
+        assert  a[0] == 'INS'       ,f"Expect   INS     ,but actual is {a[0]}"
+        assert  a[1] >=  t          ,f"Expect   >={t}   ,but actual is {a[1]}"
+        assert  a[2] == 'default'   ,f"Expect   default ,but actual is {a[2]}"
+        assert  a[3] == 'k3'        ,f"Expect   k3      ,but actual is {a[3]}"
+        assert  a[4] ==  h          ,f"Expect   {h}     ,but actual is {a[4]}"
+        assert  a[5] ==  3.14       ,f"Expect   3.14    ,but actual is {a[5]}"
+
+        a = q.get()
+        h = hashlib.md5( bytearray(str( 1.23)  ,encoding='utf-8') ).digest()
+        assert  a[0] == 'UPD'       ,f"Expect   INS     ,but actual is {a[0]}"
+        assert  a[1] >=  t          ,f"Expect   >={t}   ,but actual is {a[1]}"
+        assert  a[2] == 'default'   ,f"Expect   default ,but actual is {a[2]}"
+        assert  a[3] == 'k3'        ,f"Expect   k3      ,but actual is {a[3]}"
+        assert  a[4] ==  h          ,f"Expect   {h}     ,but actual is {a[4]}"
+        assert  a[5] ==  1.23       ,f"Expect   1.23    ,but actual is {a[5]}"
+
+        a = q.get()
+        h = hashlib.md5( bytearray(str( 1.23)  ,encoding='utf-8') ).digest()
+        assert  a[0] == 'DEL'       ,f"Expect   INS     ,but actual is {a[0]}"
+        assert  a[1] >=  t          ,f"Expect   >={t}   ,but actual is {a[1]}"
+        assert  a[2] == 'default'   ,f"Expect   default ,but actual is {a[2]}"
+        assert  a[3] == 'k3'        ,f"Expect   k3      ,but actual is {a[3]}"
+        assert  a[4] ==  h          ,f"Expect   {h}     ,but actual is {a[4]}"
+        assert  a[5] is  None       ,f"Expect   None    ,but actual is {a[5]}"
 
 # The MIT License (MIT)
 # Copyright (c) 2023 Edward Lau.

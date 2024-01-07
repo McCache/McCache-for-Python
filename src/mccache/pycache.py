@@ -5,14 +5,13 @@ import hashlib
 import logging
 import os
 import queue
-import re
 import socket
 import sys
 import time
-import threading
-
+#
 from collections import OrderedDict
-from inspect import getframeinfo ,stack
+from collections.abc import Iterable
+from inspect import getframeinfo, stack
 from typing import Any ,Iterable
 
 # TODO: Figure out how to setup this package.
@@ -61,7 +60,8 @@ class Cache( OrderedDict ):
         self.__logger   :logging.Logger = None
         self.__queue    :queue.Queue    = None
         self.__debug    :bool   = False     # Internal debug is disabled.
-        self.__touchon  :int    = Cache.TSM_VERSION()  # Last time the cache was touch on.
+        self.__oldest   :int    = Cache.TSM_VERSION()  # oldest entry in the cache.
+        self.__latest   :int    = Cache.TSM_VERSION()  # Latest time the cache was touch on.
         self.__meta     :dict   = {}
         # Public instance metrics.
         self._reset_metrics()
@@ -75,7 +75,7 @@ class Cache( OrderedDict ):
                 case 'size':
                     self.__maxsize = int( val )
                 case 'ttl':
-                    self.__ttl = int( val )
+                    self.__ttl = float( val )
                 case 'logmsg':
                     self.__logmsg = str( val )
                 case 'logger':
@@ -98,7 +98,7 @@ class Cache( OrderedDict ):
                             if  key  not in {'name' ,'max' ,'size' ,'ttl' ,'logmsg' ,'logger' ,'queue' ,'debug'}}
         super().__init__( other ,**kwargs )
 
-    # Public instance properties in alphabetical order.
+    # Public instance properties.
     #
     @property
     def logger(self) -> logging.Logger:
@@ -125,8 +125,12 @@ class Cache( OrderedDict ):
         return  self.__name
 
     @property
-    def touchon(self) -> int:
-        return  self.__touchon
+    def oldest(self) -> int:
+        return  self.__oldest
+
+    @property
+    def latest(self) -> int:
+        return  self.__latest
 
     @property
     def ttl(self) -> int:
@@ -139,6 +143,8 @@ class Cache( OrderedDict ):
     # This class's private method section.
     #
     def _reset_metrics(self):
+        """Reset the internal metrics.
+        """
         self.evicts   :int    = 0   # Total number of evicts  since initialization.
         self.lookups  :int    = 0   # Total number of lookups since initialization.
         self.inserts  :int    = 0   # Total number of inserts since initialization.
@@ -148,6 +154,8 @@ class Cache( OrderedDict ):
         self.spikeDur :float  = 0.0 # Average spike duration between changes.
 
     def _setup_logger(self):
+        """Setup the logger by checking the if we are in interactive terminal mode.
+        """
         # Setup the default logger.
         self.__logger = logging.getLogger('pycache')
         if 'TERM' in os.environ or ('SESSIONNAME' in os.environ and os.environ['SESSIONNAME'] == 'Console'):
@@ -159,29 +167,31 @@ class Cache( OrderedDict ):
             self.__logger.setLevel( logging.DEBUG )
 
     def _log_ops_msg(self,
-            opc: str    | None = None,  # Op Code
-            tsm: str    | None = None,  # Timestamp
-            nms: str    | None = None,  # Namespace
-            key: object | None = None,  # Key
-            md5: bytes  | None = None,  # md5 checksum
-            msg: str    | None = None,  # Message
+            opc: str    | None=None,    # Op Code
+            tsm: str    | None=None,    # Timestamp
+            nms: str    | None=None,    # Namespace
+            key: object | None=None,    # Key
+            md5: bytes  | None=None,    # md5 checksum
+            msg: str    | None=None,    # Message
         ) -> None:
+        """Standardize the output format with this object specifics.
+        """
         txt = self.__logmsg
         lno = getframeinfo(stack()[1][0]).lineno
         iam = Cache.IP4_ADDRESS if 'Im:' in txt else f"Im:{Cache.IP4_ADDRESS}"
         if  opc is None:
-            opc = ' '* 3 if 'Op:' in txt else f"O={' '* 3}"
+            opc = ' '* 3
         if  tsm is None:
-            tsm = ' '*16 if 'Ts:' in txt else f"T={' '*16}"
+            tsm = ' '*16
         if  nms is None:
-            nms = ' '* 6 if 'Nm:' in txt else f"N={' '* 6}"
+            nms = ' '* 6
         if  key is None:
-            key = ' '* 8 if 'Ky:' in txt else f"K={' '* 8}"
+            key = ' '* 8
         if  msg is None:
             msg = ""
         if  md5 is None:
             md5 = \
-            crc = ' '*22 if 'Ck:' in txt else f"C={' '*22}"
+            crc = ' '*22
         elif  isinstance( md5 ,bytes ):
             md5 = \
             crc = base64.b64encode( md5 ).decode()
@@ -189,27 +199,51 @@ class Cache( OrderedDict ):
         txt =  txt.format( lno=lno ,iam=iam ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,md5=md5 ,msg=msg )
         self.__logger.debug( txt )
 
-    def _need_eviction(self ,value: Any ) -> bool:
-        # NOTE: Very coarse way to check for eviction.  Not meant to be precise.
-        return (super().__sizeof__() + sys.getsizeof( value ) > self.__maxsize) or (super().__len__() > self.__maxlen -1)
+    def _evict_ttl_items(self) -> int:
+        """Evict cache time-to-live (ttl) based items.
 
-    def _evict_items(self ,tsm: int ,multicast: bool = True ) -> None:
-        if  tsm is None:
-            tsm =  Cache.TSM_VERSION()
-        evt: int = 0    # Evicted count
-        if  self.__ttl > 0:
-            now = Cache.TSM_VERSION()
-            ttl = self.__ttl * Cache.ONE_NS_MIN     # Convert minutes in nano second.
-            for key ,val in self.__meta.items():
-                if  ttl < now - val['tsm']:
-                    val = super().pop( key )
-                    self._post_del( key ,tsm ,multicast ,eviction=True )
-                    self.evt += 1
-        if  evt == 0 and super().__len__()> 0:
-            key ,_ = super().popitem( last=False )  # FIFO
-            self._post_del(  key ,tsm ,multicast ,eviction=True )
+        Return:
+            Number of evictions.
+        """
+        now = Cache.TSM_VERSION()
+        ttl = self.__ttl * Cache.ONE_NS_MIN     # Convert minutes in nano second.
+        evt: int = 0
+        if  ttl > now - self.__oldest:
+            return  0   # NOTE: Nothing is old enough to evict.
 
-    def _post_del(self ,key: Any ,tsm: int = None ,multicast: bool = True ,eviction: bool = False ) -> None:
+        for key ,val in [(k ,v) for k ,v in self.__meta.items() if ttl < now - val['tsm']]:
+            _ = super().pop( key )
+            evt += 1
+            self._post_del( key=key ,tsm=now ,eviction=True ,multicast=True )
+
+        self.__oldest = min( self.__meta.values() )
+        return  evt
+
+    def _evict_cap_items(self) -> int:
+        """Evict cache capacity based items.
+
+        Return:
+            Number of evictions.
+        """
+        now    = Cache.TSM_VERSION()
+        key ,_ = super().popitem( last=False )  # FIFO
+        self._post_del(  key=key ,tsm=now ,eviction=True ,multicast=True )
+        return  1
+
+    def _post_del(self,
+            key: Any,
+            tsm: int        | None=None,
+            eviction:  bool | None=False,
+            multicast: bool | None=True ) -> None:
+        """Post deletion processing.  Update the meatadata and internal metrics.
+        Queue out the details if required.
+
+        Args:
+            key         Post delete processing of metrics for this key.
+            tsm         Optional timestamp for the deletion.
+            eviction    Originated from a cache eviction or deletion.
+            multicast   Request queing out opeartion info to external receiver.
+        """
         if  tsm is None:
             tsm =  Cache.TSM_VERSION()
         # TODO: Flesh out how exactly do we do soft delete.  In the mean time we do hard delete.
@@ -222,7 +256,7 @@ class Cache( OrderedDict ):
             opc = 'EVT' if eviction else 'DEL'
             self.__queue.put((opc ,tsm ,self.__name ,key ,md5 ,None))
             if  self.__debug:
-                self._log_ops_msg( opc ,tsm ,self.__name ,key ,md5 ,f'Queued.')
+                self._log_ops_msg( opc ,tsm ,self.__name ,key ,md5 ,'Queued.')
 
         # Increment metrics.
         if  eviction:
@@ -234,10 +268,25 @@ class Cache( OrderedDict ):
         # TODO: Flesh out how exactly do we do soft delete.  In the mean time we do hard delete.
         # self.move_to_end( key ,last=True )    # FIFO
 
-    def _post_set(self ,key: Any ,value: Any ,tsm: int = None ,update: bool = True ,multicast: bool = True ) -> None:
+    def _post_set(self,
+            key: Any,
+            value: Any,
+            tsm: int        | None=None,
+            update: bool    | None=True,
+            multicast: bool | None=True ) -> None:
+        """Post insert/update processing.  Update the meatadata and internal metrics.
+        Queue out the details if required.
+
+        Args:
+            key         Post setting processing of metrics for this key.
+            value       Value that was set.
+            tsm         Optional timestamp for the deletion.
+            update      Originated from a cache update or insert.
+            multicast   Request queing out opeartion info to external receiver.
+        """
         if  tsm is None:
             tsm =  Cache.TSM_VERSION()
-        md5 = hashlib.md5( bytearray(str( value ) ,encoding='utf-8') ).digest()    # Keep it small until we need to display it.
+        md5 = hashlib.md5( bytearray(str( value ) ,encoding='utf-8') ).digest() # noqa: S324    Keep it small until we need to display it.
         met = {'tsm': tsm ,'crc': md5 ,'del': False}
         self.__meta[ key ] = met
 
@@ -245,7 +294,7 @@ class Cache( OrderedDict ):
             opc = 'UPD' if update else 'INS'
             self.__queue.put((opc ,tsm ,self.__name ,key ,md5 ,value))
             if  self.__debug:
-                self._log_ops_msg( opc ,tsm ,self.__name ,key ,md5 ,f'Queued.')
+                self._log_ops_msg( opc ,tsm ,self.__name ,key ,md5 ,'Queued.')
 
         # Increment metrics.
         if  update:
@@ -255,104 +304,283 @@ class Cache( OrderedDict ):
             self.inserts += 1
         self._set_spike()
 
-    def _set_spike(self ,now: int = None ) -> None:
+    def _set_spike(self,
+            now: int | None=None ) -> None:
+        """Update the internal spike metrics.
+        A spikes are high frequncy delete/insert/update that are within 5 seconds.
+
+        Args:
+            now     The current timestamp to dtermine a spike.  Default to present.
+        """
         if  now is None:
             now = Cache.TSM_VERSION()
-        span =  now - self.__touchon
+        span =  now - self.__latest
         if  span > 0:
             # Monotonic.
-            self.__touchon  = now
+            self.__latest  = now
             if  span <= (5 * Cache.ONE_NS_SEC): # 5 seconds.
                 self.spikeDur = ((self.spikeDur * self.spikes) + span) / (self.spikes + 1)
                 self.spikes  += 1
 
     # Private OrderedDict magic/dunder methods overwrite section.
     #
-    def __delitem__(self ,key: Any ,multicast: bool = True ,tsm: int = None ) -> None:
-        # TODO: Flesh out how exactly do we do soft delete.  In the mean time we do hard delete.
-        self.move_to_end( key ,last=True )    # FIFO
-        super().__delitem__( key )
-        self._post_del( key ,tsm ,multicast )
+    def __delitem__(self,
+            key: Any,
+            tsm: int        | None=None,
+            multicast: bool | None=True ) -> None:
+        """Dict dunder overwrite.
+        Check for ttl evict then call the parent method and then do some house keeping.
 
-    def __getitem__(self ,key: Any ) -> Any:
+        SEE:    dict.__delitem__()
+        Args:
+            key         Key to the item to delete.
+            tsm         Optional timestamp for the deletion.
+            multicast   Request queing out opeartion info to external receiver.
+        """
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
+
+        super().__delitem__( key )
+        if  self.__debug:
+            crc = self.__meta['crc'] if 'crc' in self.__meta else None
+            self._log_ops_msg( 'DEL' ,tsm ,self.__name ,key ,crc ,f'Deleted via __delitem__()')
+        self._post_del( key=key ,tsm=tsm ,eviction=False ,multicast=multicast )
+
+    def __getitem__(self,
+            key: Any ) -> Any:
+        """Dict dunder overwrite.
+        Check for ttl evict then call the parent method and then do some house keeping.
+
+        SEE:    dict.__getitem__()
+        Args:
+            key         Key to the item to get.
+        """
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
+
         val = super().__getitem__( key )
         self.lookups += 1
         return val
 
-    def __setitem__(self ,key: Any ,value: Any ,multicast: bool = True ,tsm: int = None ) -> None:
-        updmode: bool = self.__contains__( key )   # If exist we are in UPD mode ,else INS mode.
+    # TODO: Finish this implementation.
+    def __iter__(self) -> Iterable:
+        """Dict dunder overwrite.
+        Check for ttl evict then call the parent method.
 
-        if  self.__debug:
-            opc = 'UPD' if updmode else 'INS'
-            evt = self._need_eviction( value )
-            msg = f'Evict: {evt} ,CurSize: {super().__sizeof__()} ,ValSize: {sys.getsizeof( value )} ,MaxSize: {self.__maxsize} ,CurLen: {super().__len__()} ,MaxLen: {self.__maxlen -1}'
-            self._log_ops_msg( opc ,tsm ,self.__name ,key ,None ,msg)
+        SEE:    dict.__iter__()
+        """
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
+
+        return super().__iter__()
+
+    def __setitem__(self,
+            key: Any,
+            value: Any,
+            tsm: int        | None=None,
+            multicast: bool | None=True ) -> None:
+        """Dict dunder overwrite.
+        Check for ttl evict then call the parent method and then do some house keeping.
+
+        SEE:    dict.__setitem__()
+        Args:
+            key         Key to the item to set.
+            value       Value of the item to set.
+            tsm         Optional timestamp for the deletion.
+            multicast   Request queing out opeartion info to external receiver.
+        """
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
 
         # NOTE: Very coarse way to check for eviction.  Not meant to be precise.
-        while self._need_eviction( value ):
-            self._evict_items( tsm ,multicast )
+        while super().__len__()     > 0 and \
+            ((super().__len__() + 1 > self.__maxlen) or (super().__sizeof__() + sys.getsizeof( value ) > self.__maxsize)):
+                _ = self._evict_cap_items()
 
+        updmode: bool = self.__contains__( key )   # If exist we are in UPD mode ,else INS mode.
         super().__setitem__( key ,value )
-        self._post_set( key ,value ,tsm ,updmode ,multicast )
 
-#   Python dict class dunder methods.
-#
-#   def __delitem__(self ,__key: SupportsIndex | slice) -> None: ...
-#   def __getitem__(self ,__i: SupportsIndex) -> _T: ...
-#   def __getitem__(self ,__s: slice) -> list[_T]: ...
-#   def __setitem__(self ,__key: SupportsIndex ,__value: _T) -> None: ...
-#   def __setitem__(self ,__key: slice ,__value: Iterable[_T]) -> None: ...
+        if  self.__debug:
+            crc = self.__meta['crc'] if 'crc' in self.__meta else None
+            self._log_ops_msg( f"{'UPD' if updmode else 'INS'}" ,tsm ,self.__name ,key ,crc ,f"{'Updated' if updmode else 'Inserted'} via __setitem__()")
+        self._post_set( key=key ,value=value ,tsm=tsm ,update=updmode ,multicast=multicast )
 
     # Public dictionary methods section.
     #
     # SEE: https://www.programiz.com/python-programming/methods/dictionary/copy
     # SEE: https://www.geeksforgeeks.org/ordereddict-in-python/
     #
-
-#   Python dict class public methods.
-#
     def clear(self) -> None:
+        """Clear the entire cache and update the internal metrices.
+        Call the parent method and then do some house keeping.
+        """
         super().clear()
         self.__meta.clear()
+        self.__oldest   = Cache.TSM_VERSION()
+        self.__latest  = Cache.TSM_VERSION()
         self._reset_metrics()
 
-    def get(self ,key: Any ,default: Any = None ) -> dict:
+    # TODO: Finish this implementation.
+    def copy(self) -> OrderedDict:
+        """Make a shallow copy of this cacge instance.
+        Check for ttl evict then call the parent method.
+
+        SEE:    OrderedDict.copy()
+        """
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
+
+        return super().copy()
+
+    # TODO: Finish this implementation.
+    @classmethod
+    def fromkeys(cls, iterable, value=None):
+        """Create a new ordered dictionary with keys from iterable and values set to value.
+        Check for ttl evict then call the parent method.
+
+        SEE:    OrderedDict.fromkeys()
+        """
+        self = cls()
+        for key in iterable:
+            self[key] = value   # Calls __setitem__()
+        return self
+
+    def get(self,
+            key: Any,
+            default: Any = None ) -> Any|None:
+        """Get an item.  If doesn't exist return the default.
+        Check for ttl evict then call the parent method and then do some house keeping.
+
+        SEE:    dict.get()
+        Args:
+            key         Key to the item to get.
+            default     Default value to return if the key doesn't exist in the cache.
+        """
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
+
         val = super().get( key ,default )
         self.lookups += 1
         return val
 
-    def pop(self ,key: Any ,default: Any = None ) -> Any:
+    def items(self) -> dict:
+        """Return a set-like object providing a view on cache's items.
+        Check for ttl evict then call the parent method.
+
+        SEE:    OrderedDict.items()
+        """
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
+        return super().items()
+
+    def keys(self) -> dict:
+        """Return a set-like object providing a view on cache's keys.
+
+        SEE:    OrderedDict.keys()
+        """
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
+        return super().keys()
+
+    def pop(self,
+            key: Any,
+            default: Any = None ) -> Any:
+        """Remove specified key and return the corresponding value.
+        If key is not found, default is returned if given, otherwise KeyError is raised.
+        Check for ttl evict then call the parent method and then do some house keeping.
+
+        SEE:    OrdredDict.pop()
+        Args:
+            key         Key to the item to get.
+            default     Default value to return if the key doesn't exist in the cache.
+        """
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
+
+        if  self.__debug:
+            crc = self.__meta['crc'] if 'crc' in self.__meta else None
+            self._log_ops_msg( 'POP' ,None ,self.__name ,key ,crc ,f'In pop()')
+
         val = super().pop( key ,default )
-        # TODO: Flesh out how exactly do we do soft delete.  In the mean time we do hard delete.
-        self.__meta[ key ]['del'] = True
-        del self.__meta[ key ]
-        self.deletes += 1
-        self._set_spike()
+        self._post_del( key=key ,eviction=False ,multicast=True )
         return val
 
-    def popitem(self ,last: bool = True ) -> tuple:
+    def popitem(self,
+            last: bool | None=False ) -> tuple:
+        """Remove and return a (key, value) pair from the dictionary.
+        Pairs are returned in LIFO order if last is true or FIFO order if false.
+        Check for ttl evict then call the parent method and then do some house keeping.
+
+        SEE:    OrderedDict.popitem()
+        Args:
+            last        True is LIFO ,False is FIFO
+            default     Default value to return if the key doesn't exist in the cache.
+        """
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
+
+        if  self.__debug:
+            crc = self.__meta['crc'] if 'crc' in self.__meta else None
+            self._log_ops_msg( 'POPI' ,None ,self.__name ,key ,crc ,f'In popitem()')
+
         key ,val = super().popitem( last )
-        # TODO: Flesh out how exactly do we do soft delete.  In the mean time we do hard delete.
-        self.__meta[ key ]['del'] = True
-        del self.__meta[ key ]
-        self.deletes += 1
-        self._set_spike()
+        self._post_del( key=key ,eviction=False ,multicast=True )
         return (key ,val)
 
-    def setdefault(self ,key: Any ,__default: Any = None ) -> Any:
-        if key in self:
-            return self[key]
-        self.__setitem__( key ,__default )
-        return __default
+    def setdefault(self,
+            key: Any,
+            default: Any = None ) -> Any:
+        """Insert key with a value of default if key is not in the cache.
+        Return the value for key if key is in the dictionary, else default.
+        Check for ttl evict then call the parent method and then do some house keeping.
 
-    def update(self ,iterable: Iterable ) -> None:
+        SEE:    OrderedDict.setdefault()
+        Args:
+            key         Key to the item to get.
+            default     Default value to return if the key doesn't exist in the cache.
+        """
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
+
+        if  self.__debug:
+            crc = self.__meta['crc'] if 'crc' in self.__meta else None
+            self._log_ops_msg( 'SETD' ,None ,self.__name ,key ,crc ,f'In setdefault()')
+
+        return super().setdefault( key ,default )
+
+    def update(self,
+            iterable: Iterable ) -> None:
+        """Update the cache with new values.
+        Check for ttl evict then call the parent method and then do some house keeping.
+
+        SEE:    dict.update()
+        Args:
+            iterable    A list of key/value pairs to update the cache with.
+        """
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
+
         updates = {}
         for key ,val in iterable.items():
             updates[ key ] = {'val': val ,'upd': self.__contains__( key )}    # If exist we are in UPD mode ,else INS mode.
+        if  self.__debug:
+            crc = self.__meta['crc'] if 'crc' in self.__meta else None
+            self._log_ops_msg( 'UPDT' ,None ,self.__name ,key ,crc ,f'In update()')
+
         super().update( iterable )
         for key ,val in updates.items():
             self._post_set( key ,val['val'] ,update=val['upd'] ,multicast=True )
 
+    def values(self) -> dict:
+        """Return an object providing a view on cache's values.
+        Check for ttl evict then call the parent method.
+
+        SEE:    OrderedDict.values()
+        """
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
+
+        return super().values()
 
 if __name__ == "__main__":
     # SEE: https://phoenixnap.com/kb/python-initialize-dictionary
@@ -361,33 +589,6 @@ if __name__ == "__main__":
 
     # Test.
     c = Cache()
-    c = Cache(name='mccache' ,ttl=15 ,max=100 ,size=1024*1024 ,debug=True)
-    c = Cache({'k1': 1 ,'k2': 2 ,'k3': 3} ,name='mccache' ,ttl=5 ,max=10 ,size=1024 ,debug=True)
-    try:
-        _ = c['k']
-    except KeyError:
-        pass
-    try:
-        del c['k']
-    except KeyError:
-        pass
-
-    c['k'] = 123
-    c['k'] = 'The quick brown fox jump over the lazy dog and sat on a tack.'
-    c['d'] = time.time_ns()
-    v = c['k']
-    v = c.get('k')
-
-    for e in c: print(e)
-    for k in c.keys( ):
-        print(f"key={k}")
-    for v in c.values( ):
-        print(f"        val={v}")
-    for k ,v in c.items( ):
-        print(f"key={k}   val={v}")
-
-    del c['k']
-    v = c.pop('d' ,678)
     pass
 
 
