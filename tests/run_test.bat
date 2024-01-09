@@ -70,12 +70,12 @@ IF  /I ""              =="%1" GOTO :EOF_CLI
 
 ECHO Invalid parameter value.  Try the following:
 ECHO %0  [MAX_ENTRIES ###] [RUN_DURATION ###] [SLEEP_SPAN ###] [SLEEP_UNIT ###] [MONKEY_TANTRUM ###] [CLUSTER_SIZE ###]
-ECHO MAX_ENTRIES    ###  Max entries.    Default 100.'
-ECHO RUN_DURATION   ###  Run duration.   Default 5 minutes.'
-ECHO SLEEP_SPAN     ###  Sleep span.     Default 100.'
-ECHO SLEEP_UNIT     ###  Sleep unit.     Default 100.'
-ECHO MONKEY_TANTRUM ###  Monkey tantrum. Default 0.'
-ECHO CLUSTER_SIZE   ###  Cluster size.   Default 3.'
+ECHO MAX_ENTRIES    ###  Max entries.    Default 100.
+ECHO RUN_DURATION   ###  Run duration.   Default 5 minutes.
+ECHO SLEEP_SPAN     ###  Sleep span.     Default 100.
+ECHO SLEEP_UNIT     ###  Sleep unit.     Default 100.
+ECHO MONKEY_TANTRUM ###  Monkey tantrum. Default 0.
+ECHO CLUSTER_SIZE   ###  Cluster size.   Default 3.
 GOTO :EOF_SCRIPT
 
 :SET_TEST_MAX_ENTRIES
