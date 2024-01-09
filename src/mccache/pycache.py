@@ -215,7 +215,6 @@ class Cache( OrderedDict ):
             return  0   # NOTE: Nothing is old enough to evict.
 
         if  self.__debug:
-            crc = self.__meta['crc'] if 'crc' in self.__meta else None
             self._log_ops_msg( opc='EVT' ,tsm=now ,name=self.__name ,key=None ,crc=None ,msg=f'Checking for eviction candidates.')
 
         oldest: int = Cache.TSM_VERSION()
