@@ -35,7 +35,7 @@ class   TestCache:
         assert  c.maxlen    == 256      ,f"Expect   'max'       should be 256       ,but actual is {c.maxlen}"
         assert  c.maxsize   == 256*1024 ,f"Expect   'size'      should be 65536     ,but actual is {c.maxsize}"
         assert  c.ttl       == 0        ,f"Expect   'ttl'       should be 0         ,but actual is {c.ttl}"
-        assert  c.logmsg    is not None ,f"Expect   'logmsg'    should NOT be None  ,but actual is {c.logmsg}"
+        assert  c.msgbdy    is not None ,f"Expect   'logmsg'    should NOT be None  ,but actual is {c.msgbdy}"
         assert  c.logger    is not None ,f"Expect   'logger'    should NOT be None  ,but actual is {c.logger}"
         assert  c.queue     is None     ,f"Expect   'queue'     should be None      ,but actual is {c.queue}"
         assert  c.metadata  == {}       ,f"Expect   'metadata'  should be dict      ,but actual is {c.metadata}"
@@ -51,7 +51,7 @@ class   TestCache:
         assert  c.maxlen    == 16       ,f"Expect   'max'       should be 16        ,but actual is {c.maxlen}"
         assert  c.maxsize   == 256      ,f"Expect   'size'      should be 256       ,but actual is {c.maxsize}"
         assert  c.ttl       == 3        ,f"Expect   'ttl'       should be 3         ,but actual is {c.ttl}"
-        assert  c.logmsg is not None    ,f"Expect   'logmsg'    should NOT be None  ,but actual is {c.logmsg}"
+        assert  c.msgbdy is not None    ,f"Expect   'logmsg'    should NOT be None  ,but actual is {c.msgbdy}"
         assert  c.logger    == l        ,f"Expect   'logger'    should NOT be None  ,but actual is {c.logger}"
         assert  c.queue     == q        ,f"Expect   'queue'     should NOT be None  ,but actual is {c.queue}"
         assert  c.metadata  == {}       ,f"Expect   'metadata'  should be dict      ,but actual is {c.metadata}"
@@ -402,7 +402,7 @@ class   TestCache:
         with pytest.raises(KeyError ,match=r'k1'):
             _ = c['k1'] # Should be evicted.
 
-        c = Cache( max=3 ,ttl=0.01667 ) # ttl initialized to 1 second.
+        c = Cache( max=3 ,ttl=1 )   # ttl initialized to 1 second.
         c['k1'] = 1
         c['k2'] = 2
         c['k3'] = 3
