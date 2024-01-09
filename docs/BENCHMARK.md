@@ -9,7 +9,13 @@ CPU:    AMD Ryzen 7 Pro 6850U, 8 cores
 Clock:  2.7 GHz (Base)  4.7 GHz (Turbo)
 RAM:    32 Gib
 ```
-
+Acer Nitro 5 laptop
+```
+O/S: Windows 11 Home
+CPU: Intel Core i7-12700H, 14cores
+Clock: 2.7 GHz (Base) 4.7 GHz (Turbo)
+RAM: 16 Gib
+```
 ### Container
 **Podman** v4.5.1.  Five nodes were spun up via `docker-compose.yml` with the following command:
 ```
@@ -76,3 +82,10 @@ The following testing parameters that did **not** produce any cache in-coherence
 | 9   | 100       | 10         | 50       | 5        | OK   |Run for 10 minutes with a maximum of 100 unique keys where a cache operation occurs between 0.2 - 10 seconds.|
 | 9   | 100       | 10         | 10       | 5        |      |Run for 10 minutes with a maximum of 100 unique keys where a cache operation occurs between 0.2 - 2 seconds.|
 | 9   | 200       | 10         | 10       | 5        |      |Run for 10 minutes with a maximum of 200 unique keys where a cache operation occurs between 0.2 - 2 seconds.|
+| 2 | 100 | 1 | 100 | 100 | OK | Run for 1 minutes with a maximum of 100 unique keys where a cache operation occurs between 0.1 - 1 seconds.|
+| 2 | 100 | 1 | 100 | 120 | OK | Run for 1 minutes with a maximum of 100 unique keys where a cache operation occurs between 0.0083 - 0.83 seconds.|
+| 2 | 100 | 1 | 100 | 150 | OK | Run for 1 minutes with a maximum of 100 unique keys where a cache operation occurs between 0.0066   - 0.6667 seconds.|
+| 2 | 100 | 1 | 100 | 200 | OK | Run for 1 minutes with a maximum of 100 unique keys where a cache operation occurs between 0.005   - 0.5 seconds.|
+| 2 | 100 | 1 | 100 | 300 | OK | Run for 1 minutes with a maximum of 100 unique keys where a cache operation occurs between 0.0033   - 0.33 seconds.|
+| 2 | 100 | 1 | 100 | 500 |  | Run for 1 minutes with a maximum of 100 unique keys where a cache operation occurs between 0.0033   - 0.33 seconds. have 1 lost message and one error after testing in 5 times |
+
