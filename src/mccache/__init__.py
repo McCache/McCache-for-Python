@@ -123,7 +123,7 @@ class Cache(collections.abc.MutableMapping):
             self.__size = dict()    # noqa: C408
         self.__data = dict()        # noqa: C408
         self.__currsize = 0
-        self.__maxsize = maxsize
+        self.__maxsize  = maxsize
         # McCache addition.
         self.__name:str = None
         self.__meta     = {}                # Metadata for the cache entry.
@@ -190,26 +190,26 @@ class Cache(collections.abc.MutableMapping):
         self.__meta[ key ] = {'tsm': tsm ,'crc': crc ,'del': False}
 
         #   DEBUG trace.
-        if  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+        if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
             if  key not in self.__data:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f"ERR {key} NOT persisted in __data[]!" )
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f">>> ERR:{key} NOT persisted in __data[]!" )
             elif  value != self.__data[ key ]:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f"ERR {key} value is incoherent in __data[]!" )
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f">>> ERR:{key} value is incoherent in __data[]!" )
             else:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f"OK  {key} persisted in __data[]." )
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f">>> OK: {key} persisted in __data[]." )
 
         if  multicast:
             #   DEBUG trace.
-            if  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f"UPD Queuing {key} out to multicast ..." )
+            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f">>> Queuing UPD {key} to multicast out." )
 
             # TODO: Reconcile the format with the format that is send out.
             _mcQueue.put((OpCode.UPD ,tsm ,self.name ,key ,value ,crc))
             self.__setload__( is_update=True )
 
             #   DEBUG trace.
-            if  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f"UPD Queued  {key} out to multicast ..." )
+            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f">>> Queued  UPD {key} to multicast out." )
 
     def __delitem__(self, key, multicast: bool = True ,tsm: int = time.time_ns()):    # noqa: RUF100 FBT001 FBT002  PLR0912 McCache
         size = self.__size.pop(key)
@@ -226,23 +226,23 @@ class Cache(collections.abc.MutableMapping):
 
         if  multicast:
             # DEBUG trace.
-            if  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f"DEL Queuing {key} out to multicast ..." )
+            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f">>> Queuing DEL {key} to multicast out." )
 
             # TODO: Reconcile the format with the format that is send out.
             _mcQueue.put((OpCode.DEL ,tsm ,self.name ,key ,None ,crc))
             self.__setload__( is_update=False )
 
             # DEBUG trace.
-            if  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f"DEL Queued out {key} to multicast ..." )
+            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f">>> Queued  DEL {key} to multicast out." )
 
         # DEBUG trace.
-        if  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+        if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
             if  key in self.__data:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f"ERR {key} still persist in cache!" )
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f">>> ERR:{key} still persist in cache!" )
             else:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f"OK  {key} deleted from cache." )
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f">>> OK: {key} deleted from cache." )
 
     def __contains__(self, key):
         return key in self.__data
@@ -1152,10 +1152,10 @@ def _get_mccache_logger( debug_log: str | None = None ) -> logging.Logger:
     logger: logging.Logger = logging.getLogger('mccache')   # McCache specific logger.
     logger.propagate = False
     logger.handlers.clear() # This is strictly a McCache logger.
+    fmtr = logging.Formatter(fmt=LOG_FORMAT ,datefmt='%Y%m%d%a %H%M%S' ,defaults=LOG_EXTRA)
 
     if 'TERM' in os.environ or ('SESSIONNAME' in os.environ and os.environ['SESSIONNAME'] == 'Console'):
         hdlr = logging.StreamHandler()
-        fmtr = logging.Formatter(fmt=LOG_FORMAT ,datefmt='%Y%m%d%a %H%M%S' ,defaults=LOG_EXTRA)
         hdlr.setFormatter( fmtr )
         logger.addHandler( hdlr )
         logger.setLevel( logging.INFO )
@@ -1197,17 +1197,18 @@ def _log_ops_msg(   lvl: int,
     else:
         sdr = f'Fr:{sdr}'
     if  not tsm:
-        tsm = 'T=?'
+        tsm = 'T=                 '
     if  not nms:
-        nms = 'N=?'
+        nms = 'N=    '
     if  not key:
-        key = 'K=?'
+        key = 'K=        '
     if  not crc:
-        crc = 'C=?'
+        crc = 'C=                      '
     if  not msg:
         msg = ''
 
-    txt = f"L#{ln} Im:{SRC_IP_ADD}\t{sdr}\t{opc}\t{tsm}\t{nms}\t{key}\t{crc}\t{msg}"
+    txt = f"L#{ln:>4} Im:{SRC_IP_ADD}\t{sdr}\t{opc}\t{tsm}\t{nms}\t{key}\t{crc}\t{msg}"
+
     logger.log( lvl ,txt ,extra=LOG_EXTRA )
 #   match lvl:
 #       case logging.DEBUG:
@@ -1461,11 +1462,14 @@ def _collect_fragment( pkt_b: bytes ,sender: str ) -> ():
         logger.warning(f"Received a foreign packet from {sender}.")
         return  False
 
+    if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS + 2:
+        _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sender ,tsm=tsm ,msg=f">>> Received fragment header from: {sender} ,seq={seq} ,frg_c={frg_c} ,key_s={key_s} ,rcv={rcv}" )
+
     if  rcv > 0 and rcv != SRC_IP_SEQ:
         # Packet is "unicasted", but not to me.
         return  False
 
-    # Packet is multicast to all members.
+    # Packet is to be multicast to all members.
     aky_t: tuple = (sender ,frg_c ,key_s ,tsm)    # Pending assembly key.
     if  aky_t not in _mcArrived:
         _mcArrived[ aky_t ] = { 'initon':  tsm,
@@ -1581,10 +1585,10 @@ def _check_sent_pending() -> None:
                         _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,f"{ip}:" ,crc ,ip))    # Request ACK for the entire message from an IP.
                     else:
                         # Partially unacknowledged.
-                        s = len(_mcPending[ pky_t ]['message'] )
+                        s = len(_mcPending[ pky_t ]['message'])
                         for f in range( 0 ,s ):
                             if  f in _mcPending[ pky_t ]['members'][ ip ]['unack']:
-                                _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,f"{ip}:{f}/{s}" ,None ,0)) # Request specific fragment ACK from an IP.
+                                _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,f"{ip}:{f}/{s}" ,crc ,ip)) # Request specific fragment ACK from an IP.
 
                     _ = _mcPending[ pky_t ]['members'][ ip ]['backoff'].pop()   # Pop off the head of the backoff pause.
 
@@ -1593,8 +1597,12 @@ def _check_sent_pending() -> None:
         mbr = len(_mcPending[ pky_t ]['members'])
         uak = [ip for ip in _mcPending[ pky_t ]['members'].keys() if len(_mcPending[ pky_t ]['members'][ ip ]['backoff']) == 0]
         if  mbr == len(_mcMember) or uak:
+            if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=nms ,key=key,crc=crc ,msg=f">   Proactive request ack from all members. all={len(_mcMember)} ,mbr={mbr} ,uak={len(uak)}" )
+
             # Re-queue a full message transmission.  Proactive re-transmit has None value.
             _mcQueue.put((OpCode.REQ ,tsm ,nms ,key ,None ,crc))
+
 
         for ip in uak:
             # Re-start the timeout for
@@ -1619,7 +1627,7 @@ def _check_recv_assembly() -> None:
                 for seq in range( 0 ,len(_mcArrived[ aky_t ]['message'])):
                     if  _mcArrived[ aky_t ]['message'][ seq ] is None:
                         # FIXME: Rework the following.
-                        _mcQueue.put((OpCode.REQ ,time.time_ns() ,aky_t[1] ,aky_t[0] ,f"{SRC_IP_ADD[0]}:{seq}" ,None ,0))
+                        _mcQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,f"{seq}" ,None ,aky_t[0]))
 
                 _ = _mcArrived[ aky_t ]['backoff'].pop()    # Pop off the head of the backoff pause.
         elif aky_t not in bads:
@@ -1628,7 +1636,7 @@ def _check_recv_assembly() -> None:
 
     # Delete away the unassemble fragments.
     # TODO: Convert this to use list comprehension.
-    # TODO: Need to delete the current key  entry in the local cache for it is obsolete.
+    # TODO: Need to delete the current key entry in the local cache for it is obsolete.
     for aky_t in bads:
         lst: list =  None
         try:
@@ -1680,15 +1688,19 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                 if  sdr \
                     in  _mcPending[ pky ]['members']:
                     del _mcPending[ pky ]['members'][ sdr ]
-                elif  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
-                    # Usually this node join the cluster after the other members self annoucement.
-                    _log_ops_msg( logging.WARNING ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"NOT expected from {sdr}." )
 
+                elif  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+                    # Usually this node join the cluster after the other members self annoucement.
+                    _log_ops_msg( logging.WARNING ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">   NOT expected from {sdr}." )
 
                 if  len(_mcPending[ pky ]['members']) == 0:
                     del _mcPending[ pky ]
-            elif  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
-                _log_ops_msg( logging.WARNING ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"{pky} NOT found for acknowledgment from {sdr}." )
+
+                    if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+                        _log_ops_msg( logging.DEBUG ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">   Acknowledged by all members.  Delete tracking entry." )
+
+            elif  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+                _log_ops_msg( logging.WARNING ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">   {pky} NOT found for acknowledgment from {sdr}." )
 
         case OpCode.BYE:    # Goobye from member.
             if  sdr in _mcMember:
@@ -1697,8 +1709,8 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
         case OpCode.DEL:    # Delete.
             if  key in mcc:
                 #   Deep Tracing
-                if  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"Calling: mcc.__delitem__( {key} ,None )" )
+                if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  Calling: mcc.__delitem__( {key} ,None )" )
 
                 # FIXME: Check for collision.  See: UPD.
                 mcc.__delitem__( key ,None )
@@ -1707,11 +1719,11 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
             _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
 
             #   Deep Tracing
-            if  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
                 if  key not in mcc:
-                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"OK: Key {key} deleted from local." )
+                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  OK: {key} deleted from local." )
                 else:
-                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"ERR:Key {key} NOT deleted from local." )
+                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  ERR:{key} NOT deleted from local." )
 
         case OpCode.ERR:    # Error.
             pass    # TODO: How should we handle an error reported by the sender?
@@ -1732,23 +1744,23 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
 
         case OpCode.RAK:    # Re-Acknowledgement
             #   Deep Tracing
-            if  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
                 if  aky_t in _mcArrived:
-                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"{aky_t} exist in _mcArrived." )
+                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  aky_t={aky_t} exist in _mcArrived." )
                 else:
-                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"{aky_t} NOT exist in _mcArrived." )
+                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  aky_t={aky_t} NOT exist in _mcArrived." )
 
                 if  key in mcc:
-                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"{key} exist in _mcCache." )
+                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  {key} exist in _mcCache." )
                 else:
-                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"{key} NOT exist in _mcCache." )
+                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  {key} NOT exist in _mcCache." )
 
             if  aky_t in _mcArrived:
                 # We keep the arrived messages around to be cleaned up by house keeping.
                 _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
                 #   Deep Tracing
-                if  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
-                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"{key} Re-Acknowledge." )
+                if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">   {key} Re-Acknowledge." )
             # TODO: Didn't receive anything and need sender to resend.
         case OpCode.REQ:
             pass
@@ -1766,35 +1778,35 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                 lts =  mcc.getmeta( key )['tsm']
 
             #   Deep Tracing
-            if  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"Local tsm: {lts} {'<' if (lts < tsm) else '>='} {tsm}" )    # noqa: E501
+            if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">   Local tsm: {lts} {'<' if (lts < tsm) else '>='} {tsm}" )    # noqa: E501
 
             if  lts < tsm:  # Local timestamp is older than the arriving message timestamp.
                 #   Deep Tracing
-                if  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"Calling: mcc.__setitem__( {key} ,{crc} ,None ,{tsm} )" )    # noqa: E501
+                if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  Calling: mcc.__setitem__( {key} ,{crc} ,None ,{tsm} )" )    # noqa: E501
 
                 # Store it locally.
                 mcc.__setitem__( key ,val ,None ,tsm )  # FIXME: Look into why `EnableMultiCast.NO` doesn't work inside of "__setitem__()"
 
                 #   Deep Tracing
-                if  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+                if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
                     if  mcc[ key ]:
                         lcs =  mcc.getmeta( key )['crc']
                         lts =  mcc.getmeta( key )['tsm']
 
                         if  lcs == crc and lts == tsm:
-                            _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"OK: Key {key} stored in local." )
+                            _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  OK: {key} stored in local." )
                         else:
-                            _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"ERR:Key {key} out of sync in local.  Local tsm: {lcs} {'==' if (lcs == crc) else '<>'} {crc} ,{lts} {'==' if (lts == tsm) else '<>'} {tsm}" )   # noqa: E501
+                            _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  ERR:{key} out of sync in local.  Local tsm: {lcs} {'==' if (lcs == crc) else '<>'} {crc} ,{lts} {'==' if (lts == tsm) else '<>'} {tsm}" )   # noqa: E501
                     else:
-                        _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"ERR:Key {key} NOT stored in local." )
+                        _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  ERR:{key} NOT stored in local." )
             elif lts == tsm and crc == lcs:
                 # Re-transmit message.
                 pass
             elif lts >  tsm and crc != lcs:
                 # TODO: Look into using the node with the largest 4th IP octet as the tie breaker?
-                _log_ops_msg( logging.WARNING ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"Cache incoherent: Evict {key}! {lcs} <> {crc}" )
+                _log_ops_msg( logging.WARNING ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"Cache incoherent: Evict {key}! {lts} > {tsm} and {lcs} <> {crc}" )
 
                 # NOTE: Cache in-consistent, evict this key from all members.
                 del mcc[ key ]
@@ -1914,8 +1926,8 @@ def _multicaster() -> None:
                 _send_fragment( sock ,frg_b )
 
             # DEBUG trace.
-            if  logger.level == logging.DEBUG and _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-                _log_ops_msg( logging.DEBUG ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg="Multicasted out to members." )
+            if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+                _log_ops_msg( logging.DEBUG ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">   Multicasted out to member{ ' '+rcv if rcv else 's.'}" )
 
             if  opc == OpCode.MET:  # Metrics.
                 # Query out the local metrics.

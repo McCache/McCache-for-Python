@@ -1,7 +1,8 @@
+:: Dependent on your environment having the Unix/Linux utilties.  SEE: Installing Git with Optional Unix tools.
 :: SEE: https://ss64.com/nt/syntax-variables.html
 :: Change the following to ECHO ON to trace the execution.
 @ECHO OFF
-@ECHO ON
+::@ECHO ON
 
 :: Check if either podman or docker is installed.
 ::
@@ -39,19 +40,23 @@ FOR /f "tokens=*" %%v IN ('powershell get-date -format "{_yyyyMMdd_HHmm}"') DO S
 ::  TEST_MONKEY_TANTRUM The maximum percentage of simulated drop packets. 0-20
 
 :: Setup the variable TEST_MAX_ENTRIES to be passed into the container composer.
-SET TEST_MAX_ENTRIES=30
+SET TEST_MAX_ENTRIES=100
 
 :: Setup the variable TEST_RUN_DURATION to be passed into the container composer.
-SET TEST_RUN_DURATION=3
+SET TEST_RUN_DURATION=5
 
 :: Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
-SET TEST_SLEEP_SPAN=75
+SET TEST_SLEEP_SPAN=100
 
 :: Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
 SET TEST_SLEEP_UNIT=100
 
 :: Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
 SET TEST_MONKEY_TANTRUM=0
+
+:: Setup the variable TEST_CLUSTER_SIZE to be passed into the container composer.
+SET TEST_CLUSTER_SIZE=3
+
 
 :: Start of CLI.
 :SOF_CLI
@@ -60,38 +65,45 @@ IF  /I "TEST_RUN_DURATION"  =="%1" GOTO :SET_TEST_RUN_DURATION
 IF  /I "TEST_SLEEP_SPAN"    =="%1" GOTO :SET_TEST_SLEEP_SPAN
 IF  /I "TEST_SLEEP_UNIT"    =="%1" GOTO :SET_TEST_SLEEP_UNIT
 IF  /I "TEST_MONKEY_TANTRUM"=="%1" GOTO :SET_TEST_MONKEY_TANTRUM
+IF  /I "TEST_CLUSTER_SIZE"  =="%1" GOTO :SET_TEST_CLUSTER_SIZE
 IF  /I ""                   =="%1" GOTO :EOF_CLI
 
 ECHO Invalid parameter value.  Try the following:
-ECHO    %0  [TEST_MAX_ENTRIES ###] [TEST_RUN_DURATION ###] [TEST_SLEEP_SPAN ###] [TEST_SLEEP_UNIT ###]
+ECHO    %0  [TEST_MAX_ENTRIES ###] [TEST_RUN_DURATION ###] [TEST_SLEEP_SPAN ###] [TEST_SLEEP_UNIT ###] [NODES ###]
 GOTO :EOF_SCRIPT
 
 :SET_TEST_MAX_ENTRIES
-SET TEST_MAX_ENTRIES=%2
+SET  TEST_MAX_ENTRIES=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
 
 :SET_TEST_RUN_DURATION
-SET TEST_RUN_DURATION=%2
+SET  TEST_RUN_DURATION=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
 
 :SET_TEST_SLEEP_SPAN
-SET TEST_SLEEP_SPAN=%2
+SET  TEST_SLEEP_SPAN=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
 
 :SET_TEST_SLEEP_UNIT
-SET TEST_SLEEP_UNIT=%2
+SET  TEST_SLEEP_UNIT=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
 
 :SET_TEST_MONKEY_TANTRUM
-SET TEST_MONKEY_TANTRUM=%2
+SET  TEST_MONKEY_TANTRUM=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+:SET_TEST_CLUSTER_SIZE
+SET  TEST_CLUSTER_SIZE=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
@@ -107,6 +119,7 @@ ECHO    TEST_RUN_DURATION:  %TEST_RUN_DURATION%
 ECHO    TEST_SLEEP_SPAN:    %TEST_SLEEP_SPAN%
 ECHO    TEST_SLEEP_UNIT:    %TEST_SLEEP_UNIT%
 ECHO    TEST_MONKEY_TANTRUM:%TEST_MONKEY_TANTRUM%
+ECHO    TEST_CLUSTER_SIZE:  %TEST_CLUSTER_SIZE%
 ECHO:
 
 :: The following are CLI input parameter you can use to parse out the script name information.
@@ -121,22 +134,32 @@ ECHO:
 
 :: Change over to the project root directory no matter where this script is invoked.
 SET     ROOTDIR=%~p0
-SET     ROOTDIR=%ROOT:tests\=%
+SET     ROOTDIR=%ROOTDIR:tests\=%
 PUSHD  %ROOTDIR%
 
 :: Create the log directory if it doesn't exist, else empty the directory before we start.
 ::
 IF NOT EXIST  log (MD log) ELSE (DEL /q log\*)
 
+:: Initialize a minimum of two nodes.
+SET  NODE01=node01
+SET  NODE02=node02
+
+FOR /L %%v  IN ( 1 ,1 ,%TEST_CLUSTER_SIZE% )  DO  SET NODE0%%v=node0%%v
+
 :: Bring up the cluster of containers and wait until we are done exercising the cache.
 ::
-ECHO Starting the test cluster.
-:: Keep in forgound
-%CONTAINER_EXE% up  --build
+ECHO Starting the test cluster with %TEST_CLUSTER_SIZE% nodes.
+:: Keep in foregound with the maximum of 9 nodes as specified in "docker-compose.yml"
+%CONTAINER_EXE% up  %NODE01% %NODE02% %NODE03% %NODE04% %NODE05% %NODE06% %NODE07% %NODE08% %NODE09%
 
 :: Wait for the test run to be completed in the cluster and test the output log.
 ECHO Run test using the output log from the cluster.
-pipenv run  pytest -q .
+
+:: Extract out and clean up the INQ result from each of the debug log files into a result file.
+tail log/debug0*.log |grep "INQ" |grep -Ev "Fr:|Multicasted" |sed "s/{/\n  /" |tr "}" "\n"  > log/result.txt
+
+:: pipenv run  pytest -q .
 
 :EOF_SCRIPT
 POPD
