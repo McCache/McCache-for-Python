@@ -28,6 +28,7 @@ class Cache( OrderedDict ):
 
     Functionality:
         - LRU (Least Frequently Use) cache.
+            - SEE: https://dropbox.tech/infrastructure/caching-in-theory-and-practice
         - Maintain usage metrics.
         - Support time-to-live eviction.  Updated item will have its ttl reset.
         - Support telemetry communication with external via queue.
