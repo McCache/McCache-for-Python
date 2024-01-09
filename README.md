@@ -7,7 +7,7 @@ table {
 </style>
 -->
 ## Overview
-`McCache` is a distributed in-memory write through caching library that is build on the [`cachetools`](https://pypi.org/project/cachetools/) package.
+`McCache` is a distributed in-memory write through caching library that is build on the [`OrderedDict`](https://docs.python.org/3/library/collections.html#collections.OrderedDict) package.
 It uses **UDP** multicasting as the transport hence the name "Multi-Cast Cache", playfully abbreviated to "`McCache`".
 
 The goals of this package are:
@@ -24,21 +24,19 @@ pip install mccache
 ## Example
 ```python
 import datetime
-import logging
 import mccache
 
-l = logging.getLogger('mccache')
 c = mccache.get_cache()
 
 c['key'] = datetime.datetime.utcnow()  # Insert a cache entry
-l.info(f'Started at {c['key']}')
+print(f'Started at {c['key']}')
 
 c['key'] = datetime.datetime.utcnow()  # Update a cache entry
-l.info(f'Ended at {c['key']}')
+print(f'Ended at {c['key']}')
 
 del c['key']  # Delete a cache entry
 if 'key' not in c:
-    l.info(f'"key" is not in the cache.')
+    print(f'"key" is not in the cache.')
 ```
 In the above example, there is **nothing** different in the usage of `McCache` from a regular Python dictionary.  However, the benefit is in a clustered environment where the other member's cache are kept coherent with the changes to your local cache.
 
@@ -201,7 +199,7 @@ export MCCACHE_MTU=1472
 ```
 
 ## Design
-`McCache` overwrite both the `__setitem__()` and `__delitem__()` dunder methods of `cachetool` to shim in the communication sub-layer to sync-up the other members in the cluster.  All changes to the cache dictonary are captured and queued up to be multicasted out.
+`McCache` overwrite both the `__setitem__()` and `__delitem__()` dunder methods of `OrderedDict` to shim in the communication sub-layer to sync-up the other members in the cluster.  All changes to the cache dictonary are captured and queued up to be multicasted out.
 
 Three deamon threads are started when this package is initialized.  They are:
 1. **Multicaster**. &nbsp;Whose job is to dequeue change operation messages and multicast them out into the cluster.
@@ -219,7 +217,20 @@ The multicasting member will keep track of all the send fragments to all the mem
 Collision happens when two or more nodes make a change to a same key at the same time.  The timestamp that is attached to the update is not granular enough to serialize the operation.  In this case, a warning is log and multi-cast out the eviction of this key to prevent the cache from becoming in-coherent.
 
 ## Limitation
-* Even though the latency is low, it will **eventually** be consistent.  There is a very micro chance that an event can slip in just after the cache is read with the old value.
+* Even though the latency is low, it will **eventually** be consistent.  There is a very micro chance that an event can slip in just after the cache is read with the old value.  One possible remedy is to perform and addition check.  The following is a code snippet that may be of help:
+
+```
+c =  Cache()
+c['k'] = 123
+v = c['k']
+e = c.metadata['k']['tsm']
+time.sleep( 10 )
+if 'k' in c.metadata:
+    a = c.metadata['k']['tsm']
+    if  a > e:  # Actual is greater than expected.
+        print('Cache got change since you previously read it.')
+```
+
 * The clocks in a distributed environment is never as accurate (due to clock drift) as we want it to be in a high update environment.  On a Local Area Network, the accuracy could go down to 1ms but 10ms is a safer assumption.  SEE: [NTP](https://timetoolsltd.com/ntp/ntp-timing-accuracy/)
 
 ## Miscellaneous

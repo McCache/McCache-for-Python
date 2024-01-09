@@ -68,6 +68,8 @@ from logging.handlers import RotatingFileHandler
 from statistics import mean
 from timeit import default_timer as timer
 
+from mccache.pycache import Cache as PyCache
+
 # TODO: Figure out how to setup this package.
 try:
     # Not work from command line.
@@ -205,6 +207,8 @@ class Cache(collections.abc.MutableMapping):
 
             # TODO: Reconcile the format with the format that is send out.
             _mcQueue.put((OpCode.UPD ,tsm ,self.name ,key ,value ,crc))
+            # For PyCache
+            #_mcQueue.put((OpCode.UPD ,tsm ,self.name ,key ,crc ,value))
             self.__setload__( is_update=True )
 
             #   DEBUG trace.
@@ -231,6 +235,8 @@ class Cache(collections.abc.MutableMapping):
 
             # TODO: Reconcile the format with the format that is send out.
             _mcQueue.put((OpCode.DEL ,tsm ,self.name ,key ,None ,crc))
+            # For PyCache
+            #_mcQueue.put((OpCode.DEL ,tsm ,self.name ,key ,crc ,value))
             self.__setload__( is_update=False )
 
             # DEBUG trace.
@@ -854,6 +860,7 @@ class McCacheOption(StrEnum):
     # Constants for linter to catch typos instead of at runtime.
     # TODO: Drop the TTL feature.
     MCCACHE_CACHE_TTL       = 'MCCACHE_CACHE_TTL'
+    MCCACHE_CACHE_MAX       = 'MCCACHE_CACHE_MAX'
     MCCACHE_CACHE_SIZE      = 'MCCACHE_CACHE_SIZE'
     MCCACHE_CACHE_SYNC      = 'MCCACHE_CACHE_SYNC'
     MCCACHE_PACKET_MTU      = 'MCCACHE_PACKET_MTU'
@@ -892,6 +899,7 @@ class OpCode(StrEnum):
     BYE = 'BYE'     # Member announcing it is leaving the group.
     DEL = 'DEL'     # Member requesting the group to evict the cache entry.
     ERR = 'ERR'     # Member announcing an error to the group.
+    EVT = 'EVT'     # Member announcing an eviction to the group.
     FYI = 'FYI'     # Member communicating information.
     INQ = 'INQ'     # Member inquiring about a cache entry from the group.
     MET = 'MET'     # Member inquiring about the cache metrics metrics from the group.
@@ -901,7 +909,8 @@ class OpCode(StrEnum):
     RAK = 'RAK'     # Request acknowledgment for a message.
     REQ = 'REQ'     # Member requesting resend message fragment.
     RST = 'RST'     # Member requesting reset of the cache.
-    UPD = 'UPD'     # Update an existing cache entry (Insert/Updatre).
+    UPD = 'UPD'     # Update an existing cache entry (Insert/Update).
+    WRN = 'WRN'     # Member announcing an warning to the group.
 
     def __repr__(self):
         return self.value
@@ -912,13 +921,15 @@ class OpCode(StrEnum):
 
 @dataclass
 class McCacheConfig:
-    cache_ttl: int      = 900           # Total Time to Live in seconds for a cached entry.
-    cache_size: int     = 512           # Max entries.
+    cache_ttl: int      = 900           # Total Time to Live in seconds for a cached entry.  Default is 15 minutes.
+    cache_max: int      = 256           # Max entries threshold for triggering entries eviction.
+    cache_size: int     = 256*1024      # Max size in bytes threshold for triggering entries eviction. Default= 256K.
     cache_sync: str     = 'FULL'        # Cache consistent syncing level. [Full ,Part]
     packet_mtu: int     = 1472          # Maximum Transmission Unit of your network packet payload.
                                         # Ethernet frame is 1500 and jumbo frame is 9000, without the static 20 bytes IP and 8 bytes ICMP headers.
                                         # SEE: https://www.youtube.com/watch?v=Od5SEHEZnVU and https://www.youtube.com/watch?v=GjiDmU6cqyA
-    packet_pace: float  = 0.01          # 10ms for congestion control. 10Gib network is 1ms.
+    packet_pace: float  = 0.007         # 7ms for congestion control. 10Gib network is 1ms.
+                                        # OS quanta: Windows ~ 120ms and *nix ~ 100ms.
     multicast_ip: str   = '224.0.0.3'   # Unassigned multi-cast IP.
     multicast_port: int = 4000          # Unofficial port.  Was for Diablo II game.
     multicast_hops: int = 1             # Only local subnet.
@@ -951,16 +962,52 @@ try:
     LOG_EXTRA['ipV6'] = LOG_EXTRA['ipv6'].replace(':' ,'')
 except socket.gaierror:
     pass
-LOG_FORMAT: str = McCacheConfig.log_format
 # SRC_IP_ADD: str = f"{LOG_EXTRA['ipv4']}:{os.getpid()}"   # Source IP address.
 SRC_IP_ADD: str = f"{LOG_EXTRA['ipv4']} "       # Source IP address.
 SRC_IP_SEQ: int = int(SRC_IP_ADD.split('.')[3]) # Last octet.
 FRM_IP_PAD: str = ' '*len(LOG_EXTRA['ipv4'])
+LOG_MSGBDY: str = 'L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm}\t{nms}\t{key}\t{crc}\t{msg}'
+LOG_FORMAT: str = McCacheConfig.log_format
 logger: logging.Logger = logging.getLogger()    # Root logger.
 
 
 # Public methods.
 #
+def _get_cache( name: str | None = None ) -> PyCache:
+    """Return a cache with the specified name ,creating it if necessary.
+
+    If no name is provided, it shall be defaulted to `mccache`.
+
+    SEE: https://dropbox.tech/infrastructure/caching-in-theory-and-practice
+    Args:
+        name:   Name to isolate different caches.  Namespace dot notation is suggested.
+    Return:
+        Cache instance to use identified with given name.
+    """
+    if  name:
+        if  not isinstance( name ,str ):
+            raise TypeError('The cache name must be a string!')
+    else:
+        name  =  'mccache'
+
+    if  name  in _mcCache:
+        cache =  _mcCache[ name ]
+    else:
+        debug =(_mcConfig.debug_level >= McCacheDebugLevel.BASIC)
+        msgbdy= LOG_MSGBDY.replace('{iam}' ,SRC_IP_ADD ).replace('{sdr}' ,f'   {FRM_IP_PAD}').replace('{msg}' ,'>>> {msg}')
+        cache = PyCache(
+                    name    = name,
+                    max     =_mcConfig.cache_max,
+                    size    =_mcConfig.cache_size,
+                    ttl     =_mcConfig.cache_ttl,
+                    msgbdy  = msgbdy,
+                    logger  = logger,
+                    queue   =_mcQueue,
+                    debug   = debug
+                )
+        _mcCache[ name ] = cache
+    return cache
+
 def get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
     """
     Return a cache with the specified name ,creating it if necessary.
@@ -1168,14 +1215,15 @@ def _get_mccache_logger( debug_log: str | None = None ) -> logging.Logger:
 
     return logger
 
-def _log_ops_msg(   lvl: int,
-                opc: str,
-                sdr: str    | None = None,
-                tsm: str    | None = None,
-                nms: str    | None = None,
-                key: object | None = None,
-                crc: str    | None = None,
-                msg: str    | None = None) -> None:
+def _log_ops_msg(
+        lvl: int,
+        opc: str,                           # Op Code
+        sdr: str    | None = None,          # Sender
+        tsm: str    | None = None,          # Timestamp
+        nms: str    | None = None,          # Namespace
+        key: object | None = None,          # Key
+        crc: str    | None = None,          # Checksum (md5)
+        msg: str    | None = None) -> None: # Message
     """A standardize format to log out McCache operation messages making them easier to parse in the test.
 
     Args:
@@ -1190,37 +1238,30 @@ def _log_ops_msg(   lvl: int,
     Return:
         None
     """
-    ln = getframeinfo(stack()[1][0]).lineno
+    lno = getframeinfo(stack()[1][0]).lineno
+    iam = SRC_IP_ADD
 
-    if  not sdr :
-        sdr = f'   {FRM_IP_PAD}'
+    if  sdr is None:
+        sdr = f"   {FRM_IP_PAD}"
     else:
-        sdr = f'Fr:{sdr}'
-    if  not tsm:
-        tsm = 'T=                 '
-    if  not nms:
-        nms = 'N=    '
-    if  not key:
-        key = 'K=        '
-    if  not crc:
-        crc = 'C=                      '
-    if  not msg:
+        sdr =  f"Fr:{sdr}"
+    if  tsm is None:
+        tsm =  f"T={' '*14}"
+    if  nms is None:
+        nms =  f"N={' '* 6}"
+    if  key is None:
+        key =  f"K={' '* 6}"
+    if  msg is None:
         msg = ''
+    if  crc is None:
+        crc =  \
+        md5 =  f"C={' '*20}"
+    elif isinstance( crc ,bytes ):
+        crc =  \
+        md5 =  base64.b64encode( crc ).decode()
 
-    txt = f"L#{ln:>4} Im:{SRC_IP_ADD}\t{sdr}\t{opc}\t{tsm}\t{nms}\t{key}\t{crc}\t{msg}"
-
-    logger.log( lvl ,txt ,extra=LOG_EXTRA )
-#   match lvl:
-#       case logging.DEBUG:
-#           logger.debug(   txt ,extra=LOG_EXTRA)
-#       case logging.INFO:
-#           logger.info(    txt ,extra=LOG_EXTRA)
-#       case logging.WARNING:
-#           logger.warning( txt ,extra=LOG_EXTRA)
-#       case logging.ERROR:
-#           logger.error(   txt ,extra=LOG_EXTRA)
-#       case logging.CRITICAL:
-#           logger.critical(txt ,extra=LOG_EXTRA)
+    txt =  LOG_MSGBDY.format( lno=lno ,iam=iam ,sdr=sdr ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,md5=md5 ,msg=msg )
+    logger.log( lvl ,txt )
 
 def _get_size( obj: object, seen: set | None = None ):
     """Recursively finds size of objects.
@@ -1279,6 +1320,15 @@ def _get_cache_metrics( name: str | None = None ) -> dict:
                     'lookups':  _mcCache[ n ].lookups,
                     'updates':  _mcCache[ n ].updates,
                     'deletes':  _mcCache[ n ].deletes,
+                    #
+                    # 'size':     round(sys.__sizeof__(_mcCache[ n ])         / ONE_MIB     ,4),
+                    # 'spikeDur': round(               _mcCache[ n ].spikeDur / ONE_NS_SEC  ,4),
+                    # 'spikes':   _mcCache[ n ].spikes,
+                    # 'lookups':  _mcCache[ n ].lookups,
+                    # 'inserts':  _mcCache[ n ].inserts,
+                    # 'updates':  _mcCache[ n ].updates,
+                    # 'deletes':  _mcCache[ n ].deletes,
+                    # 'evicts':   _mcCache[ n ].evicts,
                 }
                 for n in _mcCache.keys() if n == name or name is None
         }   # Namespace stats.
@@ -1291,6 +1341,14 @@ def _get_cache_metrics( name: str | None = None ) -> dict:
                     'lookups':  sum([_mcCache[ n ].lookups for n in _mcCache.keys()]),
                     'updates':  sum([_mcCache[ n ].updates for n in _mcCache.keys()]),
                     'deletes':  sum([_mcCache[ n ].deletes for n in _mcCache.keys()]),
+                    #
+                    # 'size':     round(sys.__sizeof__(_mcCache[ n ]) / ONE_MIB ,4),
+                    # 'spikeDur': round(         mean([_mcCache[ n ].spikeDur  for n in _mcCache.keys()]) / ONE_NS_SEC ,4),
+                    # 'lookups':  sum([_mcCache[ n ].lookups for n in _mcCache.keys()]),
+                    # 'inserts':  sum([_mcCache[ n ].inserts for n in _mcCache.keys()]),
+                    # 'updates':  sum([_mcCache[ n ].updates for n in _mcCache.keys()]),
+                    # 'deletes':  sum([_mcCache[ n ].deletes for n in _mcCache.keys()]),
+                    # 'evicts':   sum([_mcCache[ n ].evicts  for n in _mcCache.keys()]),
                 },
             }   # Global stats.
 
@@ -1583,12 +1641,16 @@ def _check_sent_pending() -> None:
                     if  len(_mcPending[ pky_t ]['message']) == len(_mcPending[ pky_t ]['members'][ ip ]['unack']):
                         # No fragments was acknowledged.
                         _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,f"{ip}:" ,crc ,ip))    # Request ACK for the entire message from an IP.
+                        # For PyCache
+                        #_mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,crc ,f"{ip}:" ,ip))
                     else:
                         # Partially unacknowledged.
                         s = len(_mcPending[ pky_t ]['message'])
                         for f in range( 0 ,s ):
                             if  f in _mcPending[ pky_t ]['members'][ ip ]['unack']:
                                 _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,f"{ip}:{f}/{s}" ,crc ,ip)) # Request specific fragment ACK from an IP.
+                                # For PyCache
+                                #_mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,crc ,f"{ip}:{f}/{s}" ,ip))
 
                     _ = _mcPending[ pky_t ]['members'][ ip ]['backoff'].pop()   # Pop off the head of the backoff pause.
 
@@ -1602,7 +1664,8 @@ def _check_sent_pending() -> None:
 
             # Re-queue a full message transmission.  Proactive re-transmit has None value.
             _mcQueue.put((OpCode.REQ ,tsm ,nms ,key ,None ,crc))
-
+            # For PyCache
+            #_mcQueue.put((OpCode.REQ ,tsm ,nms ,key ,crc ,None ,0))
 
         for ip in uak:
             # Re-start the timeout for
@@ -1628,6 +1691,8 @@ def _check_recv_assembly() -> None:
                     if  _mcArrived[ aky_t ]['message'][ seq ] is None:
                         # FIXME: Rework the following.
                         _mcQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,f"{seq}" ,None ,aky_t[0]))
+                        # For PyCache
+                        #_mcQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,None ,f"{seq}" ,aky_t[0]))
 
                 _ = _mcArrived[ aky_t ]['backoff'].pop()    # Pop off the head of the backoff pause.
         elif aky_t not in bads:
@@ -1706,17 +1771,19 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
             if  sdr in _mcMember:
                 del _mcMember[ sdr ]
 
-        case OpCode.DEL:    # Delete.
+        case OpCode.DEL | OpCode.EVT:   # Delete/Eviction.
             if  key in mcc:
                 #   Deep Tracing
                 if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  Calling: mcc.__delitem__( {key} ,None )" )
+                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  Calling: cache.__delitem__( {key} ,None )" )
 
                 # FIXME: Check for collision.  See: UPD.
                 mcc.__delitem__( key ,None )
 
             # Acknowledge it.
             _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
+            # For PyCache
+            #_mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
 
             #   Deep Tracing
             if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
@@ -1758,6 +1825,8 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
             if  aky_t in _mcArrived:
                 # We keep the arrived messages around to be cleaned up by house keeping.
                 _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
+                # For PyCache
+                #_mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
                 #   Deep Tracing
                 if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
                     _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">   {key} Re-Acknowledge." )
@@ -1784,7 +1853,7 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
             if  lts < tsm:  # Local timestamp is older than the arriving message timestamp.
                 #   Deep Tracing
                 if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  Calling: mcc.__setitem__( {key} ,{crc} ,None ,{tsm} )" )    # noqa: E501
+                    _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  Calling: cache.__setitem__( {key} ,{crc} ,None ,{tsm} )" )    # noqa: E501
 
                 # Store it locally.
                 mcc.__setitem__( key ,val ,None ,tsm )  # FIXME: Look into why `EnableMultiCast.NO` doesn't work inside of "__setitem__()"
@@ -1811,10 +1880,14 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                 # NOTE: Cache in-consistent, evict this key from all members.
                 del mcc[ key ]
                 _mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,None ,crc))
+                # For PyCache
+                #_mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,crc ,None ,0))
 
             val = None
             # Acknowledge it.
             _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
+            # For PyCache
+            #_mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,crc ,None ,sdr))
 
         case _:
             pass
@@ -1876,6 +1949,10 @@ def _multicaster() -> None:
             val: object = msg[4]    # Value
             crc: str    = msg[5]    # Checksum
             rcv: str    = None      # Receiving member addressed to
+            # For PyCache.
+            #crc: bytes  = msg[4]    # Checksum
+            #val: object = msg[5]    # Value
+            #rcv: int    = msg[6]    # Addressed to receiving member. 0 == multicast to all members.
             frg: list   = []
 
             if  len(msg) == 7:

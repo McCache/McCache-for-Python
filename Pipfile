@@ -54,7 +54,8 @@ python_version = ">=3.11.0"     # McCache uses Structured Pattern Matching.
 
 [scripts]
 helloworld = "python -c \"print('Hello World. Ran from: pipenv run helloworld')\""
+covertest  = "coverage run -m pytest -v  tests\\unit\\test_cache.pypi"
 unittest   = "./tests/run_tests"
-minitest   = "./tests/run_tests  MAX_KEYS 10   RUN_MINS 1"
-loadtest   = "./tests/run_tests  MAX_KEYS 100  RUN_MINS 10"
+minitest   = "./tests/run_tests  TEST_MAX_ENTRIES 100  TEST_RUN_DURATION 1"
+loadtest   = "./tests/run_tests  TEST_MAX_ENTRIES 10   TEST_RUN_DURATION 10"
 appendtest = "for ((i=1;i<=10000;i++)); do echo \"$(hostname) $(date '+%T %N')\" >> ${MCCACHE_DEBUG_FILE}; done"
