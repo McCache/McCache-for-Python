@@ -858,7 +858,6 @@ class SocketWorker(Enum):
 
 class McCacheOption(StrEnum):
     # Constants for linter to catch typos instead of at runtime.
-    # TODO: Drop the TTL feature.
     MCCACHE_CACHE_TTL       = 'MCCACHE_CACHE_TTL'
     MCCACHE_CACHE_MAX       = 'MCCACHE_CACHE_MAX'
     MCCACHE_CACHE_SIZE      = 'MCCACHE_CACHE_SIZE'
@@ -1874,7 +1873,6 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                 # Re-transmit message.
                 pass
             elif lts >  tsm and crc != lcs:
-                # TODO: Look into using the node with the largest 4th IP octet as the tie breaker?
                 _log_ops_msg( logging.WARNING ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f"Cache incoherent: Evict {key}! {lts} > {tsm} and {lcs} <> {crc}" )
 
                 # NOTE: Cache in-consistent, evict this key from all members.
@@ -1941,7 +1939,6 @@ def _multicaster() -> None:
         tmr_bgn = timer()
         try:
             msg = _mcQueue.get()    # Dequeue the cache operation.
-            # TODO: Reconcile the format with the format that is send out.
             opc         = msg[0]    # Op Code
             tsm: int    = msg[1]    # Timestamp
             nms: str    = msg[2]    # Namespace
@@ -2072,6 +2069,7 @@ def _listener() -> None:
         try:
             pkt_b ,sender = sock.recvfrom( _mcConfig.packet_mtu )
             fr_ip = sender[0]
+            ip_o4 = fr_ip.split('.')[ 3 ]   # The 4th IP octet.
             # Maintain the cluster membership.
             if  fr_ip not in _mySelf and fr_ip not in _mcMember:
                 _mcMember[ fr_ip ] = None

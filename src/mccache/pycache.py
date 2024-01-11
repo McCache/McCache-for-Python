@@ -12,7 +12,7 @@ import time
 from collections import OrderedDict
 from collections.abc import Iterable
 from inspect import getframeinfo, stack
-from typing import Any ,Iterable
+from typing import Any
 
 # TODO: Figure out how to setup this package.
 try:
@@ -33,8 +33,8 @@ class Cache( OrderedDict ):
         - Support time-to-live eviction.  Updated item will have its ttl reset.
         - Support telemetry communication with external via queue.
     """
-    ONE_NS_SEC  = 10_000_000_000    # One second in nano seconds.
-    ONE_NS_MIN  = ONE_NS_SEC *60    # One minute in nano seconds.
+    ONE_NS_SEC  = 1_000_000_000     # One second in nano seconds.
+    ONE_NS_MIN  = 60*ONE_NS_SEC     # One minute in nano seconds.
     TSM_VERSION = time.monotonic_ns if sys.platform == 'darwin' else time.time_ns
     IP4_ADDRESS = sorted(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET ))[0][4][0]
 
@@ -57,7 +57,7 @@ class Cache( OrderedDict ):
         self.__name     :str    = 'default'
         self.__maxlen   :int    = 256       # Max entries threshold for triggering entries eviction.
         self.__maxsize  :int    = 256*1024  # Max size in bytes threshold for triggering entries eviction. Default= 256K.
-        self.__ttl      :float  = 0.0       # Time to live in minutes.
+        self.__ttl      :int    = 0         # Time to live in minutes.
         self.__msgbdy   :str    = 'L#{lno:>4}\tIm:{iam}\tOp:{opc}\tTs:{tsm}\tNm:{nms}\tKy:{key}\tCk:{crc}\tMg:{msg}'
         self.__logger   :logging.Logger = None
         self.__queue    :queue.Queue    = None
@@ -78,7 +78,7 @@ class Cache( OrderedDict ):
                     case 'size':
                         self.__maxsize = int( val )
                     case 'ttl':
-                        self.__ttl = float( val )
+                        self.__ttl = int( val )
                     case 'msgbdy':
                         self.__msgbdy = str( val )
                     case 'logger':
@@ -97,7 +97,7 @@ class Cache( OrderedDict ):
             self._setup_logger()
 
         kwargs = { key: val for key ,val in kwargs.items()
-                            if  key  not in {'name' ,'max' ,'size' ,'ttl' ,'logmsg' ,'logger' ,'queue' ,'debug'}}
+                            if  key  not in {'name' ,'max' ,'size' ,'ttl' ,'msgbdy' ,'logger' ,'queue' ,'debug'}}
         super().__init__( other ,**kwargs )
 
     # Public instance properties.
@@ -181,7 +181,7 @@ class Cache( OrderedDict ):
         """
         txt = self.__msgbdy
         lno = getframeinfo(stack()[1][0]).lineno
-        iam = Cache.IP4_ADDRESS if 'Im:' in txt else f"Im:{Cache.IP4_ADDRESS}"
+        iam = Cache.IP4_ADDRESS if 'Im:' in txt else f'Im:{Cache.IP4_ADDRESS}'
         md5 = 'unknown'
         if  opc is None:
             opc =  f"O={' '* 4}"
@@ -212,14 +212,16 @@ class Cache( OrderedDict ):
         now = Cache.TSM_VERSION()
         ttl = self.__ttl * Cache.ONE_NS_SEC     # Convert seconds in nanosecond.
         evt: int = 0
+
         if  ttl > now - self.__oldest:
             return  0   # NOTE: Nothing is old enough to evict.
 
         if  self.__debug:
-            self._log_ops_msg( opc='EVT' ,tsm=now ,name=self.__name ,key=None ,crc=None ,msg=f'Checking for eviction candidates.')
+            self._log_ops_msg( opc='EVT' ,tsm=now ,nms=self.__name ,key=None ,crc=None ,msg='Checking for eviction candidates.')
 
         oldest: int = Cache.TSM_VERSION()
-        for key ,val in self.__meta.items():
+        for key in self.__meta.copy():  # Make a shallow copy of the keys.  If not then "RuntimeError: dictionary changed size during iteration"
+            val = self.__meta[ key ]
             if ttl < now - val['tsm']:
                 _ = super().pop( key )
                 evt += 1
@@ -264,7 +266,7 @@ class Cache( OrderedDict ):
             opc = 'EVT' if eviction else 'DEL'
             self.__queue.put((opc ,tsm ,self.__name ,key ,crc ,None ,0))
             if  self.__debug:
-                self._log_ops_msg( opc=opc ,tsm=tsm ,name=self.__name ,key=key ,crc=crc ,msg='Queued.')
+                self._log_ops_msg( opc=opc ,tsm=tsm ,nms=self.__name ,key=key ,crc=crc ,msg='Queued.')
 
         # Increment metrics.
         if  eviction:
@@ -299,7 +301,7 @@ class Cache( OrderedDict ):
             opc = 'UPD' if update else 'INS'
             self.__queue.put((opc ,tsm ,self.__name ,key ,md5 ,value ,0))
             if  self.__debug:
-                self._log_ops_msg( opc=opc ,tsm=tsm ,name=self.__name ,key=key ,crc=md5 ,msg='Queued.')
+                self._log_ops_msg( opc=opc ,tsm=tsm ,nms=self.__name ,key=key ,crc=md5 ,msg='Queued.')
 
         # Increment metrics.
         if  update:
@@ -341,6 +343,8 @@ class Cache( OrderedDict ):
             key         Key to the item to delete.
             tsm         Optional timestamp for the deletion.
             queue_out   Request queing out opeartion info to external receiver.
+        Raise:
+            KeyError
         """
         if  self.__ttl > 0:
             _ = self._evict_ttl_items()
@@ -348,7 +352,7 @@ class Cache( OrderedDict ):
         super().__delitem__( key )
         if  self.__debug:
             crc = self.__meta['crc'] if 'crc' in self.__meta else None
-            self._log_ops_msg( opc='DEL' ,tsm=tsm ,name=self.__name ,key=key ,crc=crc ,msg=f'Deleted via __delitem__()')
+            self._log_ops_msg( opc='DEL' ,tsm=tsm ,nms=self.__name ,key=key ,crc=crc ,msg='Deleted via __delitem__()')
         self._post_del( key=key ,tsm=tsm ,eviction=False ,queue_out=queue_out )
 
     def __getitem__(self,
@@ -359,6 +363,8 @@ class Cache( OrderedDict ):
         SEE:    dict.__getitem__()
         Args:
             key         Key to the item to get.
+        Raise:
+            KeyError
         """
         if  self.__ttl > 0:
             _ = self._evict_ttl_items()
@@ -408,7 +414,7 @@ class Cache( OrderedDict ):
             opc = f"{'UPD' if updmode else 'INS'}"
             msg = f"{'Updated' if updmode else 'Inserted'} via __setitem__()"
             crc = self.__meta['crc'] if 'crc' in self.__meta else None
-            self._log_ops_msg( opc=opc ,tsm=tsm ,name=self.__name ,key=key ,crc=crc ,msg=msg)
+            self._log_ops_msg( opc=opc ,tsm=tsm ,nms=self.__name ,key=key ,crc=crc ,msg=msg)
         self._post_set( key=key ,value=value ,tsm=tsm ,update=updmode ,queue_out=queue_out )
 
     # Public dictionary methods section.
@@ -426,7 +432,6 @@ class Cache( OrderedDict ):
         self.__latest = Cache.TSM_VERSION()
         self._reset_metrics()
 
-    # TODO: Finish this implementation.
     def copy(self) -> OrderedDict:
         """Make a shallow copy of this cacge instance.
         Check for ttl evict then call the parent method.
@@ -498,7 +503,7 @@ class Cache( OrderedDict ):
 
         if  self.__debug:
             crc = self.__meta['crc'] if 'crc' in self.__meta else None
-            self._log_ops_msg( opc='POP' ,tsm=None ,name=self.__name ,key=key ,crc=crc ,msg='In pop()')
+            self._log_ops_msg( opc='POP' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In pop()')
 
         val = super().pop( key ,default )
         self._post_del( key=key ,eviction=False ,queue_out=True )
@@ -518,11 +523,11 @@ class Cache( OrderedDict ):
         if  self.__ttl > 0:
             _ = self._evict_ttl_items()
 
+        key ,val = super().popitem( last )
         if  self.__debug:
             crc = self.__meta['crc'] if 'crc' in self.__meta else None
-            self._log_ops_msg( opc='POPI' ,tsm=None ,name=self.__name ,key=key ,crc=crc ,msg='In popitem()')
+            self._log_ops_msg( opc='POPI' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In popitem()')
 
-        key ,val = super().popitem( last )
         self._post_del( key=key ,eviction=False ,queue_out=True )
         return (key ,val)
 
@@ -543,7 +548,7 @@ class Cache( OrderedDict ):
 
         if  self.__debug:
             crc = self.__meta['crc'] if 'crc' in self.__meta else None
-            self._log_ops_msg( opc='SETD' ,tsm=None ,name=self.__name ,key=key ,crc=crc ,msg='In setdefault()')
+            self._log_ops_msg( opc='SETD' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In setdefault()')
 
         return super().setdefault( key ,default )
 
@@ -564,7 +569,7 @@ class Cache( OrderedDict ):
             updates[ key ] = {'val': val ,'upd': self.__contains__( key )}    # If exist we are in UPD mode ,else INS mode.
         if  self.__debug:
             crc = self.__meta['crc'] if 'crc' in self.__meta else None
-            self._log_ops_msg( opc='UPDT' ,tsm=None ,name=self.__name ,key=key ,crc=crc ,msg='In update()')
+            self._log_ops_msg( opc='UPDT' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In update()')
 
         super().update( iterable )
         for key ,val in updates.items():

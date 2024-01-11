@@ -62,23 +62,31 @@ while (end - bgn) < (duration*60):  # Seconds.
         # Since the last read, did the value got updated?  If so, how long after the read?
         if  key in lookuptsm and key in cache.metadata:
             if (lookuptsm[ key ]['tsm'] < cache.metadata[ key ]['tsm']) and (lookuptsm[ key ]['crc'] != cache.metadata[ key ]['crc']):
-                dur = round(cache.metadata[ key ]['tsm'] - lookuptsm[ key ]['tsm'] / mc.ONE_NS_SEC ,4)
+                dur = round((cache.metadata[ key ]['tsm'] - lookuptsm[ key ]['tsm']) / mc.ONE_NS_SEC ,4)
                 crc = cache.metadata[ key ]['crc']
                 mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.WRN ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f")>   Value changed within {dur:0.5f} sec after lookup." )
+                del lookuptsm[ key ]
 
     ctr +=  1
     opc =   random.randint( 0 ,21 ) # Generate a range of 20  values.
     match   opc:
         case 13|17:     # NOTE: 10% are deletes.
             if  key in cache:
-                crc = cache.getmeta( key )['crc']
+                crc =  cache.getmeta( key )['crc']
 
                 # DEBUG trace.
                 if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.EXTRA:
                     mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f")>   DEL {key} in test script." )
 
                 # Evict cache.
-                del cache[ key ]
+                try:
+                    del cache[ key ]
+                except KeyError:
+                    # DEBUG trace.
+                    if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.BASIC:
+                        if  key in lookuptsm:
+                            dur = round((time.time_ns() - lookuptsm[ key ]['tsm']) / mc.ONE_NS_SEC ,4)
+                            mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.WRN ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=None ,msg=f")>   Value changed within {dur:0.5f} sec after lookup." )
 
                 # Cache entry was just deleted, evict the lookup tsm.
                 if  key in lookuptsm:

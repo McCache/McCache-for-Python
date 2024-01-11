@@ -35,7 +35,7 @@ class   TestCache:
         assert  c.maxlen    == 256      ,f"Expect   'max'       should be 256       ,but actual is {c.maxlen}"
         assert  c.maxsize   == 256*1024 ,f"Expect   'size'      should be 65536     ,but actual is {c.maxsize}"
         assert  c.ttl       == 0        ,f"Expect   'ttl'       should be 0         ,but actual is {c.ttl}"
-        assert  c.msgbdy    is not None ,f"Expect   'logmsg'    should NOT be None  ,but actual is {c.msgbdy}"
+        assert  c.msgbdy    is not None ,f"Expect   'msgbdy'    should NOT be None  ,but actual is {c.msgbdy}"
         assert  c.logger    is not None ,f"Expect   'logger'    should NOT be None  ,but actual is {c.logger}"
         assert  c.queue     is None     ,f"Expect   'queue'     should be None      ,but actual is {c.queue}"
         assert  c.metadata  == {}       ,f"Expect   'metadata'  should be dict      ,but actual is {c.metadata}"
@@ -46,12 +46,12 @@ class   TestCache:
         l = logging.getLogger()
         q = queue.Queue()
 
-        c = Cache( name='test' ,max=16 ,size=256 ,ttl=3 ,logmsg='log formatted txt' ,logger=l ,queue=q )
+        c = Cache( name='test' ,max=16 ,size=256 ,ttl=3 ,msgbdy='log formatted txt' ,logger=l ,queue=q )
         assert  c.name  == 'test'       ,f"Expect   'name'      should be 'test'    ,but actual is {c.name}"
         assert  c.maxlen    == 16       ,f"Expect   'max'       should be 16        ,but actual is {c.maxlen}"
         assert  c.maxsize   == 256      ,f"Expect   'size'      should be 256       ,but actual is {c.maxsize}"
         assert  c.ttl       == 3        ,f"Expect   'ttl'       should be 3         ,but actual is {c.ttl}"
-        assert  c.msgbdy is not None    ,f"Expect   'logmsg'    should NOT be None  ,but actual is {c.msgbdy}"
+        assert  c.msgbdy is not None    ,f"Expect   'msgbdy'    should NOT be None  ,but actual is {c.msgbdy}"
         assert  c.logger    == l        ,f"Expect   'logger'    should NOT be None  ,but actual is {c.logger}"
         assert  c.queue     == q        ,f"Expect   'queue'     should NOT be None  ,but actual is {c.queue}"
         assert  c.metadata  == {}       ,f"Expect   'metadata'  should be dict      ,but actual is {c.metadata}"
@@ -91,13 +91,13 @@ class   TestCache:
         # Setting section.
         #
         c['k1'] = True
-        assert  c['k1'] == True     ,f"Expect   True ,but actual is {c['k1']}"
         v =     c['k1']
-        assert  c['k1'] == True     ,f"Expect   True ,but actual is {c['k1']}"
+        assert  v == True           ,f"Expect   True ,but actual is {c['k1']}"
         v =     c.get('k1')
-        assert  c['k1'] == True     ,f"Expect   True ,but actual is {c['k1']}"
+        assert  v == True           ,f"Expect   True ,but actual is {c['k1']}"
         v =     c.get('k1_' ,False)
         assert  v       ==   False  ,f"Expect  False ,but actual is {v}"
+
         c['k2'] = 7
         assert  c['k2'] == 7        ,f"Expect   7    ,but actual is {c['k2']}"
         v =     c['k2']
@@ -105,7 +105,8 @@ class   TestCache:
         v =     c.get('k2')
         assert  c['k2'] == 7        ,f"Expect   7    ,but actual is {c['k2']}"
         v =     c.get('k2_' ,9)
-        assert  v       ==   9      ,f"Expect   9    ,but actual is {v}"#
+        assert  v       ==   9      ,f"Expect   9    ,but actual is {v}"
+
         c['k3'] = 3.14
         assert  c['k3'] == 3.14     ,f"Expect   3.14 ,but actual is {c['k3']}"
         v =     c['k3']
@@ -114,6 +115,7 @@ class   TestCache:
         assert  c['k3'] == 3.14     ,f"Expect   3.14 ,but actual is {c['k3']}"
         v =     c.get('k3_' ,4.13)
         assert  v       ==   4.13   ,f"Expect   4.13 ,but actual is {v}"
+
         c['k4'] = t
         assert  c['k4'] == t        ,f"Expect   {t}   ,but actual is {c['k4']}"
         v =     c['k4']
@@ -122,6 +124,7 @@ class   TestCache:
         assert  c['k4'] == t        ,f"Expect   {t}   ,but actual is {c['k4']}"
         v =     c.get('k4_' ,t)
         assert  v       ==   t      ,f"Expect   {t}   ,but actual is {v}"#
+
         c['k5'] = s
         assert  c['k5'] == s        ,f"Expect   {s}   ,but actual is {c['k5']}"
         v =     c['k5']
@@ -130,6 +133,7 @@ class   TestCache:
         assert  c['k5'] == s        ,f"Expect   {s}   ,but actual is {c['k5']}"
         v =     c.get('k5_' ,s)
         assert  v       ==   s      ,f"Expect   {s}   ,but actual is {v}"
+
         c['k6'] = d
         assert  c['k6'] == d        ,f"Expe6t   {d}   ,but actual is {c['k6']}"
         v =     c['k6']
@@ -380,11 +384,11 @@ class   TestCache:
         c['k3'] = 3
 
         a = len(c)
-        assert  3 == a      ,f"Expect   3       ,but actual is {a}"
+        assert  a == 3      ,f"Expect   3       ,but actual is {a}"
 
         c['k4'] = 4
         a = len(c)
-        assert  3 == a      ,f"Expect   3       ,but actual is {a}"
+        assert  a == 3      ,f"Expect   3       ,but actual is {a}"
 
         with pytest.raises(KeyError ,match=r'k1'):
             _ = c['k1'] # Should be evicted.
@@ -393,26 +397,29 @@ class   TestCache:
         c['k1'] = 1
         c['k2'] = 2
         a = len(c)
-        assert  2 == a      ,f"Expect   2       ,but actual is {a}"
+        assert  a == 2      ,f"Expect   2       ,but actual is {a}"
 
         c['k3'] = 3
         a = len(c)
-        assert  2 == a      ,f"Expect   2       ,but actual is {a}"
+        assert  a == 2      ,f"Expect   2       ,but actual is {a}"
 
         with pytest.raises(KeyError ,match=r'k1'):
             _ = c['k1'] # Should be evicted.
 
-        c = Cache( max=3 ,ttl=1 )   # ttl initialized to 1 second.
+        c = Cache( ttl=1 )   # ttl initialized to 1 second.
+        a = c.ttl
+        assert  a == 1      ,f"Expect   2       ,but actual is {a}"
+
         c['k1'] = 1
         c['k2'] = 2
         c['k3'] = 3
-        time.sleep(3)   # 3 seconds
         a = len(c)
-        assert  3 == a      ,f"Expect   3       ,but actual is {a}"
+        assert  a == 3      ,f"Expect   3       ,but actual is {a}"
 
+        time.sleep(3)       # 3 seconds
         c['k4'] = 4
         a = len(c)
-        assert  3 == a      ,f"Expect   3       ,but actual is {a}"
+        assert  1 == a      ,f"Expect   1       ,but actual is {a}"
 
         with pytest.raises(KeyError ,match=r'k1'):
             _ = c['k1'] # Should be evicted.
