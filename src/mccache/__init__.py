@@ -68,16 +68,12 @@ from logging.handlers import RotatingFileHandler
 from statistics import mean
 from timeit import default_timer as timer
 
-# TODO: Figure out how to setup this package.
-# NOTE: Look lke setting "cwd": "${workspaceFolder}" (instead of ${fileDirname}) in `launch.json`` may to the trick.
-try:
-    # Not work from command line.
-    from .__about__ import __app__, __version__ # noqa
-    from .pycache   import Cache as PyCache
-except ImportError:
-    # Work from VS Code.
-    from  __about__ import __app__, __version__ # noqa
-    from  pycache   import Cache as PyCache
+# If you are using VS Code, make sure your "cwd" and "PYTHONPATH" is set correctly in `launch.json`:
+#   "cwd": "${workspaceFolder}",
+#   "env": {"PYTHONPATH": "${workspaceFolder}${pathSeparator}src;${env:PYTHONPATH}"},
+#
+from  mccache.__about__ import __app__, __version__ # noqa
+from  mccache.pycache   import Cache as PyCache
 
 # Cachetools section.
 #

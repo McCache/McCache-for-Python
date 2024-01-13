@@ -14,14 +14,11 @@ from collections.abc import Iterable
 from inspect import getframeinfo, stack
 from typing import Any
 
-# TODO: Figure out how to setup this package.
-try:
-    # Not work from command line.
-    from .__about__ import __app__, __version__ # noqa
-except ImportError:
-    # Work from VS Code.
-    from  __about__ import __app__, __version__ # noqa
-
+# If you are using VS Code, make sure your "cwd" and "PYTHONPATH" is set correctly in `launch.json`:
+#   "cwd": "${workspaceFolder}",
+#   "env": {"PYTHONPATH": "${workspaceFolder}${pathSeparator}src;${env:PYTHONPATH}"},
+#
+#from  pycache.__about__ import __app__, __version__ # noqa
 
 class Cache( OrderedDict ):
     """Cache based of the dict object.
