@@ -151,6 +151,8 @@ while (end - bgn) < (duration*60):  # Seconds.
             val = cache.get( key ,None )
 
             if  val:
+                if  key not in lookuptsm:
+                    lookuptsm[ key ] = {}
                 lookuptsm[ key ]['tsm'] = time.time_ns()
                 lookuptsm[ key ]['crc'] = cache.metadata[ key ]['crc']
 

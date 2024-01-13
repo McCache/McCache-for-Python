@@ -68,16 +68,16 @@ from logging.handlers import RotatingFileHandler
 from statistics import mean
 from timeit import default_timer as timer
 
-from mccache.pycache import Cache as PyCache
-
 # TODO: Figure out how to setup this package.
+# NOTE: Look lke setting "cwd": "${workspaceFolder}" (instead of ${fileDirname}) in `launch.json`` may to the trick.
 try:
     # Not work from command line.
     from .__about__ import __app__, __version__ # noqa
+    from .pycache   import Cache as PyCache
 except ImportError:
     # Work from VS Code.
     from  __about__ import __app__, __version__ # noqa
-
+    from  pycache   import Cache as PyCache
 
 # Cachetools section.
 #
@@ -972,7 +972,7 @@ logger: logging.Logger = logging.getLogger()    # Root logger.
 
 # Public methods.
 #
-def _get_cache( name: str | None = None ) -> PyCache:
+def get_cache( name: str | None = None ) -> PyCache:
     """Return a cache with the specified name ,creating it if necessary.
 
     If no name is provided, it shall be defaulted to `mccache`.
@@ -1007,7 +1007,7 @@ def _get_cache( name: str | None = None ) -> PyCache:
         _mcCache[ name ] = cache
     return cache
 
-def get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
+def _get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
     """
     Return a cache with the specified name ,creating it if necessary.
     If no name is specified ,return the default TLRUCache or LRUCache cache depending on the optimism setting.
@@ -1137,7 +1137,7 @@ def _load_config():
         import tomllib  # Introduced in Python 3.11.
         with open("pyproject.toml" ,encoding="utf-8") as fp:
             tmlcfg = tomllib.loads( fp.read() )
-    except  ModuleNotFoundError:
+    except  FileNotFoundError:
         pass
 
     fldtyp = { f.name: f.type for f in fields( config )}
@@ -1239,6 +1239,7 @@ def _log_ops_msg(
     """
     lno = getframeinfo(stack()[1][0]).lineno
     iam = SRC_IP_ADD
+    md5 = crc
 
     if  sdr is None:
         sdr = f"   {FRM_IP_PAD}"
@@ -1641,7 +1642,7 @@ def _check_sent_pending() -> None:
                         # No fragments was acknowledged.
                         _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,f"{ip}:" ,crc ,ip))    # Request ACK for the entire message from an IP.
                         # For PyCache
-                        #_mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,crc ,f"{ip}:" ,ip))
+                        # _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,crc ,f"{ip}:" ,ip))    # Request ACK for the entire message from an IP.
                     else:
                         # Partially unacknowledged.
                         s = len(_mcPending[ pky_t ]['message'])
@@ -1649,7 +1650,7 @@ def _check_sent_pending() -> None:
                             if  f in _mcPending[ pky_t ]['members'][ ip ]['unack']:
                                 _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,f"{ip}:{f}/{s}" ,crc ,ip)) # Request specific fragment ACK from an IP.
                                 # For PyCache
-                                #_mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,crc ,f"{ip}:{f}/{s}" ,ip))
+                                # _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,crc ,f"{ip}:{f}/{s}" ,ip))     # Request specific fragment ACK from an IP.
 
                     _ = _mcPending[ pky_t ]['members'][ ip ]['backoff'].pop()   # Pop off the head of the backoff pause.
 
@@ -1664,7 +1665,7 @@ def _check_sent_pending() -> None:
             # Re-queue a full message transmission.  Proactive re-transmit has None value.
             _mcQueue.put((OpCode.REQ ,tsm ,nms ,key ,None ,crc))
             # For PyCache
-            #_mcQueue.put((OpCode.REQ ,tsm ,nms ,key ,crc ,None ,0))
+            # _mcQueue.put((OpCode.REQ ,tsm ,nms ,key ,crc ,None ,0))
 
         for ip in uak:
             # Re-start the timeout for
@@ -1691,7 +1692,7 @@ def _check_recv_assembly() -> None:
                         # FIXME: Rework the following.
                         _mcQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,f"{seq}" ,None ,aky_t[0]))
                         # For PyCache
-                        #_mcQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,None ,f"{seq}" ,aky_t[0]))
+                        # _mcQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,None ,f"{seq}" ,aky_t[0]))
 
                 _ = _mcArrived[ aky_t ]['backoff'].pop()    # Pop off the head of the backoff pause.
         elif aky_t not in bads:
@@ -1782,7 +1783,7 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
             # Acknowledge it.
             _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
             # For PyCache
-            #_mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
+            # _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
 
             #   Deep Tracing
             if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
@@ -1825,7 +1826,7 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                 # We keep the arrived messages around to be cleaned up by house keeping.
                 _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
                 # For PyCache
-                #_mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
+                # _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
                 #   Deep Tracing
                 if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
                     _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">   {key} Re-Acknowledge." )
@@ -1879,13 +1880,13 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                 del mcc[ key ]
                 _mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,None ,crc))
                 # For PyCache
-                #_mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,crc ,None ,0))
+                # _mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,crc ,None ,0))
 
             val = None
             # Acknowledge it.
             _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
             # For PyCache
-            #_mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,crc ,None ,sdr))
+            # _mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,crc ,None ,sdr))
 
         case _:
             pass

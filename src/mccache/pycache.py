@@ -182,7 +182,8 @@ class Cache( OrderedDict ):
         txt = self.__msgbdy
         lno = getframeinfo(stack()[1][0]).lineno
         iam = Cache.IP4_ADDRESS if 'Im:' in txt else f'Im:{Cache.IP4_ADDRESS}'
-        md5 = 'unknown'
+        md5 = crc
+
         if  opc is None:
             opc =  f"O={' '* 4}"
         if  tsm is None:
