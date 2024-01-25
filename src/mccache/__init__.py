@@ -127,11 +127,14 @@ class Cache(collections.abc.MutableMapping):
         self.__meta     = {}                # Metadata for the cache entry.
         self.__initOn   = time.time_ns()    # The time the cache was initialized in nano seconds.
         self.__hitOn    = time.time_ns()    # Last time the cache was hit.
-        self.__lookups  = 0                 # Total number of lookups since the cache initialization.
-        self.__updates  = 0                 # Total number of updates since the cache initialization.
-        self.__deletes  = 0                 # Total number of deletes since the cache initialization.
-        self.__avgHits  = 0                 # Total number of hits to the cache for the average load in 1 minutes spike window.
-        self.__avgSpan  = 0                 # The average load between calls that is within 1 minutes apart.
+        self.__evicts   = 0                 # Total number of evicts  since initialization.
+        self.__lookups  = 0                 # Total number of lookups since initialization.
+        self.__inserts  = 0                 # Total number of inserts since initialization.
+        self.__updates  = 0                 # Total number of updates since initialization.
+        self.__deletes  = 0                 # Total number of deletes since initialization.
+        self.__spikes   = 0                 # Total number of change to the cache where previous change was <= 5 seconds ago.
+        self.__spikeDur = 0.0               # Average spike duration between changes.
+
 
     def __setload__(self ,is_update: bool ) -> None:    # noqa: FBT001
         # McCache addition.
@@ -144,11 +147,12 @@ class Cache(collections.abc.MutableMapping):
 
         _since  = time.time_ns() - self.__hitOn
         self.__hitOn   =  time.time_ns()
-        self.__avgHits += 1
-
-        if  _since <= (ONE_NS_SEC * 60):    # NOTE: Less than 1 minute
-            self.__avgSpan = ((self.__avgSpan * self.__avgHits) + _since) / (self.__avgHits + 1)
-            self.__avgHits += 1
+        if  _since > 0:
+            # Monotonic.
+            self.__latest  = self.__hitOn
+            if  _since <= (5 * ONE_NS_SEC): # 5 seconds.
+                self.__spikeDur = ((self.__spikeDur * self.__spikes) + _since) / (self.__spikes + 1)
+                self.__spikes  += 1
 
     def __repr__(self):
         return f"{self.__class__.__name__}({repr(self.__data)} ,maxsize={self.__maxsize} ,currsize={self.__currsize}))"
@@ -201,10 +205,7 @@ class Cache(collections.abc.MutableMapping):
             if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
                 _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f">>> Queuing UPD {key} to multicast out." )
 
-            # TODO: Reconcile the format with the format that is send out.
-            _mcQueue.put((OpCode.UPD ,tsm ,self.name ,key ,value ,crc))
-            # For PyCache
-            #_mcQueue.put((OpCode.UPD ,tsm ,self.name ,key ,crc ,value))
+            _mcQueue.put((OpCode.UPD ,tsm ,self.name ,key ,crc ,value ,0))
             self.__setload__( is_update=True )
 
             #   DEBUG trace.
@@ -229,10 +230,7 @@ class Cache(collections.abc.MutableMapping):
             if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
                 _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc ,msg=f">>> Queuing DEL {key} to multicast out." )
 
-            # TODO: Reconcile the format with the format that is send out.
-            _mcQueue.put((OpCode.DEL ,tsm ,self.name ,key ,None ,crc))
-            # For PyCache
-            #_mcQueue.put((OpCode.DEL ,tsm ,self.name ,key ,crc ,value))
+            _mcQueue.put((OpCode.DEL ,tsm ,self.name ,key ,crc ,None ,0))
             self.__setload__( is_update=False )
 
             # DEBUG trace.
@@ -291,6 +289,11 @@ class Cache(collections.abc.MutableMapping):
         """The current size of the cache."""
         return self.__currsize
 
+    @property
+    def metadata(self):
+        """The metadata dict."""
+        return self.__meta
+
     @staticmethod
     def getsizeof(value):   # noqa: ARG004
         """Return the size of a cache element's value."""
@@ -301,19 +304,19 @@ class Cache(collections.abc.MutableMapping):
         """Set name of the cache."""
         self.__name = name
 
-    def getmeta(self, key):
-        """Get the neat data for the cache entry."""
-        return self.__meta[ key ] if key in self.__meta else None
+#    def getmeta(self, key):
+#        """Get the neat data for the cache entry."""
+#        return self.__meta[ key ] if key in self.__meta else None
 
     @property
     def name(self) -> str:
         """The name of the cache."""
         return self.__name
 
-    @property
-    def metadata(self) -> str:
-        """Cache's metadata."""
-        return self.__meta
+#    @property
+#    def metadata(self) -> str:
+#        """Cache's metadata."""
+#        return self.__meta
 
     @property
     def hiton(self) -> int:
@@ -321,9 +324,19 @@ class Cache(collections.abc.MutableMapping):
         return self.__hitOn
 
     @property
+    def evicts(self) -> int:
+        """The number of lookups count."""
+        return self.__evicts
+
+    @property
     def lookups(self) -> int:
         """The number of lookups count."""
         return self.__lookups
+
+    @property
+    def inserts(self) -> int:
+        """The number of insert count."""
+        return self.__inserts
 
     @property
     def updates(self) -> int:
@@ -336,14 +349,14 @@ class Cache(collections.abc.MutableMapping):
         return self.__deletes
 
     @property
-    def avghits(self) -> int:
-        """The average hits of the cache."""
-        return self.__avgHits
+    def spikes(self) -> int:
+        """Total number of change to the cache where previous change was <= 5 seconds ago."""
+        return self.__spikes
 
     @property
-    def avgspan(self) -> int:
-        """The average span since last hit of the cache."""
-        return self.__avgSpan
+    def spikeDur(self) -> int:
+        """Average spike duration between changes."""
+        return self.__spikeDur
 
 
 class FIFOCache(Cache):
@@ -825,7 +838,7 @@ class TLRUCache(_TimedCache):
 
 BACKOFF     = {0 ,1 ,2 ,3 ,5 ,8 ,13}    # Fibonacci backoff.  Seen lots of dropped packets in dev if without backing off.
 ONE_MIB     = 1_048_576                 # 1 Mib
-ONE_NS_SEC  = 10_000_000_000            # One Nano second.
+ONE_NS_SEC  = 1_000_000_000             # One Nano second.
 MAGIC_BYTE  = 0b11111001                # 241 (Pattern + Version)
 HEADER_SIZE = 18                        # The fixed length header for each fragment packet.
 SEASON_TIME = 0.80                      # Seasoning time to wait before considering a retry. Max of 1 second.  Work with backoff.
@@ -897,6 +910,7 @@ class OpCode(StrEnum):
     EVT = 'EVT'     # Member announcing an eviction to the group.
     FYI = 'FYI'     # Member communicating information.
     INQ = 'INQ'     # Member inquiring about a cache entry from the group.
+    INS = 'INS'     # Insert a new cache entry.
     MET = 'MET'     # Member inquiring about the cache metrics metrics from the group.
     NEW = 'NEW'     # New member annoucement to join the group.
     NAK = 'NAK'     # Negative acknowledgement.  Didn't receive the key/value.
@@ -904,7 +918,7 @@ class OpCode(StrEnum):
     RAK = 'RAK'     # Request acknowledgment for a message.
     REQ = 'REQ'     # Member requesting resend message fragment.
     RST = 'RST'     # Member requesting reset of the cache.
-    UPD = 'UPD'     # Update an existing cache entry (Insert/Update).
+    UPD = 'UPD'     # Update an existing cache entry.
     WRN = 'WRN'     # Member announcing an warning to the group.
 
     def __repr__(self):
@@ -923,7 +937,8 @@ class McCacheConfig:
     packet_mtu: int     = 1472          # Maximum Transmission Unit of your network packet payload.
                                         # Ethernet frame is 1500 and jumbo frame is 9000, without the static 20 bytes IP and 8 bytes ICMP headers.
                                         # SEE: https://www.youtube.com/watch?v=Od5SEHEZnVU and https://www.youtube.com/watch?v=GjiDmU6cqyA
-    packet_pace: float  = 0.007         # 7ms for congestion control. 10Gib network is 1ms.
+    packet_pace: float  = 0.010         # 10ms for congestion control.
+                                        # SEE: https://cdn.ttgtmedia.com/rms/onlineimages/split_seconds-h.png
                                         # OS quanta: Windows ~ 120ms and *nix ~ 100ms.
     multicast_ip: str   = '224.0.0.3'   # Unassigned multi-cast IP.
     multicast_port: int = 4000          # Unofficial port.  Was for Diablo II game.
@@ -968,7 +983,7 @@ logger: logging.Logger = logging.getLogger()    # Root logger.
 
 # Public methods.
 #
-def get_cache( name: str | None = None ) -> PyCache:
+def _get_cache( name: str | None = None ) -> PyCache:
     """Return a cache with the specified name ,creating it if necessary.
 
     If no name is provided, it shall be defaulted to `mccache`.
@@ -988,7 +1003,7 @@ def get_cache( name: str | None = None ) -> PyCache:
     if  name  in _mcCache:
         cache =  _mcCache[ name ]
     else:
-        debug =(_mcConfig.debug_level >= McCacheDebugLevel.BASIC)
+        debug =(_mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS)
         msgbdy= LOG_MSGBDY.replace('{iam}' ,SRC_IP_ADD ).replace('{sdr}' ,f'   {FRM_IP_PAD}').replace('{msg}' ,'>>> {msg}')
         cache = PyCache(
                     name    = name,
@@ -1003,7 +1018,7 @@ def get_cache( name: str | None = None ) -> PyCache:
         _mcCache[ name ] = cache
     return cache
 
-def _get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
+def get_cache( name: str | None = None ,cache: Cache | None = None ) -> Cache:
     """
     Return a cache with the specified name ,creating it if necessary.
     If no name is specified ,return the default TLRUCache or LRUCache cache depending on the optimism setting.
@@ -1070,7 +1085,7 @@ def get_cache_checksum( name: str | None = None ,key: str | None = None ) -> Non
     val_o = ( OpCode.INQ ,None ,None )
     _decode_message( aky_t ,key_t ,val_o ,sdr=None ) # Ask myself.
 
-# Public utility methods.
+# Public utilities methods.
 #
 
 # Private utilities methods.
@@ -1251,7 +1266,7 @@ def _log_ops_msg(
         msg = ''
     if  crc is None:
         crc =  \
-        md5 =  f"C={' '*20}"
+        md5 =  f"C={' '*22}"
     elif isinstance( crc ,bytes ):
         crc =  \
         md5 =  base64.b64encode( crc ).decode()
@@ -1259,33 +1274,33 @@ def _log_ops_msg(
     txt =  LOG_MSGBDY.format( lno=lno ,iam=iam ,sdr=sdr ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,md5=md5 ,msg=msg )
     logger.log( lvl ,txt )
 
-def _get_size( obj: object, seen: set | None = None ):
-    """Recursively finds size of objects.
-
-    Credit goes to:
-    https://goshippo.com/blog/measure-real-size-any-python-object
-
-    Args:
-        seen:   A collection of seen objets.
-    Return:
-    """
-    size = sys.getsizeof( obj )
-    if  seen is None:
-        seen =  set()
-    obj_id = id( obj )
-    if  obj_id in seen:
-        return 0
-    # Important mark as seen *before* entering recursion to gracefully handle
-    # self-referential objects
-    seen.add( obj_id )
-    if  isinstance( obj ,dict ):
-        size += sum([_get_size( v ,seen ) for v in obj.values()])
-        size += sum([_get_size( k ,seen ) for k in obj.keys()])
-    elif hasattr( obj ,'__dict__' ):
-        size += _get_size( obj.__dict__ ,seen )
-    elif hasattr( obj ,'__iter__' ) and not isinstance( obj ,str | bytes | bytearray ):
-        size += sum([_get_size( i ,seen ) for i in obj])
-    return size
+#def _get_size( obj: object, seen: set | None = None ):
+#    """Recursively finds size of objects.
+#
+#    Credit goes to:
+#    https://goshippo.com/blog/measure-real-size-any-python-object
+#
+#    Args:
+#        seen:   A collection of seen objets.
+#    Return:
+#    """
+#    size = sys.getsizeof( obj )
+#    if  seen is None:
+#        seen =  set()
+#    obj_id = id( obj )
+#    if  obj_id in seen:
+#        return 0
+#    # Important mark as seen *before* entering recursion to gracefully handle
+#    # self-referential objects
+#    seen.add( obj_id )
+#    if  isinstance( obj ,dict ):
+#        size += sum([_get_size( v ,seen ) for v in obj.values()])
+#        size += sum([_get_size( k ,seen ) for k in obj.keys()])
+#    elif hasattr( obj ,'__dict__' ):
+#        size += _get_size( obj.__dict__ ,seen )
+#    elif hasattr( obj ,'__iter__' ) and not isinstance( obj ,str | bytes | bytearray ):
+#        size += sum([_get_size( i ,seen ) for i in obj])
+#    return size
 
 def _get_cache_metrics( name: str | None = None ) -> dict:
     """Return the metrics collected for the entire cache.
@@ -1310,45 +1325,22 @@ def _get_cache_metrics( name: str | None = None ) -> dict:
             }
         }   # Process stats.
     nms =   {n: {   'count':    len( _mcCache[ n ]),
-                    'size':     round(_get_size(_mcCache[ n ])        / ONE_MIB    ,4),
-                    'avgspan':  round(          _mcCache[ n ].avgspan / ONE_NS_SEC ,4),
-                    'avghits':  _mcCache[ n ].avghits,
+                    # For PyCache
+                    'size':
+                        round( sys.getsizeof(_mcCache[ n ]) / ONE_MIB    ,4),
+                    'spikeduration':
+                        round(  _mcCache[ n ].spikeDur      / ONE_NS_SEC ,4),
+                    'spikes':   _mcCache[ n ].spikes,
                     'lookups':  _mcCache[ n ].lookups,
+                    'inserts':  _mcCache[ n ].inserts,
                     'updates':  _mcCache[ n ].updates,
                     'deletes':  _mcCache[ n ].deletes,
-                    #
-                    # 'size':     round(sys.__sizeof__(_mcCache[ n ])         / ONE_MIB     ,4),
-                    # 'spikeDur': round(               _mcCache[ n ].spikeDur / ONE_NS_SEC  ,4),
-                    # 'spikes':   _mcCache[ n ].spikes,
-                    # 'lookups':  _mcCache[ n ].lookups,
-                    # 'inserts':  _mcCache[ n ].inserts,
-                    # 'updates':  _mcCache[ n ].updates,
-                    # 'deletes':  _mcCache[ n ].deletes,
-                    # 'evicts':   _mcCache[ n ].evicts,
+                    'evicts':   _mcCache[ n ].evicts,
                 }
                 for n in _mcCache.keys() if n == name or name is None
         }   # Namespace stats.
-    if  not name:
-        gbl = { '_mccache_': {
-                    'count':    len( _mcCache),
-                    'size':     round(_get_size(_mcCache  ) / ONE_MIB ,4),
-                    'avgspan':  round(    mean([_mcCache[ n ].avgspan for n in _mcCache.keys()]) / ONE_NS_SEC ,4),
-                    'avghits':  sum([_mcCache[ n ].avghits for n in _mcCache.keys()]),
-                    'lookups':  sum([_mcCache[ n ].lookups for n in _mcCache.keys()]),
-                    'updates':  sum([_mcCache[ n ].updates for n in _mcCache.keys()]),
-                    'deletes':  sum([_mcCache[ n ].deletes for n in _mcCache.keys()]),
-                    #
-                    # 'size':     round(sys.__sizeof__(_mcCache[ n ]) / ONE_MIB ,4),
-                    # 'spikeDur': round(         mean([_mcCache[ n ].spikeDur  for n in _mcCache.keys()]) / ONE_NS_SEC ,4),
-                    # 'lookups':  sum([_mcCache[ n ].lookups for n in _mcCache.keys()]),
-                    # 'inserts':  sum([_mcCache[ n ].inserts for n in _mcCache.keys()]),
-                    # 'updates':  sum([_mcCache[ n ].updates for n in _mcCache.keys()]),
-                    # 'deletes':  sum([_mcCache[ n ].deletes for n in _mcCache.keys()]),
-                    # 'evicts':   sum([_mcCache[ n ].evicts  for n in _mcCache.keys()]),
-                },
-            }   # Global stats.
 
-    return prc | gbl | nms  # Python v3.9 way to merge multiple dictionaries.
+    return prc | nms    # Python v3.9 way to merge multiple dictionaries.
 
 def _get_socket(is_sender: SocketWorker) -> socket.socket:
     """Get a configured socket for either the sender or receiver.
@@ -1517,7 +1509,7 @@ def _collect_fragment( pkt_b: bytes ,sender: str ) -> ():
         return  False
 
     if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS + 2:
-        _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sender ,tsm=tsm ,msg=f">>> Received fragment header from: {sender} ,seq={seq} ,frg_c={frg_c} ,key_s={key_s} ,rcv={rcv}" )
+        _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sender ,tsm=tsm ,msg=f">>  Received fragment header from: {sender} ,seq={seq} ,frg_c={frg_c} ,key_s={key_s} ,rcv={rcv}" )
 
     if  rcv > 0 and rcv != SRC_IP_SEQ:
         # Packet is "unicasted", but not to me.
@@ -1617,51 +1609,52 @@ def _check_sent_pending() -> None:
         If all the members have not acknowledge, immediately re-multicast out the message.
         If some members have acknowledge, then request them to acknowledge.
     """
-    for pky_t in _mcPending.keys(): # Key for this message pending acknowledgement.
-        nms = pky_t[0]
-        key = pky_t[1]
-        tsm = pky_t[2]
-        crc = _mcPending[ pky_t ]['crc']
-        elps= (time.time_ns() - _mcPending[ pky_t ]['initon']) / ONE_NS_SEC    # Elapsed seconds since this key was queued.
+    for pky_t in [ key for key in _mcPending.keys()]: # Key for this message pending acknowledgement.
+        if  pky_t in _mcPending:
+            nms = pky_t[0]
+            key = pky_t[1]
+            tsm = pky_t[2]
+            crc = _mcPending[ pky_t ]['crc']
+            elps= (time.time_ns() - _mcPending[ pky_t ]['initon']) / ONE_NS_SEC    # Elapsed seconds since this key was queued.
 
-        for ip in _mcPending[ pky_t ]['members'].keys():    # All members in the cluster for this key.
-            if  _mcPending[ pky_t ]['members'][ ip ]['backoff']:
-                # NOTE: The following is NOT lock down and subjected to change.
-                # Get the head of the backoff pause.  Factor down the backoff for more rapid action to be taken.
-                boff: int = next(iter(_mcPending[ pky_t ]['members'][ ip ]['backoff'])) * (SEASON_TIME/2)
+            for ip in _mcPending[ pky_t ]['members'].keys():    # All members in the cluster for this key.
+                if  _mcPending[ pky_t ]['members'][ ip ]['backoff']:
+                    # NOTE: The following is NOT lock down and subjected to change.
+                    # Get the head of the backoff pause.  Factor down the backoff for more rapid action to be taken.
+                    boff: int = next(iter(_mcPending[ pky_t ]['members'][ ip ]['backoff'])) * (SEASON_TIME/2)
 
-                # The minimum wait second before we consider message not acknowledged.
-                minw = max((SEASON_TIME * _mcConfig.multicast_hops * 0.6) ,SEASON_TIME + boff)
+                    # The minimum wait second before we consider message not acknowledged.
+                    minw = max((SEASON_TIME * _mcConfig.multicast_hops * 0.6) ,SEASON_TIME + boff)
 
-                if  elps > minw:
-                    if  len(_mcPending[ pky_t ]['message']) == len(_mcPending[ pky_t ]['members'][ ip ]['unack']):
-                        # No fragments was acknowledged.
-                        _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,f"{ip}:" ,crc ,ip))    # Request ACK for the entire message from an IP.
-                        # For PyCache
-                        # _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,crc ,f"{ip}:" ,ip))    # Request ACK for the entire message from an IP.
-                    else:
-                        # Partially unacknowledged.
-                        s = len(_mcPending[ pky_t ]['message'])
-                        for f in range( 0 ,s ):
-                            if  f in _mcPending[ pky_t ]['members'][ ip ]['unack']:
-                                _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,f"{ip}:{f}/{s}" ,crc ,ip)) # Request specific fragment ACK from an IP.
-                                # For PyCache
-                                # _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,crc ,f"{ip}:{f}/{s}" ,ip))     # Request specific fragment ACK from an IP.
+                    if  elps > minw:
+                        if  len(_mcPending[ pky_t ]['message']) == len(_mcPending[ pky_t ]['members'][ ip ]['unack']):
+                            # No fragments was acknowledged.
+                            # _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,f"{ip}:" ,crc ,ip))    # Request ACK for the entire message from an IP.
+                            # For PyCache
+                            _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,crc ,f"{ip}:" ,ip))    # Request ACK for the entire message from an IP.
+                        else:
+                            # Partially unacknowledged.
+                            s = len(_mcPending[ pky_t ]['message'])
+                            for f in range( 0 ,s ):
+                                if  f in _mcPending[ pky_t ]['members'][ ip ]['unack']:
+                                    # _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,f"{ip}:{f}/{s}" ,crc ,ip)) # Request specific fragment ACK from an IP.
+                                    # For PyCache
+                                    _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,crc ,f"{ip}:{f}/{s}" ,ip))     # Request specific fragment ACK from an IP.
 
-                    _ = _mcPending[ pky_t ]['members'][ ip ]['backoff'].pop()   # Pop off the head of the backoff pause.
+                        _ = _mcPending[ pky_t ]['members'][ ip ]['backoff'].pop()   # Pop off the head of the backoff pause.
 
         # NOTE: If all the members have NOT acknowledge this key, chances are the out going message was lost.
         #       Proactive re-multicast instead of waiting to time out.
         mbr = len(_mcPending[ pky_t ]['members'])
         uak = [ip for ip in _mcPending[ pky_t ]['members'].keys() if len(_mcPending[ pky_t ]['members'][ ip ]['backoff']) == 0]
         if  mbr == len(_mcMember) or uak:
-            if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=nms ,key=key,crc=crc ,msg=f">   Proactive request ack from all members. all={len(_mcMember)} ,mbr={mbr} ,uak={len(uak)}" )
+            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=nms ,key=key,crc=crc ,msg=f">>  Proactive request ack from all members. all={len(_mcMember)} ,mbr={mbr} ,uak={len(uak)}" )
 
             # Re-queue a full message transmission.  Proactive re-transmit has None value.
-            _mcQueue.put((OpCode.REQ ,tsm ,nms ,key ,None ,crc))
+            # _mcQueue.put((OpCode.REQ ,tsm ,nms ,key ,None ,crc))
             # For PyCache
-            # _mcQueue.put((OpCode.REQ ,tsm ,nms ,key ,crc ,None ,0))
+            _mcQueue.put((OpCode.REQ ,tsm ,nms ,key ,crc ,None ,0))
 
         for ip in uak:
             # Re-start the timeout for
@@ -1686,9 +1679,9 @@ def _check_recv_assembly() -> None:
                 for seq in range( 0 ,len(_mcArrived[ aky_t ]['message'])):
                     if  _mcArrived[ aky_t ]['message'][ seq ] is None:
                         # FIXME: Rework the following.
-                        _mcQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,f"{seq}" ,None ,aky_t[0]))
+                        # _mcQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,f"{seq}" ,None ,aky_t[0]))
                         # For PyCache
-                        # _mcQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,None ,f"{seq}" ,aky_t[0]))
+                        _mcQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,None ,f"{seq}" ,aky_t[0])) # FIXME: Parse out  4th  octet.
 
                 _ = _mcArrived[ aky_t ]['backoff'].pop()    # Pop off the head of the backoff pause.
         elif aky_t not in bads:
@@ -1777,9 +1770,9 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                 mcc.__delitem__( key ,None )
 
             # Acknowledge it.
-            _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
+            # _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
             # For PyCache
-            # _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
+            _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
 
             #   Deep Tracing
             if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
@@ -1793,10 +1786,20 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
 
         case OpCode.INQ:    # Inquire.
             kys = [ key ] if key else sorted( mcc.keys() )
-            val = { k: {'crc': mcc.getmeta(k)['crc'],  # NOTE: Don't dump the raw data out for security reason.
-                        'dtm': f"{time.strftime('%H:%M:%S' ,time.gmtime(mcc.getmeta(k)['tsm']//100_000_000))}.{mcc.getmeta(k)['tsm']%100_000_000}"
+#           val = { k: {'crc': mcc.getmeta(k)['crc'],  # NOTE: Don't dump the raw data out for security reason.
+#                       'dtm': f"{time.strftime('%H:%M:%S' ,time.gmtime(mcc.getmeta(k)['tsm']//100_000_000))}.{mcc.getmeta(k)['tsm']%100_000_000}"
+#                       }
+#                       for k in kys if not mcc.getmeta( k )['del'] }
+            val = { k: {'crc': mcc.metadata[k]['crc'],  # NOTE: Don't dump the raw data out for security reason.
+                        'dtm': f"{time.strftime('%H:%M:%S' ,time.gmtime(mcc.metadata[k]['tsm']//100_000_000))}.{mcc.metadata[k]['tsm']%100_000_000}"
                         }
-                        for k in kys if not mcc.getmeta( k )['del'] }
+                        for k in kys if not mcc.metadata[k]['del'] }
+            # For PyCache
+            #keys= [ key ] if key else sorted( mcc.keys() )
+            #val = { k: {'crc': base64.b64encode( mcc.metadata[k]['crc'] ).decode(),
+            #            'dtm': f"{time.strftime('%H:%M:%S' ,time.gmtime(mcc.metadata[k]['tsm']//100_000_000))}.{mcc.metadata[k]['tsm']%100_000_000}"
+            #            }
+            #            for k in keys }
 
         case OpCode.MET:    # Metrics.
             val = _get_cache_metrics( nms )
@@ -1820,9 +1823,9 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
 
             if  aky_t in _mcArrived:
                 # We keep the arrived messages around to be cleaned up by house keeping.
-                _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
+                # _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
                 # For PyCache
-                # _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
+                _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
                 #   Deep Tracing
                 if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
                     _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">   {key} Re-Acknowledge." )
@@ -1835,12 +1838,15 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                 for k in filter( lambda kk: kk == key or key is None ,_mcCache[ n ].keys() ):   # Keys within namespace.
                     _mcCache[ n ].__delitem__( k ,EnableMultiCast.NO )
 
-        case OpCode.UPD:    # Insert and Update.
+        case OpCode.INS | OpCode.UPD:    # Insert and Update.
             lcs: str        # Local cache key's crc.
             lts: int = 0    # Local cache key's tsm.
             if  key in mcc:
-                lcs =  mcc.getmeta( key )['crc']
-                lts =  mcc.getmeta( key )['tsm']
+                #lcs =  mcc.getmeta( key )['crc']
+                #lts =  mcc.getmeta( key )['tsm']
+                # For PyCache
+                lcs =  mcc.metadata[ key ]['crc']
+                lts =  mcc.metadata[ key ]['tsm']
 
             #   Deep Tracing
             if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
@@ -1857,8 +1863,11 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                 #   Deep Tracing
                 if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
                     if  mcc[ key ]:
-                        lcs =  mcc.getmeta( key )['crc']
-                        lts =  mcc.getmeta( key )['tsm']
+                        #lcs =  mcc.getmeta( key )['crc']
+                        #lts =  mcc.getmeta( key )['tsm']
+                        # For PyCache
+                        lcs =  mcc.metadata[ key ]['crc']
+                        lts =  mcc.metadata[ key ]['tsm']
 
                         if  lcs == crc and lts == tsm:
                             _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  OK: {key} stored in local." )
@@ -1874,15 +1883,15 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
 
                 # NOTE: Cache in-consistent, evict this key from all members.
                 del mcc[ key ]
-                _mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,None ,crc))
+                # _mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,None ,crc))
                 # For PyCache
-                # _mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,crc ,None ,0))
+                _mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,crc ,None ,0))
 
             val = None
             # Acknowledge it.
-            _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
+            # _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
             # For PyCache
-            # _mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,crc ,None ,sdr))
+            _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
 
         case _:
             pass
@@ -1940,19 +1949,15 @@ def _multicaster() -> None:
             tsm: int    = msg[1]    # Timestamp
             nms: str    = msg[2]    # Namespace
             key: object = msg[3]    # Key
-            val: object = msg[4]    # Value
-            crc: str    = msg[5]    # Checksum
-            rcv: str    = None      # Receiving member addressed to
+            #val: object = msg[4]    # Value
+            #crc: str    = msg[5]    # Checksum
+            #rcv: str    = None      # Receiving member addressed to
             # For PyCache.
-            #crc: bytes  = msg[4]    # Checksum
-            #val: object = msg[5]    # Value
-            #rcv: int    = msg[6]    # Addressed to receiving member. 0 == multicast to all members.
+            crc: bytes  = msg[4]    # Checksum
+            val: object = msg[5]    # Value
+            rcv: int    = msg[6]    # Addressed to receiving member. 0 == multicast to all members.
             frg: list   = []
 
-            if  len(msg) == 7:
-                rcv = msg[6]
-
-            # TODO: Reconcile the format with the format that is queued up.
             pky_t = (nms ,key ,tsm) # Key for this message pending acknowledgement.
             match opc:
                 case OpCode.REQ:    # Request retransmit.
@@ -1997,7 +2002,7 @@ def _multicaster() -> None:
                 _send_fragment( sock ,frg_b )
 
             # DEBUG trace.
-            if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
                 _log_ops_msg( logging.DEBUG ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">   Multicasted out to member{ ' '+rcv if rcv else 's.'}" )
 
             if  opc == OpCode.MET:  # Metrics.

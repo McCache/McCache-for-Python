@@ -10,6 +10,24 @@ import time
 
 import mccache as mc
 
+# Callback method for key that are updated within 1 second of lookup in the background.
+#
+def change(ctx: dict):
+    """Callback method to be notified of changes withion one second of previous lookup.
+
+    Args:
+        ctx :dict   A context dictionary of the following format:
+                        {'key': key ,'lkp': lkp ,'tsm': tsm ,'prvcrc': old ,'newcrc': new}
+                    If 'prvcrc' is None then it is a insertion.
+                    If 'newcrc' is None then it is a deletion.
+    """
+    elapse = round((ctx['tsm'] - ctx['lkp']) / mc.ONE_NS_SEC ,4)
+    if  ctx['newcrc'] is None:
+        mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.FYI ,tsm=time.time_ns() ,nms=cache.name ,key=ctx['key'] ,crc=ctx['newcrc'] ,msg=f")>   FYI {key} got deleted within {elapse} sec in the background." )
+    else:
+        mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.FYI ,tsm=time.time_ns() ,nms=cache.name ,key=ctx['key'] ,crc=ctx['newcrc'] ,msg=f")>   FYI {key} got updated within {elapse} sec in the background." )
+
+
 # Initialization section.
 #
 rndseed = 17
@@ -72,7 +90,9 @@ while (end - bgn) < (duration*60):  # Seconds.
     match   opc:
         case 13|17:     # NOTE: 10% are deletes.
             if  key in cache:
-                crc =  cache.getmeta( key )['crc']
+                #crc =  cache.getmeta( key )['crc']
+                # For PyCache
+                crc =  cache.metadata[ key ]['crc']
 
                 # DEBUG trace.
                 if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.EXTRA:
@@ -159,7 +179,7 @@ while (end - bgn) < (duration*60):  # Seconds.
             # DEBUG trace.
             if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLOUS:
                 if  not val:
-                    mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.INQ ,tsm=time.time_ns() ,name=cache.name ,key=key ,crc=None ,msg=f")>   WRN:{key} value is None in test script!")
+                    mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.INQ ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=None ,msg=f")>   WRN:{key} value is None in test script!")
 
     end = time.time()
 

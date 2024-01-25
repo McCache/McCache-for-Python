@@ -479,6 +479,21 @@ class   TestCache:
         assert  a[4] ==  h          ,f"Expect   {h}     ,but actual is {a[4]}"
         assert  a[5] is  None       ,f"Expect   None    ,but actual is {a[5]}"
 
+    def test_callback(self):
+        def callback(ctx: dict):
+            assert  ctx  is not None
+            assert 'key'    in  ctx
+            assert 'tsm'    in  ctx
+            assert 'lkp'    in  ctx
+            assert 'prvcrc' in  ctx
+            assert 'newcrc' in  ctx
+
+        c = Cache( callback=callback )
+        c['k1'] = True
+        time.sleep(0.5)
+        c['k1'] = False
+
+
 # The MIT License (MIT)
 # Copyright (c) 2023 Edward Lau.
 #

@@ -11,14 +11,15 @@ import time
 #
 from collections import OrderedDict
 from collections.abc import Iterable
-from inspect import getframeinfo, stack
+from inspect import getframeinfo, isfunction ,stack
+from types import FunctionType
 from typing import Any
 
 # If you are using VS Code, make sure your "cwd" and "PYTHONPATH" is set correctly in `launch.json`:
 #   "cwd": "${workspaceFolder}",
 #   "env": {"PYTHONPATH": "${workspaceFolder}${pathSeparator}src;${env:PYTHONPATH}"},
 #
-#from  pycache.__about__ import __app__, __version__ # noqa
+from  pycache.__about__ import __app__, __version__ # noqa
 
 class Cache( OrderedDict ):
     """Cache based of the dict object.
@@ -39,14 +40,19 @@ class Cache( OrderedDict ):
         """Cache constructor.
         other:      SEE:    OrderedDict( dict ).__init__()
         kwargs:
-            name    :str    Name for this instance of the cache.
-            max     :int    Max entries threshold for triggering entries eviction. Default to `256`.
-            size    :int    Max size in bytes threshold for triggering entries eviction. Default to `64K`.
-            ttl     :int    Time to live in seconds. Default to `0`.
-            msgbdy  :str    Custom log message format to log out.
-            logger  :Logger Custom logger to use internally.
-            queue   :Queue  Output queue to broadcast internal changes out.
-            debug   :bool   Enable internal debugging.  Default to `False`.
+            name    :str        Name for this instance of the cache.
+            max     :int        Max entries threshold for triggering entries eviction. Default to `256`.
+            size    :int        Max size in bytes threshold for triggering entries eviction. Default to `64K`.
+            ttl     :int        Time to live in seconds. Default to `0`.
+            msgbdy  :str        Custom log message format to log out.
+            logger  :Logger     Custom logger to use internally.
+            queue   :Queue      Output queue to broadcast internal changes out.
+            callback:callable   Your function to call if a value got updated just after you have read it.
+                                The input parameter shall be a dictionary of:
+                                    {'key': key ,'lkp': lkp ,'tsm': tsm ,'prvcrc': old ,'newcrc': new}
+                                If 'prvcrc' is None then it is a insertion.
+                                If 'newcrc' is None then it is a deletion.
+            debug   :bool       Enable internal debugging.  Default to `False`.
         Raise:
             TypeError
         """
@@ -58,6 +64,7 @@ class Cache( OrderedDict ):
         self.__msgbdy   :str    = 'L#{lno:>4}\tIm:{iam}\tOp:{opc}\tTs:{tsm}\tNm:{nms}\tKy:{key}\tCk:{crc}\tMg:{msg}'
         self.__logger   :logging.Logger = None
         self.__queue    :queue.Queue    = None
+        self.__callback :callable       = None
         self.__debug    :bool   = False     # Internal debug is disabled.
         self.__oldest   :int    = Cache.TSM_VERSION()  # oldest entry in the cache.
         self.__latest   :int    = Cache.TSM_VERSION()  # Latest time the cache was touch on.
@@ -80,12 +87,16 @@ class Cache( OrderedDict ):
                         self.__msgbdy = str( val )
                     case 'logger':
                         if  not isinstance( val ,logging.Logger ):
-                            raise TypeError('An instance of "logging.Logger" is required!')
+                            raise TypeError('An instance of "logging.Logger" is required as a logger!')
                         self.__logger = val    # The logger object.
                     case 'queue':
                         if  not isinstance( val ,queue.Queue ):
-                            raise TypeError('An instance of "queue.Queue" is required!')
+                            raise TypeError('An instance of "queue.Queue" is required as a queue!')
                         self.__queue = val     # The queue object.
+                    case 'callback':
+                        if  not isinstance( val ,FunctionType ):
+                            raise TypeError('An instance of "type.FunctionType" is required as a callback function!')
+                        self.__callback = val   # The callback function.
                     case 'debug':
                         self.__debug = bool( val )
 
@@ -94,7 +105,7 @@ class Cache( OrderedDict ):
             self._setup_logger()
 
         kwargs = { key: val for key ,val in kwargs.items()
-                            if  key  not in {'name' ,'max' ,'size' ,'ttl' ,'msgbdy' ,'logger' ,'queue' ,'debug'}}
+                            if  key  not in {'name' ,'max' ,'size' ,'ttl' ,'msgbdy' ,'logger' ,'queue' ,'callback' ,'debug'}}
         super().__init__( other ,**kwargs )
 
     # Public instance properties.
@@ -193,7 +204,7 @@ class Cache( OrderedDict ):
             msg =  ""
         if  crc is None:
             crc =  \
-            md5 =  f"C={' '*20}"
+            md5 =  f"C={' '*22}"
         elif isinstance( crc ,bytes ):
             crc =  \
             md5 =  base64.b64encode( crc ).decode()
@@ -246,7 +257,7 @@ class Cache( OrderedDict ):
             tsm: int        | None = None,
             eviction: bool  | None = False,
             queue_out: bool | None = True ) -> None:
-        """Post deletion processing.  Update the meatadata and internal metrics.
+        """Post deletion processing.  Update the metadata and internal metrics.
         Queue out the details if required.
 
         Args:
@@ -255,9 +266,11 @@ class Cache( OrderedDict ):
             eviction    Originated from a cache eviction or deletion.
             queue_out   Request queing out opeartion info to external receiver.
         """
-        if  tsm is None:
-            tsm =  Cache.TSM_VERSION()
+        #if  tsm is None:
+        #    tsm =  Cache.TSM_VERSION()
         crc = self.__meta[ key ]['crc']
+        lkp = self.__meta[ key ]['lkp']
+        tsm = self.__meta[ key ]['tsm']
         del self.__meta[ key ]
         #
         if  self.__queue and queue_out:
@@ -273,13 +286,24 @@ class Cache( OrderedDict ):
             self.deletes += 1
         self._set_spike()
 
+        # Callback to notify a change in the cache.
+        if  self.__callback and (tsm - lkp) < Cache.ONE_NS_MIN:
+            # The key/value got changed withing 1 second of last read.
+            self.__callback({'key': key ,'lkp': lkp ,'tsm': tsm ,'prvcrc': crc ,'newcrc': None})
+
+    def _post_get(self,
+            key: Any    ) -> None:
+        """Post lookup processing.  Update the metadata.
+        """
+        self.__meta[ key ]['lkp'] = Cache.TSM_VERSION() # Timestamp for the just lookup operation.
+
     def _post_set(self,
             key: Any,
             value: Any,
             tsm: int        | None = None,
             update: bool    | None = True,
             queue_out: bool | None = True ) -> None:
-        """Post insert/update processing.  Update the meatadata and internal metrics.
+        """Post insert/update processing.  Update the metadata and internal metrics.
         Queue out the details if required.
 
         Args:
@@ -292,7 +316,9 @@ class Cache( OrderedDict ):
         if  tsm is None:
             tsm =  Cache.TSM_VERSION()
         md5 = hashlib.md5( bytearray(str( value ) ,encoding='utf-8') ).digest() # noqa: S324    Keep it small until we need to display it.
-        met = {'tsm': tsm ,'crc': md5}
+        crc = self.__meta[ key ]['crc'] if key in self.__meta  else None
+        lkp = self.__meta[ key ]['lkp'] if key in self.__meta  else tsm
+        met = {'tsm': tsm ,'crc': md5 ,'lkp': lkp}
         self.__meta[ key ] = met
 
         if  self.__queue and queue_out:
@@ -308,6 +334,11 @@ class Cache( OrderedDict ):
         else:
             self.inserts += 1
         self._set_spike()
+
+        # Callback to notify a change in the cache.
+        if  self.__callback and (tsm - lkp) < Cache.ONE_NS_MIN:
+            # The key/value got changed withing 1 second of last read.
+            self.__callback({'key': key ,'lkp': lkp ,'tsm': tsm ,'prvcrc': crc ,'newcrc': md5})
 
     def _set_spike(self,
             now: int | None = None ) -> None:
@@ -348,8 +379,11 @@ class Cache( OrderedDict ):
             _ = self._evict_ttl_items()
 
         super().__delitem__( key )
+
+        if  tsm is None:
+            tsm =  Cache.TSM_VERSION()
         if  self.__debug:
-            crc = self.__meta['crc'] if 'crc' in self.__meta else None
+            crc = self.__meta[ key ]['crc'] if key in self.__meta else None
             self._log_ops_msg( opc='DEL' ,tsm=tsm ,nms=self.__name ,key=key ,crc=crc ,msg='Deleted via __delitem__()')
         self._post_del( key=key ,tsm=tsm ,eviction=False ,queue_out=queue_out )
 
@@ -369,6 +403,7 @@ class Cache( OrderedDict ):
 
         val = super().__getitem__( key )
         self.lookups += 1
+        self._post_get( key )
         return val
 
     def __iter__(self) -> Iterable:
@@ -408,10 +443,12 @@ class Cache( OrderedDict ):
         updmode: bool = self.__contains__( key )   # If exist we are in UPD mode ,else INS mode.
         super().__setitem__( key ,value )
 
+        if  tsm is None:
+            tsm =  Cache.TSM_VERSION()
         if  self.__debug:
             opc = f"{'UPD' if updmode else 'INS'}"
             msg = f"{'Updated' if updmode else 'Inserted'} via __setitem__()"
-            crc = self.__meta['crc'] if 'crc' in self.__meta else None
+            crc = self.__meta[ key ]['crc'] if key in self.__meta else None
             self._log_ops_msg( opc=opc ,tsm=tsm ,nms=self.__name ,key=key ,crc=crc ,msg=msg)
         self._post_set( key=key ,value=value ,tsm=tsm ,update=updmode ,queue_out=queue_out )
 
