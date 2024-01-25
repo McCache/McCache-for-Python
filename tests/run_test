@@ -104,7 +104,7 @@ while getopts "k:d:s:u:m:c:" opt; do
             echo  ' -s ###  Sleep span.     Default 100.'
             echo  ' -u ###  Sleep unit.     Default 100.'
             echo  ' -m ###  Monkey tantrum. Default 0.'
-            echo  ' -c ###  Cluster size.   Default 3.'
+            echo  ' -c ###  Cluster size.   Default 3.  Max is 9.'
             exit  1
             ;;
     esac
@@ -153,7 +153,7 @@ ${CONTAINER_EXE} up  ${NODE01} ${NODE02} ${NODE03} ${NODE04} ${NODE05} ${NODE06}
 echo Run test using the output log from the cluster.
 
 # Extract out and clean up the INQ result from each of the debug log files into a result file.
-tail log/debug0*.log |grep "INQ" |grep -Ev "Fr:|Multicasted" |sed "s/{/\n  /" |tr "}" "\n"  > log/result.txt
+tail log/debug0*.log |grep -E "INQ|Exiting" |grep -Ev "Fr:|Multicasted" |sed "s/{/\n  /" |tr "}" "\n"  > log/result.txt
 
 pipenv run  pytest -q .
 

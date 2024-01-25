@@ -60,22 +60,22 @@ SET TEST_CLUSTER_SIZE=3
 
 :: Start of CLI.
 :SOF_CLI
-IF  /I "MAX_ENTRIES"   =="%1" GOTO :SET_TEST_MAX_ENTRIES
-IF  /I "RUN_DURATION"  =="%1" GOTO :SET_TEST_RUN_DURATION
-IF  /I "SLEEP_SPAN"    =="%1" GOTO :SET_TEST_SLEEP_SPAN
-IF  /I "SLEEP_UNIT"    =="%1" GOTO :SET_TEST_SLEEP_UNIT
-IF  /I "MONKEY_TANTRUM"=="%1" GOTO :SET_TEST_MONKEY_TANTRUM
-IF  /I "CLUSTER_SIZE"  =="%1" GOTO :SET_TEST_CLUSTER_SIZE
-IF  /I ""              =="%1" GOTO :EOF_CLI
+IF  /I "%~1"=="-k"  GOTO :SET_TEST_MAX_ENTRIES
+IF  /I "%~1"=="-d"  GOTO :SET_TEST_RUN_DURATION
+IF  /I "%~1"=="-s"  GOTO :SET_TEST_SLEEP_SPAN
+IF  /I "%~1"=="-u"  GOTO :SET_TEST_SLEEP_UNIT
+IF  /I "%~1"=="-m"  GOTO :SET_TEST_MONKEY_TANTRUM
+IF  /I "%~1"=="-c"  GOTO :SET_TEST_CLUSTER_SIZE
+IF  /I "%~1"==""    GOTO :EOF_CLI
 
 ECHO Invalid parameter value.  Try the following:
-ECHO %0  [MAX_ENTRIES ###] [RUN_DURATION ###] [SLEEP_SPAN ###] [SLEEP_UNIT ###] [MONKEY_TANTRUM ###] [CLUSTER_SIZE ###]
-ECHO MAX_ENTRIES    ###  Max entries.    Default 100.
-ECHO RUN_DURATION   ###  Run duration.   Default 5 minutes.
-ECHO SLEEP_SPAN     ###  Sleep span.     Default 100.
-ECHO SLEEP_UNIT     ###  Sleep unit.     Default 100.
-ECHO MONKEY_TANTRUM ###  Monkey tantrum. Default 0.
-ECHO CLUSTER_SIZE   ###  Cluster size.   Default 3.
+ECHO %0  [-k ###] [-m ###] [-s ###] [-u ###] [-m ###] [-c ###]
+ECHO -k ###  Max entries.    Default 100.
+ECHO -d ###  Run duration.   Default 5 minutes.
+ECHO -s ###  Sleep span.     Default 100.
+ECHO -u ###  Sleep unit.     Default 100.
+ECHO -m ###  Monkey tantrum. Default 0.
+ECHO -c ###  Cluster size.   Default 3.  Max is 9.
 GOTO :EOF_SCRIPT
 
 :SET_TEST_MAX_ENTRIES
@@ -163,7 +163,7 @@ ECHO Starting the test cluster with %TEST_CLUSTER_SIZE% nodes.
 ECHO Run test using the output log from the cluster.
 
 :: Extract out and clean up the INQ result from each of the debug log files into a result file.
-tail log/debug0*.log |grep "INQ" |grep -Ev "Fr:|Multicasted" |sed "s/{/\n  /" |tr "}" "\n"  > log/result.txt
+tail log/debug0*.log |grep -E "INQ|Exiting" |grep -Ev "Fr:|Multicasted" |sed "s/{/\n  /" |tr "}" "\n"  > log/result.txt
 
 :: pipenv run  pytest -q .
 

@@ -37,9 +37,7 @@ podman-compose = ">=1.0.6"      # Use podman to launch 'docker-compose.yml' file
 #pyupgrade = ">=3.10.1"         # Upgrade to modern Python syntax.
 #darglint = ">=1.8.1"           # Docstring linter expect docstring formatted suing Google Python Style Guide.
 bandit = ">=1.7.5"              # Security issues scanner.
-#isort = ">=5.12.0"             # Sort the imports.
 mypy = ">=1.5.1"                # Static type checker for Python.
-#blue = ">=0.9.1"               # Less uncompromising code formatter compared to 'black'.
 ruff = ">=0.0.287"              # Extremely fast Python linter.  Use this as the default.
 vulture = ">=2.9.1"             # Dead code scanner.
 pytest = ">=7.4.3"              # Unit testing framework.
@@ -54,7 +52,7 @@ python_version = ">=3.11.0"     # McCache uses Structured Pattern Matching.
 
 [scripts]
 helloworld = "python -c \"print('Hello World. Ran from: pipenv run helloworld')\""
-covertest  = "coverage run -m pytest -v  tests\\unit\\test_cache.pypi"
+covertest  = "coverage run -m pytest -v  tests\\unit\\test_cache.py"
 unittest   = "./tests/run_tests"
 minitest   = "./tests/run_tests  TEST_MAX_ENTRIES 100  TEST_RUN_DURATION 1"
 loadtest   = "./tests/run_tests  TEST_MAX_ENTRIES 10   TEST_RUN_DURATION 10"
