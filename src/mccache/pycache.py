@@ -32,7 +32,7 @@ class Cache( OrderedDict ):
         - Support telemetry communication with external via queue.
     """
     ONE_NS_SEC  = 1_000_000_000     # One second in nano seconds.
-    ONE_NS_MIN  = 60*ONE_NS_SEC     # One minute in nano seconds.
+    ONE_NS_MIN  = 60 * ONE_NS_SEC   # One minute in nano seconds.
     TSM_VERSION = time.monotonic_ns if sys.platform == 'darwin' else time.time_ns
     IP4_ADDRESS = sorted(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET ))[0][4][0]
 
@@ -52,6 +52,7 @@ class Cache( OrderedDict ):
                                     {'key': key ,'lkp': lkp ,'tsm': tsm ,'prvcrc': old ,'newcrc': new}
                                 If 'prvcrc' is None then it is a insertion.
                                 If 'newcrc' is None then it is a deletion.
+            cbwindow:int        The preceding number of seconds from the last value lookup to trigger a callback if it is updated.
             debug   :bool       Enable internal debugging.  Default to `False`.
         Raise:
             TypeError
@@ -65,6 +66,7 @@ class Cache( OrderedDict ):
         self.__logger   :logging.Logger = None
         self.__queue    :queue.Queue    = None
         self.__callback :callable       = None
+        self.__cbwindow :int    = 1
         self.__debug    :bool   = False     # Internal debug is disabled.
         self.__oldest   :int    = Cache.TSM_VERSION()  # oldest entry in the cache.
         self.__latest   :int    = Cache.TSM_VERSION()  # Latest time the cache was touch on.
@@ -76,6 +78,8 @@ class Cache( OrderedDict ):
             if  val:
                 match key:
                     case 'name':
+                        if  not isinstance( val ,str ):
+                            raise TypeError('The cache name must be a string!')
                         self.__name = str( val )
                     case 'max':
                         self.__maxlen = int( val )
@@ -97,6 +101,8 @@ class Cache( OrderedDict ):
                         if  not isinstance( val ,FunctionType ):
                             raise TypeError('An instance of "type.FunctionType" is required as a callback function!')
                         self.__callback = val   # The callback function.
+                    case 'cbwindow':
+                        self.__cbwindow = int( val )
                     case 'debug':
                         self.__debug = bool( val )
 
@@ -287,7 +293,7 @@ class Cache( OrderedDict ):
         self._set_spike()
 
         # Callback to notify a change in the cache.
-        if  self.__callback and (tsm - lkp) < Cache.ONE_NS_MIN:
+        if  self.__callback and (tsm - lkp) < (self.__cbwindow * Cache.ONE_NS_SEC):
             # The key/value got changed withing 1 second of last read.
             self.__callback({'key': key ,'lkp': lkp ,'tsm': tsm ,'prvcrc': crc ,'newcrc': None})
 
@@ -336,7 +342,7 @@ class Cache( OrderedDict ):
         self._set_spike()
 
         # Callback to notify a change in the cache.
-        if  self.__callback and (tsm - lkp) < Cache.ONE_NS_MIN:
+        if  self.__callback and (tsm - lkp) < (self.__cbwindow * Cache.ONE_NS_SEC):
             # The key/value got changed withing 1 second of last read.
             self.__callback({'key': key ,'lkp': lkp ,'tsm': tsm ,'prvcrc': crc ,'newcrc': md5})
 
@@ -349,7 +355,7 @@ class Cache( OrderedDict ):
             now     The current timestamp to dtermine a spike.  Default to present.
         """
         if  now is None:
-            now = Cache.TSM_VERSION()
+            now =  Cache.TSM_VERSION()
         span =  now - self.__latest
         if  span > 0:
             # Monotonic.

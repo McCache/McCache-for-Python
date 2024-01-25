@@ -217,19 +217,27 @@ The multicasting member will keep track of all the send fragments to all the mem
 Collision happens when two or more nodes make a change to a same key at the same time.  The timestamp that is attached to the update is not granular enough to serialize the operation.  In this case, a warning is log and multi-cast out the eviction of this key to prevent the cache from becoming in-coherent.
 
 ## Limitation
-* Even though the latency is low, it will **eventually** be consistent.  There is a very micro chance that an event can slip in just after the cache is read with the old value.  One possible remedy is to perform and addition check.  The following is a code snippet that may be of help:
+* Even though the latency is low, it will **eventually** be consistent.  There is a very micro chance that an event can slip in just after the cache is read with the old value.  You have the option to pass in callback function to `McCache` for it to invoke if a change to the value of your cached object have changed within one second ago.  The other possibility is to perform a manual check.  The following is a code snippet that illustrate both approaches:
 
 ```
-c =  Cache()
-c['k'] = 123
-v = c['k']
-e = c.metadata['k']['tsm']
+import mcache as mc
+
+def change(ctx: dict):
+    print('Cache got change 1 second ago.')
+
+c = mc.get_cache( callback=change )
+c['k'] = False
+time.sleep( 0.9 )
+c['k'] = True   # The change() method will be invoked.
+
+e = c.metadata['k']['lkp']
 time.sleep( 10 )
 if 'k' in c.metadata:
     a = c.metadata['k']['tsm']
     if  a > e:  # Actual is greater than expected.
         print('Cache got change since you previously read it.')
 ```
+
 
 * The clocks in a distributed environment is never as accurate (due to clock drift) as we want it to be in a high update environment.  On a Local Area Network, the accuracy could go down to 1ms but 10ms is a safer assumption.  SEE: [NTP](https://timetoolsltd.com/ntp/ntp-timing-accuracy/)
 

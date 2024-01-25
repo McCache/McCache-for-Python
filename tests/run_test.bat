@@ -163,7 +163,7 @@ ECHO Starting the test cluster with %TEST_CLUSTER_SIZE% nodes.
 ECHO Run test using the output log from the cluster.
 
 :: Extract out and clean up the INQ result from each of the debug log files into a result file.
-tail log/debug0*.log |grep "INQ" |grep -Ev "Fr:|Multicasted" |sed "s/{/\n  /" |tr "}" "\n"  > log/result.txt
+tail log/debug0*.log |grep -E "INQ|Exiting" |grep -Ev "Fr:|Multicasted" |sed "s/{/\n  /" |tr "}" "\n"  > log/result.txt
 
 :: pipenv run  pytest -q .
 

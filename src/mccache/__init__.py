@@ -109,6 +109,7 @@ class _DefaultSize:
 
 class Cache(collections.abc.MutableMapping):
     """Mutable mapping to serve as a simple cache or cache base class."""
+    TSM_VERSION = time.monotonic_ns if sys.platform == 'darwin' else time.time_ns
 
     __marker = object()
 
@@ -944,9 +945,9 @@ class McCacheConfig:
     multicast_port: int = 4000          # Unofficial port.  Was for Diablo II game.
     multicast_hops: int = 1             # Only local subnet.
     monkey_tantrum: int = 0             # Chaos monkey tantrum % level (0 - 99).
-    deamon_sleep: int   = SEASON_TIME   # House keeping snooze seconds (0.33 - 3.0).
+    deamon_sleep: float = SEASON_TIME   # House keeping snooze seconds (0.33 - 3.0).
     random_seed: int    = int(str(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]).split(".")[3])
-    debug_level: int    = 0             # Debug tracing is default to off/false. 0=off ,1=basic ,3=extra ,5=surplus
+    debug_level: int    = 0             # Debug tracing is default to off/false. 0=off ,1=basic ,3=extra ,5=superflous
     log_format: str     = f"%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d.%(thread)05d)[%(levelname)s {__app__}@%(lineno)d] %(message)s"
     debug_logfile: str  = 'log/debug.log'
 
@@ -1325,7 +1326,6 @@ def _get_cache_metrics( name: str | None = None ) -> dict:
             }
         }   # Process stats.
     nms =   {n: {   'count':    len( _mcCache[ n ]),
-                    # For PyCache
                     'size':
                         round( sys.getsizeof(_mcCache[ n ]) / ONE_MIB    ,4),
                     'spikeduration':
@@ -1629,16 +1629,12 @@ def _check_sent_pending() -> None:
                     if  elps > minw:
                         if  len(_mcPending[ pky_t ]['message']) == len(_mcPending[ pky_t ]['members'][ ip ]['unack']):
                             # No fragments was acknowledged.
-                            # _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,f"{ip}:" ,crc ,ip))    # Request ACK for the entire message from an IP.
-                            # For PyCache
                             _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,crc ,f"{ip}:" ,ip))    # Request ACK for the entire message from an IP.
                         else:
                             # Partially unacknowledged.
                             s = len(_mcPending[ pky_t ]['message'])
                             for f in range( 0 ,s ):
                                 if  f in _mcPending[ pky_t ]['members'][ ip ]['unack']:
-                                    # _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,f"{ip}:{f}/{s}" ,crc ,ip)) # Request specific fragment ACK from an IP.
-                                    # For PyCache
                                     _mcQueue.put((OpCode.RAK ,tsm ,nms ,key ,crc ,f"{ip}:{f}/{s}" ,ip))     # Request specific fragment ACK from an IP.
 
                         _ = _mcPending[ pky_t ]['members'][ ip ]['backoff'].pop()   # Pop off the head of the backoff pause.
@@ -1652,8 +1648,6 @@ def _check_sent_pending() -> None:
                 _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=nms ,key=key,crc=crc ,msg=f">>  Proactive request ack from all members. all={len(_mcMember)} ,mbr={mbr} ,uak={len(uak)}" )
 
             # Re-queue a full message transmission.  Proactive re-transmit has None value.
-            # _mcQueue.put((OpCode.REQ ,tsm ,nms ,key ,None ,crc))
-            # For PyCache
             _mcQueue.put((OpCode.REQ ,tsm ,nms ,key ,crc ,None ,0))
 
         for ip in uak:
@@ -1679,8 +1673,6 @@ def _check_recv_assembly() -> None:
                 for seq in range( 0 ,len(_mcArrived[ aky_t ]['message'])):
                     if  _mcArrived[ aky_t ]['message'][ seq ] is None:
                         # FIXME: Rework the following.
-                        # _mcQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,f"{seq}" ,None ,aky_t[0]))
-                        # For PyCache
                         _mcQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,None ,f"{seq}" ,aky_t[0])) # FIXME: Parse out  4th  octet.
 
                 _ = _mcArrived[ aky_t ]['backoff'].pop()    # Pop off the head of the backoff pause.
@@ -1770,8 +1762,6 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                 mcc.__delitem__( key ,None )
 
             # Acknowledge it.
-            # _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
-            # For PyCache
             _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
 
             #   Deep Tracing
@@ -1823,8 +1813,6 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
 
             if  aky_t in _mcArrived:
                 # We keep the arrived messages around to be cleaned up by house keeping.
-                # _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
-                # For PyCache
                 _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
                 #   Deep Tracing
                 if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
@@ -1842,17 +1830,14 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
             lcs: str        # Local cache key's crc.
             lts: int = 0    # Local cache key's tsm.
             if  key in mcc:
-                #lcs =  mcc.getmeta( key )['crc']
-                #lts =  mcc.getmeta( key )['tsm']
-                # For PyCache
                 lcs =  mcc.metadata[ key ]['crc']
                 lts =  mcc.metadata[ key ]['tsm']
 
-            #   Deep Tracing
-            if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">   Local tsm: {lts} {'<' if (lts < tsm) else '>='} {tsm}" )    # noqa: E501
-
             if  lts < tsm:  # Local timestamp is older than the arriving message timestamp.
+                #   Deep Tracing
+                if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+                    _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">   Local tsm: {lts} {'<' if (lts < tsm) else '>='} {tsm}" )    # noqa: E501
+
                 #   Deep Tracing
                 if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
                     _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  Calling: cache.__setitem__( {key} ,{crc} ,None ,{tsm} )" )    # noqa: E501
@@ -1863,18 +1848,15 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                 #   Deep Tracing
                 if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
                     if  mcc[ key ]:
-                        #lcs =  mcc.getmeta( key )['crc']
-                        #lts =  mcc.getmeta( key )['tsm']
-                        # For PyCache
                         lcs =  mcc.metadata[ key ]['crc']
                         lts =  mcc.metadata[ key ]['tsm']
 
                         if  lcs == crc and lts == tsm:
-                            _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  OK: {key} stored in local." )
+                            _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  OK: {key} stored in local." )
                         else:
-                            _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  ERR:{key} out of sync in local.  Local tsm: {lcs} {'==' if (lcs == crc) else '<>'} {crc} ,{lts} {'==' if (lts == tsm) else '<>'} {tsm}" )   # noqa: E501
+                            _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  ERR:{key} out of sync in local.  Local tsm: {lcs} {'==' if (lcs == crc) else '<>'} {crc} ,{lts} {'==' if (lts == tsm) else '<>'} {tsm}" )   # noqa: E501
                     else:
-                        _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  ERR:{key} NOT stored in local." )
+                        _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg=f">>  ERR:{key} NOT stored in local." )
             elif lts == tsm and crc == lcs:
                 # Re-transmit message.
                 pass
@@ -1883,14 +1865,10 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
 
                 # NOTE: Cache in-consistent, evict this key from all members.
                 del mcc[ key ]
-                # _mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,None ,crc))
-                # For PyCache
                 _mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,crc ,None ,0))
 
             val = None
             # Acknowledge it.
-            # _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,None ,crc ,sdr))
-            # For PyCache
             _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
 
         case _:
@@ -1949,10 +1927,6 @@ def _multicaster() -> None:
             tsm: int    = msg[1]    # Timestamp
             nms: str    = msg[2]    # Namespace
             key: object = msg[3]    # Key
-            #val: object = msg[4]    # Value
-            #crc: str    = msg[5]    # Checksum
-            #rcv: str    = None      # Receiving member addressed to
-            # For PyCache.
             crc: bytes  = msg[4]    # Checksum
             val: object = msg[5]    # Value
             rcv: int    = msg[6]    # Addressed to receiving member. 0 == multicast to all members.

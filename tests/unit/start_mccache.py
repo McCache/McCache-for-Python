@@ -82,7 +82,7 @@ while (end - bgn) < (duration*60):  # Seconds.
             if (lookuptsm[ key ]['tsm'] < cache.metadata[ key ]['tsm']) and (lookuptsm[ key ]['crc'] != cache.metadata[ key ]['crc']):
                 dur = round((cache.metadata[ key ]['tsm'] - lookuptsm[ key ]['tsm']) / mc.ONE_NS_SEC ,4)
                 crc = cache.metadata[ key ]['crc']
-                mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.WRN ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f")>   Value changed within {dur:0.5f} sec after lookup." )
+                mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.WRN ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f">   Value changed within {dur:0.5f} sec after lookup." )
                 del lookuptsm[ key ]
 
     ctr +=  1
@@ -106,7 +106,7 @@ while (end - bgn) < (duration*60):  # Seconds.
                     if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.BASIC:
                         if  key in lookuptsm:
                             dur = round((time.time_ns() - lookuptsm[ key ]['tsm']) / mc.ONE_NS_SEC ,4)
-                            mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.WRN ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=None ,msg=f")>   Value changed within {dur:0.5f} sec after lookup." )
+                            mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=None ,msg=f">   Value changed within {dur:0.5f} sec after lookup." )
 
                 # Cache entry was just deleted, evict the lookup tsm.
                 if  key in lookuptsm:
@@ -194,4 +194,6 @@ mc.logger.info(f"{mc.SRC_IP_ADD} Done testing. Querying final cache checksum.")
 
 mc.get_cache_checksum( cache.name ) # Query the cache at exit.
 
-mc.logger.info(f"{mc.SRC_IP_ADD} Exiting.")
+tsm = cache.TSM_VERSION()
+tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime(tsm//100_000_000))}.{tsm%100_000_000}"
+mc.logger.info(f"{mc.SRC_IP_ADD} Exiting at {tsm}")
