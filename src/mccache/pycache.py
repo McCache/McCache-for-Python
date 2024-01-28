@@ -19,7 +19,6 @@ from typing import Any
 #   "cwd": "${workspaceFolder}",
 #   "env": {"PYTHONPATH": "${workspaceFolder}${pathSeparator}src;${env:PYTHONPATH}"},
 #
-#from  pycache.__about__ import __app__, __version__ # noqa
 from  mccache.__about__ import __app__, __version__ # noqa
 
 class Cache( OrderedDict ):
@@ -112,7 +111,7 @@ class Cache( OrderedDict ):
             self._setup_logger()
 
         kwargs = { key: val for key ,val in kwargs.items()
-                            if  key  not in {'name' ,'max' ,'size' ,'ttl' ,'msgbdy' ,'logger' ,'queue' ,'callback' ,'debug'}}
+                            if  key  not in {'name' ,'max' ,'size' ,'ttl' ,'msgbdy' ,'logger' ,'queue' ,'callback' ,'cbwindow' ,'debug'}}
         super().__init__( other ,**kwargs )
 
     # Public instance properties.
@@ -203,6 +202,8 @@ class Cache( OrderedDict ):
             opc =  f"O={' '* 4}"
         if  tsm is None:
             tsm =  f"T={' '*14}"
+        else:
+            tsm =  tsm / 100_000_000.0
         if  nms is None:
             nms =  f"N={' '* 6}"
         if  key is None:
@@ -322,7 +323,7 @@ class Cache( OrderedDict ):
         if  tsm is None:
             tsm =  Cache.TSM_VERSION()
         if  key not in self.__meta:
-            self.__meta[ key ] = {'tsm': None ,'crc': None ,'lkp': 0 ,'upd': 0}
+            self.__meta[ key ] = {'tsm': None ,'crc': None ,'lkp': 0}
 
         crc = self.__meta[ key ]['crc']     # Old crc value.
         md5 = hashlib.md5( bytearray(str( value ) ,encoding='utf-8') ).digest()  # noqa: S324   New crc value.
@@ -339,7 +340,6 @@ class Cache( OrderedDict ):
         if  update:
             self.move_to_end( key ,last=True )    # FIFO
             self.updates += 1
-            self.__meta[ key ]['upd'] += 1
         else:
             self.inserts += 1
         self._set_spike()
@@ -356,7 +356,7 @@ class Cache( OrderedDict ):
         A spikes are high frequncy delete/insert/update that are within 5 seconds.
 
         Args:
-            now     The current timestamp to dtermine a spike.  Default to present.
+            now     The current timestamp to determine a spike.  Default to present.
         """
         if  now is None:
             now =  Cache.TSM_VERSION()
@@ -631,14 +631,14 @@ class Cache( OrderedDict ):
 
         return super().values()
 
-if __name__ == "__main__":
-    # SEE: https://phoenixnap.com/kb/python-initialize-dictionary
-    k = ['key1' ,'key2' ,'key3']
-    v = ['val1' ,'val2' ,'val3']
-
-    # Test.
-    c = Cache()
-    pass
+#if __name__ == "__main__":
+#    # SEE: https://phoenixnap.com/kb/python-initialize-dictionary
+#    k = ['key1' ,'key2' ,'key3']
+#    v = ['val1' ,'val2' ,'val3']
+#
+#    # Test.
+#    c = Cache()
+#    pass
 
 
 # The MIT License (MIT)

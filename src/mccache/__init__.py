@@ -76,768 +76,768 @@ from types import FunctionType
 from  mccache.__about__ import __app__, __version__ # noqa
 from  mccache.pycache   import Cache as PyCache
 
-# Cachetools section.
+## Cachetools section.
+##
+## Classes copied from cachetools package version 5.3.1 by Thomas Kemmer.
+## Licensed under The MIT License (MIT)
+## I tried subclassing to overwrite:
+##   __setitem__()
+##   __delitem__()
+##
+## but encountered the issue where some of the value are set to None.
+## Did not encounter this issue using a straight cachetools package.
+## In the interest of time, I just copy cachetools classes over and tweaked them.
+## When we have the test completed, we should try Monkey Patching it.
+##
+## We should also consider using other popular Python Cache implementation too.  Some candidates are:
+##   1. https://pypi.org/project/cache3/
+##   2. Write our own based of collection.UserDict
 #
-# Classes copied from cachetools package version 5.3.1 by Thomas Kemmer.
-# Licensed under The MIT License (MIT)
-# I tried subclassing to overwrite:
-#   __setitem__()
-#   __delitem__()
 #
-# but encountered the issue where some of the value are set to None.
-# Did not encounter this issue using a straight cachetools package.
-# In the interest of time, I just copy cachetools classes over and tweaked them.
-# When we have the test completed, we should try Monkey Patching it.
+## fmt: off
+#class _DefaultSize:
+#    __slots__ = ()
 #
-# We should also consider using other popular Python Cache implementation too.  Some candidates are:
-#   1. https://pypi.org/project/cache3/
-#   2. Write our own based of collection.UserDict
-
-
-# fmt: off
-class _DefaultSize:
-    __slots__ = ()
-
-    def __getitem__(self, _):
-        return 1
-
-    def __setitem__(self, _, value):
-        assert value == 1   # noqa: S101
-
-    def pop(self, _):
-        return 1
-
-
-class Cache(collections.abc.MutableMapping):
-    """Mutable mapping to serve as a simple cache or cache base class."""
-    TSM_VERSION = time.monotonic_ns if sys.platform == 'darwin' else time.time_ns
-
-    __marker = object()
-
-    __size = _DefaultSize()
-
-    def __init__(self, maxsize, getsizeof=None):
-        if getsizeof:
-            self.getsizeof = getsizeof
-        if self.getsizeof is not Cache.getsizeof:
-            self.__size = dict()    # noqa: C408
-        self.__data = dict()        # noqa: C408
-        self.__currsize = 0
-        self.__maxsize  = maxsize
-        # McCache addition.
-        self.__name:str = None
-        self.__meta     = {}                # Metadata for the cache entry.
-        self.__initOn   = time.time_ns()    # The time the cache was initialized in nano seconds.
-        self.__hitOn    = time.time_ns()    # Last time the cache was hit.
-        self.__evicts   = 0                 # Total number of evicts  since initialization.
-        self.__lookups  = 0                 # Total number of lookups since initialization.
-        self.__inserts  = 0                 # Total number of inserts since initialization.
-        self.__updates  = 0                 # Total number of updates since initialization.
-        self.__deletes  = 0                 # Total number of deletes since initialization.
-        self.__spikes   = 0                 # Total number of change to the cache where previous change was <= 5 seconds ago.
-        self.__spikeDur = 0.0               # Average spike duration between changes.
-
-
-    def __setload__(self ,is_update: bool ) -> None:    # noqa: FBT001
-        # McCache addition.
-        # Collect McCache metric and how rapid the cache being hit on.
-        # Not interested in lookups.
-        if  is_update:
-            self.__updates += 1
-        else:
-            self.__deletes += 1
-
-        _since  = time.time_ns() - self.__hitOn
-        self.__hitOn   =  time.time_ns()
-        if  _since > 0:
-            # Monotonic.
-            self.__latest  = self.__hitOn
-            if  _since <= (5 * ONE_NS_SEC): # 5 seconds.
-                self.__spikeDur = ((self.__spikeDur * self.__spikes) + _since) / (self.__spikes + 1)
-                self.__spikes  += 1
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}({repr(self.__data)} ,maxsize={self.__maxsize} ,currsize={self.__currsize}))"
-
-    def __getitem__(self, key):
-        try:
-            self.__lookups  += 1    # McCache
-            return self.__data[key]
-        except KeyError:
-            return self.__missing__(key)
-
-    def __setitem__(self, key, value, multicast: bool = True ,tsm: int = time.time_ns()):   # noqa: C901 RUF100 FBT001 FBT002 PLR0912   McCache
-        maxsize = self.__maxsize
-        size = self.getsizeof(value)
-        if size > maxsize:
-            raise ValueError("value too large")
-        if key not in self.__data or self.__size[key] < size:
-            while self.__currsize + size > maxsize:
-                self.popitem()
-        if key in self.__data:
-            diffsize = size - self.__size[key]
-        else:
-            diffsize = size
-        self.__data[key] = value
-        self.__size[key] = size
-        self.__currsize += diffsize
-
-        # McCache addition.
-        # NOTE: On Darwin, time.monotonic_ns() return the most granular value.
-        if  not tsm:
-            tsm = time.time_ns()
-
-        # Maintain the metadata for the local key.
-        # TODO: Look into https://github.com/flier/pyfasthash for a faster hash.
-        pkl: bytes = pickle.dumps( value )
-        crc: str   = base64.b64encode( hashlib.md5( pkl ).digest() ).decode()  # noqa: S324
-        self.__meta[ key ] = {'tsm': tsm ,'crc': crc ,'del': False}
-
-        #   DEBUG trace.
-        if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-            if  key not in self.__data:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc
-                                            ,msg=f">>> ERR:{key} NOT persisted in __data[]!" )
-            elif  value != self.__data[ key ]:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc
-                                            ,msg=f">>> ERR:{key} value is incoherent in __data[]!" )
-            else:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc
-                                            ,msg=f">>> OK: {key} persisted in __data[]." )
-
-        if  multicast:
-            #   DEBUG trace.
-            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key
-                                            ,crc=crc ,msg=f">>> Queuing UPD {key} to multicast out." )
-
-            _mcQueue.put((OpCode.UPD ,tsm ,self.name ,key ,crc ,value ,0))
-            self.__setload__( is_update=True )
-
-            #   DEBUG trace.
-            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc
-                                            ,msg=f">>> Queued  UPD {key} to multicast out." )
-
-    def __delitem__(self, key, multicast: bool = True ,tsm: int = time.time_ns()):    # noqa: RUF100 FBT001 FBT002  PLR0912 McCache
-        size = self.__size.pop(key)
-        del self.__data[key]
-        self.__currsize -= size
-
-        # McCache addition.
-        # NOTE: On Darwin, time.monotonic_ns() return the most granular value.
-        if  not tsm:
-            tsm = time.time_ns()
-        if  key in self.__meta:
-            crc =  self.__meta[ key ]['crc']
-            del self.__meta[ key ]
-
-        if  multicast:
-            # DEBUG trace.
-            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key
-                                            ,crc=crc ,msg=f">>> Queuing DEL {key} to multicast out." )
-
-            _mcQueue.put((OpCode.DEL ,tsm ,self.name ,key ,crc ,None ,0))
-            self.__setload__( is_update=False )
-
-            # DEBUG trace.
-            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc
-                                            ,msg=f">>> Queued  DEL {key} to multicast out." )
-
-        # DEBUG trace.
-        if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
-            if  key in self.__data:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc
-                                            ,msg=f">>> ERR:{key} still persist in cache!" )
-            else:
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc
-                                            ,msg=f">>> OK: {key} deleted from cache." )
-
-    def __contains__(self, key):
-        return key in self.__data
-
-    def __missing__(self, key):
-        raise KeyError(key)
-
-    def __iter__(self):
-        return iter(self.__data)
-
-    def __len__(self):
-        return len(self.__data)
-
-    def get(self, key, default=None):
-        if key in self:
-            return self[key]
-        else:
-            return default
-
-    def pop(self, key, default=__marker):
-        if key in self:
-            value = self[key]
-            del self[key]
-        elif default is self.__marker:
-            raise KeyError(key)
-        else:
-            value = default
-        return value
-
-    def setdefault(self, key, default=None):
-        if key in self:
-            value = self[key]
-        else:
-            self[key] = value = default
-        return value
-
-    @property
-    def maxsize(self):
-        """The maximum size of the cache."""
-        return self.__maxsize
-
-    @property
-    def currsize(self):
-        """The current size of the cache."""
-        return self.__currsize
-
-    @property
-    def metadata(self):
-        """The metadata dict."""
-        return self.__meta
-
-    @staticmethod
-    def getsizeof(value):   # noqa: ARG004
-        """Return the size of a cache element's value."""
-        return 1
-
-    # McCache addition.
-    def setname(self, name):
-        """Set name of the cache."""
-        self.__name = name
-
-#    def getmeta(self, key):
-#        """Get the neat data for the cache entry."""
-#        return self.__meta[ key ] if key in self.__meta else None
-
-    @property
-    def name(self) -> str:
-        """The name of the cache."""
-        return self.__name
-
-    @property
-    def hiton(self) -> int:
-        """Last time the cache was hit."""
-        return self.__hitOn
-
-    @property
-    def evicts(self) -> int:
-        """The number of lookups count."""
-        return self.__evicts
-
-    @property
-    def lookups(self) -> int:
-        """The number of lookups count."""
-        return self.__lookups
-
-    @property
-    def inserts(self) -> int:
-        """The number of insert count."""
-        return self.__inserts
-
-    @property
-    def updates(self) -> int:
-        """The number of insert/updates count."""
-        return self.__updates
-
-    @property
-    def deletes(self) -> int:
-        """The number of deletes count."""
-        return self.__deletes
-
-    @property
-    def spikes(self) -> int:
-        """Total number of change to the cache where previous change was <= 5 seconds ago."""
-        return self.__spikes
-
-    @property
-    def spikeDur(self) -> int:
-        """Average spike duration between changes."""
-        return self.__spikeDur
-
-
-class FIFOCache(Cache):
-    """First In First Out (FIFO) cache implementation."""
-
-    def __init__(self, maxsize, getsizeof=None):
-        Cache.__init__(self, maxsize, getsizeof)
-        self.__order = collections.OrderedDict()
-
-    def __setitem__(self, key, value, multicast: bool = True ,tsm: int = time.time_ns()): # noqa: RUF100 FBT001 FBT002  McCache
-        super().__setitem__(self, key, value, multicast, tsm)
-        try:
-            self.__order.move_to_end(key)
-        except KeyError:
-            self.__order[key] = None
-
-    def __delitem__(self, key, multicast: bool = True ,tsm: int = time.time_ns()): # noqa: RUF100 FBT001 FBT002  McCache
-        super().__delitem__(self, key, multicast)
-        del self.__order[key]
-
-    def popitem(self):
-        """Remove and return the `(key, value)` pair first inserted."""
-        try:
-            key = next(iter(self.__order))
-        except StopIteration:
-            raise KeyError("%s is empty" % type(self).__name__) from None
-        else:
-            return (key, self.pop(key))
-
-
-class LFUCache(Cache):
-    """Least Frequently Used (LFU) cache implementation."""
-
-    def __init__(self, maxsize, getsizeof=None):
-        Cache.__init__(self, maxsize, getsizeof)
-        self.__counter = collections.Counter()
-
-    def __getitem__(self, key, cache_getitem=Cache.__getitem__):
-        value = cache_getitem(self, key)
-        if key in self:  # __missing__ may not store item
-            self.__counter[key] -= 1
-        return value
-
-    def __setitem__(self, key, value, multicast: bool = True ,tsm: int = time.time_ns()): # noqa: RUF100 FBT001 FBT002  McCache
-        super().__setitem__(self, key, value, multicast, tsm)
-        self.__counter[key] -= 1
-
-    def __delitem__(self, key, multicast: bool = True ,tsm: int = time.time_ns()): # noqa: RUF100 FBT001 FBT002  McCache
-        super().__delitem__(self, key, multicast)
-        del self.__counter[key]
-
-    def popitem(self):
-        """Remove and return the `(key, value)` pair least frequently used."""
-        try:
-            ((key, _),) = self.__counter.most_common(1)
-        except ValueError:
-            raise KeyError("%s is empty" % type(self).__name__) from None
-        else:
-            return (key, self.pop(key))
-
-
-class LRUCache(Cache):
-    """Least Recently Used (LRU) cache implementation."""
-
-    def __init__(self, maxsize, getsizeof=None):
-        Cache.__init__(self, maxsize, getsizeof)
-        self.__order = collections.OrderedDict()
-
-    def __getitem__(self, key, cache_getitem=Cache.__getitem__):
-        value = cache_getitem(self, key)
-        if key in self:  # __missing__ may not store item
-            self.__update(key)
-        return value
-
-    def __setitem__(self, key, value, multicast: bool = True ,tsm: int | None = None): # noqa: RUF100 FBT001 FBT002  McCache
-        super().__setitem__(key, value, multicast, tsm)
-        self.__update(key)
-
-    def __delitem__(self, key, multicast: bool = True ,tsm: int | None = None): # noqa: RUF100 FBT001 FBT002  McCache
-        super().__delitem__(key, multicast)
-        del self.__order[key]
-
-    def popitem(self):
-        """Remove and return the `(key, value)` pair least recently used."""
-        try:
-            key = next(iter(self.__order))
-        except StopIteration:
-            raise KeyError("%s is empty" % type(self).__name__) from None
-        else:
-            return (key, self.pop(key))
-
-    def __update(self, key):
-        try:
-            self.__order.move_to_end(key)
-        except KeyError:
-            self.__order[key] = None
-
-
-class MRUCache(Cache):
-    """Most Recently Used (MRU) cache implementation."""
-
-    def __init__(self, maxsize, getsizeof=None):
-        Cache.__init__(self, maxsize, getsizeof)
-        self.__order = collections.OrderedDict()
-
-    def __getitem__(self, key, cache_getitem=Cache.__getitem__):
-        value = cache_getitem(self, key)
-        if key in self:  # __missing__ may not store item
-            self.__update(key)
-        return value
-
-    def __setitem__(self, key, value, multicast: bool = True ,tsm: int = time.time_ns()): # noqa: RUF100 FBT001 FBT002  McCache
-        super().__setitem__(self, key, value, multicast, tsm)
-        self.__update(key)
-
-    def __delitem__(self, key, multicast: bool = True ,tsm: int = time.time_ns()): # noqa: RUF100 FBT001 FBT002  McCache
-        super().__delitem__(self, key, multicast)
-        del self.__order[key]
-
-    def popitem(self):
-        """Remove and return the `(key, value)` pair most recently used."""
-        try:
-            key = next(iter(self.__order))
-        except StopIteration:
-            raise KeyError("%s is empty" % type(self).__name__) from None
-        else:
-            return (key, self.pop(key))
-
-    def __update(self, key):
-        try:
-            self.__order.move_to_end(key, last=False)
-        except KeyError:
-            self.__order[key] = None
-
-
-class RRCache(Cache):
-    """Random Replacement (RR) cache implementation."""
-
-    def __init__(self, maxsize, choice=random.choice, getsizeof=None):
-        Cache.__init__(self, maxsize, getsizeof)
-        self.__choice = choice
-
-    @property
-    def choice(self):
-        """The `choice` function used by the cache."""
-        return self.__choice
-
-    def popitem(self):
-        """Remove and return a random `(key, value)` pair."""
-        try:
-            key = self.__choice(list(self))
-        except IndexError:
-            raise KeyError("%s is empty" % type(self).__name__) from None
-        else:
-            return (key, self.pop(key))
-
-
-class _TimedCache(Cache):
-    """Base class for time aware cache implementations."""
-
-    class _Timer:
-        def __init__(self, timer):
-            self.__timer = timer
-            self.__nesting = 0
-
-        def __call__(self):
-            if self.__nesting == 0:
-                return self.__timer()
-            else:
-                return self.__time
-
-        def __enter__(self):
-            if self.__nesting == 0:
-                self.__time = time = self.__timer()
-            else:
-                time = self.__time
-            self.__nesting += 1
-            return time
-
-        def __exit__(self, *exc):
-            self.__nesting -= 1
-
-        def __reduce__(self):
-            return _TimedCache._Timer, (self.__timer,)
-
-        def __getattr__(self, name):
-            return getattr(self.__timer, name)
-
-    def __init__(self, maxsize, timer=time.monotonic, getsizeof=None):
-        Cache.__init__(self, maxsize, getsizeof)
-        self.__timer = _TimedCache._Timer(timer)
-
-    def __repr__(self, cache_repr=Cache.__repr__):
-        with self.__timer as time:
-            self.expire(time)
-            return cache_repr(self)
-
-    def __len__(self, cache_len=Cache.__len__):
-        with self.__timer as time:
-            self.expire(time)
-            return cache_len(self)
-
-    @property
-    def currsize(self):
-        with self.__timer as time:
-            self.expire(time)
-            return super().currsize
-
-    @property
-    def timer(self):
-        """The timer function used by the cache."""
-        return self.__timer
-
-    def clear(self):
-        with self.__timer as time:
-            self.expire(time)
-            Cache.clear(self)
-
-    def get(self, *args, **kwargs):
-        with self.__timer:
-            return Cache.get(self, *args, **kwargs)
-
-    def pop(self, *args, **kwargs):
-        with self.__timer:
-            return Cache.pop(self, *args, **kwargs)
-
-    def setdefault(self, *args, **kwargs):
-        with self.__timer:
-            return Cache.setdefault(self, *args, **kwargs)
-
-
-class TTLCache(_TimedCache):
-    """LRU Cache implementation with per-item time-to-live (TTL) value."""
-
-    class _Link:
-
-        __slots__ = ("key", "expires", "next", "prev")
-
-        def __init__(self, key=None, expires=None):
-            self.key = key
-            self.expires = expires
-
-        def __reduce__(self):
-            return TTLCache._Link, (self.key, self.expires)
-
-        def unlink(self):
-            next = self.next    # noqa: A001 RUF100
-            prev = self.prev
-            prev.next = next    # noqa: A001 RUF100
-            next.prev = prev
-
-    def __init__(self, maxsize, ttl, timer=time.monotonic, getsizeof=None):
-        _TimedCache.__init__(self, maxsize, timer, getsizeof)
-        self.__root = root = TTLCache._Link()
-        root.prev = root.next = root
-        self.__links = collections.OrderedDict()
-        self.__ttl = ttl
-
-    def __contains__(self, key):
-        try:
-            link = self.__links[key]  # no reordering
-        except KeyError:
-            return False
-        else:
-            return self.timer() < link.expires
-
-    def __getitem__(self, key, cache_getitem=Cache.__getitem__):
-        try:
-            link = self.__getlink(key)
-        except KeyError:
-            expired = False
-        else:
-            expired = not (self.timer() < link.expires)
-        if expired:
-            return self.__missing__(key)
-        else:
-            return cache_getitem(self, key)
-
-    def __setitem__(self, key, value, multicast: bool = True ,tsm: int = time.time_ns()): # noqa: RUF100 FBT001 FBT002  McCache
-        with self.timer as time:
-            self.expire(time)
-            super().__setitem__(self, key, value, multicast, tsm)
-        try:
-            link = self.__getlink(key)
-        except KeyError:
-            self.__links[key] = link = TTLCache._Link(key)
-        else:
-            link.unlink()
-        link.expires = time + self.__ttl
-        link.next = root = self.__root
-        link.prev = prev = root.prev
-        prev.next = root.prev = link
-
-    def __delitem__(self, key, multicast: bool = True ,tsm: int = time.time_ns()): # noqa: RUF100 FBT001 FBT002  McCache
-        super().__delitem__(self, key, multicast)
-        link = self.__links.pop(key)
-        link.unlink()
-        if not (self.timer() < link.expires):
-            raise KeyError(key)
-
-    def __iter__(self):
-        root = self.__root
-        curr = root.next
-        while curr is not root:
-            # "freeze" time for iterator access
-            with self.timer as time:
-                if time < curr.expires:
-                    yield curr.key
-            curr = curr.next
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        root = self.__root
-        root.prev = root.next = root
-        for link in sorted(self.__links.values(), key=lambda obj: obj.expires):
-            link.next = root
-            link.prev = prev = root.prev
-            prev.next = root.prev = link
-        self.expire(self.timer())
-
-    @property
-    def ttl(self):
-        """The time-to-live value of the cache's items."""
-        return self.__ttl
-
-    def expire(self, time=None):
-        """Remove expired items from the cache."""
-        if time is None:
-            time = self.timer()
-        root = self.__root
-        curr = root.next
-        links = self.__links
-        cache_delitem = Cache.__delitem__
-        while curr is not root and not (time < curr.expires):
-            cache_delitem(self, curr.key)
-            del links[curr.key]
-            next = curr.next    # noqa: A001
-            curr.unlink()
-            curr = next
-
-    def popitem(self):
-        """Remove and return the `(key, value)` pair least recently used that
-        has not already expired.
-
-        """
-        with self.timer as time:
-            self.expire(time)
-            try:
-                key = next(iter(self.__links))
-            except StopIteration:
-                raise KeyError("%s is empty" % type(self).__name__) from None
-            else:
-                return (key, self.pop(key))
-
-    def __getlink(self, key):
-        value = self.__links[key]
-        self.__links.move_to_end(key)
-        return value
-
-
-class TLRUCache(_TimedCache):
-    """Time aware Least Recently Used (TLRU) cache implementation."""
-
-    @functools.total_ordering
-    class _Item:
-
-        __slots__ = ("key", "expires", "removed")
-
-        def __init__(self, key=None, expires=None):
-            self.key = key
-            self.expires = expires
-            self.removed = False
-
-        def __lt__(self, other):
-            return self.expires < other.expires
-
-    def __init__(self, maxsize, ttu, timer=time.monotonic, getsizeof=None):
-        _TimedCache.__init__(self, maxsize, timer, getsizeof)
-        self.__items = collections.OrderedDict()
-        self.__order = []
-        self.__ttu = ttu
-
-    def __contains__(self, key):
-        try:
-            item = self.__items[key]  # no reordering
-        except KeyError:
-            return False
-        else:
-            return self.timer() < item.expires
-
-    def __getitem__(self, key, cache_getitem=Cache.__getitem__):
-        try:
-            item = self.__getitem(key)
-        except KeyError:
-            expired = False
-        else:
-            expired = not (self.timer() < item.expires)
-        if expired:
-            return self.__missing__(key)
-        else:
-            return cache_getitem(self, key)
-
-    def __setitem__(self, key, value, multicast: bool = True ,tsm: int = time.time_ns()): # noqa: RUF100 FBT001 FBT002  McCache
-        with self.timer as time:
-            expires = self.__ttu(key, value, time)
-            if not (time < expires):
-                return  # skip expired items
-            self.expire(time)
-            super().__setitem__(self, key, value, multicast, tsm)   # McCache
-        # removing an existing item would break the heap structure, so
-        # only mark it as removed for now
-        try:
-            self.__getitem(key).removed = True
-        except KeyError:
-            pass
-        self.__items[key] = item = TLRUCache._Item(key, expires)
-        heapq.heappush(self.__order, item)
-
-    def __delitem__(self, key, multicast: bool = True ,tsm: int = time.time_ns()): # noqa: RUF100 FBT001 FBT002  McCache
-        with self.timer as time:
-            # no self.expire() for performance reasons, e.g. self.clear() [#67]
-            super().__delitem__(self, key, multicast)   # McCache
-        item = self.__items.pop(key)
-        item.removed = True
-        if not (time < item.expires):
-            raise KeyError(key)
-
-    def __iter__(self):
-        for curr in self.__order:
-            # "freeze" time for iterator access
-            with self.timer as time:
-                if time < curr.expires and not curr.removed:
-                    yield curr.key
-
-    @property
-    def ttu(self):
-        """The local time-to-use function used by the cache."""
-        return self.__ttu
-
-    def expire(self, time=None):
-        """Remove expired items from the cache."""
-        if time is None:
-            time = self.timer()
-        items = self.__items
-        order = self.__order
-        # clean up the heap if too many items are marked as removed
-        if len(order) > len(items) * 2:
-            self.__order = order = [item for item in order if not item.removed]
-            heapq.heapify(order)
-        cache_delitem = Cache.__delitem__
-        while order and (order[0].removed or not (time < order[0].expires)):
-            item = heapq.heappop(order)
-            if not item.removed:
-                cache_delitem(self, item.key)
-                del items[item.key]
-
-    def popitem(self):
-        """Remove and return the `(key, value)` pair least recently used that
-        has not already expired.
-
-        """
-        with self.timer as time:
-            self.expire(time)
-            try:
-                key = next(iter(self.__items))
-            except StopIteration:
-                raise KeyError("%s is empty" % self.__class__.__name__) from None
-            else:
-                return (key, self.pop(key))
-
-    def __getitem(self, key):
-        value = self.__items[key]
-        self.__items.move_to_end(key)
-        return value
-# fmt: on
+#    def __getitem__(self, _):
+#        return 1
+#
+#    def __setitem__(self, _, value):
+#        assert value == 1   # noqa: S101
+#
+#    def pop(self, _):
+#        return 1
+#
+#
+#class Cache(collections.abc.MutableMapping):
+#    """Mutable mapping to serve as a simple cache or cache base class."""
+#    TSM_VERSION = time.monotonic_ns if sys.platform == 'darwin' else time.time_ns
+#
+#    __marker = object()
+#
+#    __size = _DefaultSize()
+#
+#    def __init__(self, maxsize, getsizeof=None):
+#        if getsizeof:
+#            self.getsizeof = getsizeof
+#        if self.getsizeof is not Cache.getsizeof:
+#            self.__size = dict()    # noqa: C408
+#        self.__data = dict()        # noqa: C408
+#        self.__currsize = 0
+#        self.__maxsize  = maxsize
+#        # McCache addition.
+#        self.__name:str = None
+#        self.__meta     = {}                # Metadata for the cache entry.
+#        self.__initOn   = time.time_ns()    # The time the cache was initialized in nano seconds.
+#        self.__hitOn    = time.time_ns()    # Last time the cache was hit.
+#        self.__evicts   = 0                 # Total number of evicts  since initialization.
+#        self.__lookups  = 0                 # Total number of lookups since initialization.
+#        self.__inserts  = 0                 # Total number of inserts since initialization.
+#        self.__updates  = 0                 # Total number of updates since initialization.
+#        self.__deletes  = 0                 # Total number of deletes since initialization.
+#        self.__spikes   = 0                 # Total number of change to the cache where previous change was <= 5 seconds ago.
+#        self.__spikeDur = 0.0               # Average spike duration between changes.
+#
+#
+#    def __setload__(self ,is_update: bool ) -> None:    # noqa: FBT001
+#        # McCache addition.
+#        # Collect McCache metric and how rapid the cache being hit on.
+#        # Not interested in lookups.
+#        if  is_update:
+#            self.__updates += 1
+#        else:
+#            self.__deletes += 1
+#
+#        _since  = time.time_ns() - self.__hitOn
+#        self.__hitOn   =  time.time_ns()
+#        if  _since > 0:
+#            # Monotonic.
+#            self.__latest  = self.__hitOn
+#            if  _since <= (5 * ONE_NS_SEC): # 5 seconds.
+#                self.__spikeDur = ((self.__spikeDur * self.__spikes) + _since) / (self.__spikes + 1)
+#                self.__spikes  += 1
+#
+#    def __repr__(self):
+#        return f"{self.__class__.__name__}({repr(self.__data)} ,maxsize={self.__maxsize} ,currsize={self.__currsize}))"
+#
+#    def __getitem__(self, key):
+#        try:
+#            self.__lookups  += 1    # McCache
+#            return self.__data[key]
+#        except KeyError:
+#            return self.__missing__(key)
+#
+#    def __setitem__(self, key, value ,tsm: int = time.time_ns() ,multicast: bool = True):   # noqa: C901 RUF100 FBT001 FBT002 PLR0912   McCache
+#        maxsize = self.__maxsize
+#        size = self.getsizeof(value)
+#        if size > maxsize:
+#            raise ValueError("value too large")
+#        if key not in self.__data or self.__size[key] < size:
+#            while self.__currsize + size > maxsize:
+#                self.popitem()
+#        if key in self.__data:
+#            diffsize = size - self.__size[key]
+#        else:
+#            diffsize = size
+#        self.__data[key] = value
+#        self.__size[key] = size
+#        self.__currsize += diffsize
+#
+#        # McCache addition.
+#        # NOTE: On Darwin, time.monotonic_ns() return the most granular value.
+#        if  not tsm:
+#            tsm = time.time_ns()
+#
+#        # Maintain the metadata for the local key.
+#        # TODO: Look into https://github.com/flier/pyfasthash for a faster hash.
+#        pkl: bytes = pickle.dumps( value )
+#        crc: str   = base64.b64encode( hashlib.md5( pkl ).digest() ).decode()  # noqa: S324
+#        self.__meta[ key ] = {'tsm': tsm ,'crc': crc ,'del': False}
+#
+#        #   DEBUG trace.
+#        if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+#            if  key not in self.__data:
+#                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc
+#                                            ,msg=f">>> ERR:{key} NOT persisted in __data[]!" )
+#            elif  value != self.__data[ key ]:
+#                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc
+#                                            ,msg=f">>> ERR:{key} value is incoherent in __data[]!" )
+#            else:
+#                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc
+#                                            ,msg=f">>> OK: {key} persisted in __data[]." )
+#
+#        if  multicast:
+#            #   DEBUG trace.
+#            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+#                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key
+#                                            ,crc=crc ,msg=f">>> Queuing UPD {key} to multicast out." )
+#
+#            _mcQueue.put((OpCode.UPD ,tsm ,self.name ,key ,crc ,value ,0))
+#            self.__setload__( is_update=True )
+#
+#            #   DEBUG trace.
+#            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+#                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc
+#                                            ,msg=f">>> Queued  UPD {key} to multicast out." )
+#
+#    def __delitem__(self, key ,tsm: int = time.time_ns() ,multicast: bool = True):    # noqa: RUF100 FBT001 FBT002  PLR0912 McCache
+#        size = self.__size.pop(key)
+#        del self.__data[key]
+#        self.__currsize -= size
+#
+#        # McCache addition.
+#        # NOTE: On Darwin, time.monotonic_ns() return the most granular value.
+#        if  not tsm:
+#            tsm = time.time_ns()
+#        if  key in self.__meta:
+#            crc =  self.__meta[ key ]['crc']
+#            del self.__meta[ key ]
+#
+#        if  multicast:
+#            # DEBUG trace.
+#            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+#                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key
+#                                            ,crc=crc ,msg=f">>> Queuing DEL {key} to multicast out." )
+#
+#            _mcQueue.put((OpCode.DEL ,tsm ,self.name ,key ,crc ,None ,0))
+#            self.__setload__( is_update=False )
+#
+#            # DEBUG trace.
+#            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+#                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc
+#                                            ,msg=f">>> Queued  DEL {key} to multicast out." )
+#
+#        # DEBUG trace.
+#        if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+#            if  key in self.__data:
+#                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc
+#                                            ,msg=f">>> ERR:{key} still persist in cache!" )
+#            else:
+#                _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,tsm=tsm ,nms=self.name ,key=key ,crc=crc
+#                                            ,msg=f">>> OK: {key} deleted from cache." )
+#
+#    def __contains__(self, key):
+#        return key in self.__data
+#
+#    def __missing__(self, key):
+#        raise KeyError(key)
+#
+#    def __iter__(self):
+#        return iter(self.__data)
+#
+#    def __len__(self):
+#        return len(self.__data)
+#
+#    def get(self, key, default=None):
+#        if key in self:
+#            return self[key]
+#        else:
+#            return default
+#
+#    def pop(self, key, default=__marker):
+#        if key in self:
+#            value = self[key]
+#            del self[key]
+#        elif default is self.__marker:
+#            raise KeyError(key)
+#        else:
+#            value = default
+#        return value
+#
+#    def setdefault(self, key, default=None):
+#        if key in self:
+#            value = self[key]
+#        else:
+#            self[key] = value = default
+#        return value
+#
+#    @property
+#    def maxsize(self):
+#        """The maximum size of the cache."""
+#        return self.__maxsize
+#
+#    @property
+#    def currsize(self):
+#        """The current size of the cache."""
+#        return self.__currsize
+#
+#    @property
+#    def metadata(self):
+#        """The metadata dict."""
+#        return self.__meta
+#
+#    @staticmethod
+#    def getsizeof(value):   # noqa: ARG004
+#        """Return the size of a cache element's value."""
+#        return 1
+#
+#    # McCache addition.
+#    def setname(self, name):
+#        """Set name of the cache."""
+#        self.__name = name
+#
+##    def getmeta(self, key):
+##        """Get the neat data for the cache entry."""
+##        return self.__meta[ key ] if key in self.__meta else None
+#
+#    @property
+#    def name(self) -> str:
+#        """The name of the cache."""
+#        return self.__name
+#
+#    @property
+#    def hiton(self) -> int:
+#        """Last time the cache was hit."""
+#        return self.__hitOn
+#
+#    @property
+#    def evicts(self) -> int:
+#        """The number of lookups count."""
+#        return self.__evicts
+#
+#    @property
+#    def lookups(self) -> int:
+#        """The number of lookups count."""
+#        return self.__lookups
+#
+#    @property
+#    def inserts(self) -> int:
+#        """The number of insert count."""
+#        return self.__inserts
+#
+#    @property
+#    def updates(self) -> int:
+#        """The number of insert/updates count."""
+#        return self.__updates
+#
+#    @property
+#    def deletes(self) -> int:
+#        """The number of deletes count."""
+#        return self.__deletes
+#
+#    @property
+#    def spikes(self) -> int:
+#        """Total number of change to the cache where previous change was <= 5 seconds ago."""
+#        return self.__spikes
+#
+#    @property
+#    def spikeDur(self) -> int:
+#        """Average spike duration between changes."""
+#        return self.__spikeDur
+#
+#
+#class FIFOCache(Cache):
+#    """First In First Out (FIFO) cache implementation."""
+#
+#    def __init__(self, maxsize, getsizeof=None):
+#        Cache.__init__(self, maxsize, getsizeof)
+#        self.__order = collections.OrderedDict()
+#
+#    def __setitem__(self, key, value, tsm: int = time.time_ns(), multicast: bool = True): # noqa: RUF100 FBT001 FBT002  McCache
+#        super().__setitem__(self, key, value, tsm ,multicast)   # McCache
+#        try:
+#            self.__order.move_to_end(key)
+#        except KeyError:
+#            self.__order[key] = None
+#
+#    def __delitem__(self, key, tsm: int = time.time_ns(), multicast: bool = True): # noqa: RUF100 FBT001 FBT002  McCache
+#        super().__delitem__(self, key, tsm, multicast)
+#        del self.__order[key]
+#
+#    def popitem(self):
+#        """Remove and return the `(key, value)` pair first inserted."""
+#        try:
+#            key = next(iter(self.__order))
+#        except StopIteration:
+#            raise KeyError("%s is empty" % type(self).__name__) from None
+#        else:
+#            return (key, self.pop(key))
+#
+#
+#class LFUCache(Cache):
+#    """Least Frequently Used (LFU) cache implementation."""
+#
+#    def __init__(self, maxsize, getsizeof=None):
+#        Cache.__init__(self, maxsize, getsizeof)
+#        self.__counter = collections.Counter()
+#
+#    def __getitem__(self, key, cache_getitem=Cache.__getitem__):
+#        value = cache_getitem(self, key)
+#        if key in self:  # __missing__ may not store item
+#            self.__counter[key] -= 1
+#        return value
+#
+#    def __setitem__(self, key, value, tsm: int = time.time_ns(), multicast: bool = True): # noqa: RUF100 FBT001 FBT002  McCache
+#        super().__setitem__(self, key, value, tsm, multicast)   # McCache
+#        self.__counter[key] -= 1
+#
+#    def __delitem__(self, key, tsm: int = time.time_ns(), multicast: bool = True): # noqa: RUF100 FBT001 FBT002  McCache
+#        super().__delitem__(self, key, tsm, multicast)
+#        del self.__counter[key]
+#
+#    def popitem(self):
+#        """Remove and return the `(key, value)` pair least frequently used."""
+#        try:
+#            ((key, _),) = self.__counter.most_common(1)
+#        except ValueError:
+#            raise KeyError("%s is empty" % type(self).__name__) from None
+#        else:
+#            return (key, self.pop(key))
+#
+#
+#class LRUCache(Cache):
+#    """Least Recently Used (LRU) cache implementation."""
+#
+#    def __init__(self, maxsize, getsizeof=None):
+#        Cache.__init__(self, maxsize, getsizeof)
+#        self.__order = collections.OrderedDict()
+#
+#    def __getitem__(self, key, cache_getitem=Cache.__getitem__):
+#        value = cache_getitem(self, key)
+#        if key in self:  # __missing__ may not store item
+#            self.__update(key)
+#        return value
+#
+#    def __setitem__(self, key, value, tsm: int = time.time_ns(), multicast: bool = True): # noqa: RUF100 FBT001 FBT002  McCache
+#        super().__setitem__(key, value, tsm, multicast) # McCache
+#        self.__update(key)
+#
+#    def __delitem__(self, key, tsm: int = time.time_ns(), multicast: bool = True): # noqa: RUF100 FBT001 FBT002  McCache
+#        super().__delitem__(key, tsm, multicast)    # McCache
+#        del self.__order[key]
+#
+#    def popitem(self):
+#        """Remove and return the `(key, value)` pair least recently used."""
+#        try:
+#            key = next(iter(self.__order))
+#        except StopIteration:
+#            raise KeyError("%s is empty" % type(self).__name__) from None
+#        else:
+#            return (key, self.pop(key))
+#
+#    def __update(self, key):
+#        try:
+#            self.__order.move_to_end(key)
+#        except KeyError:
+#            self.__order[key] = None
+#
+#
+#class MRUCache(Cache):
+#    """Most Recently Used (MRU) cache implementation."""
+#
+#    def __init__(self, maxsize, getsizeof=None):
+#        Cache.__init__(self, maxsize, getsizeof)
+#        self.__order = collections.OrderedDict()
+#
+#    def __getitem__(self, key, cache_getitem=Cache.__getitem__):
+#        value = cache_getitem(self, key)
+#        if key in self:  # __missing__ may not store item
+#            self.__update(key)
+#        return value
+#
+#    def __setitem__(self, key, value, tsm: int = time.time_ns(), multicast: bool = True): # noqa: RUF100 FBT001 FBT002  McCache
+#        super().__setitem__(self, key, value, tsm, multicast)   # McCache
+#        self.__update(key)
+#
+#    def __delitem__(self, key, tsm: int = time.time_ns(), multicast: bool = True): # noqa: RUF100 FBT001 FBT002  McCache
+#        super().__delitem__(self, key, tsm, multicast)  # McCache
+#        del self.__order[key]
+#
+#    def popitem(self):
+#        """Remove and return the `(key, value)` pair most recently used."""
+#        try:
+#            key = next(iter(self.__order))
+#        except StopIteration:
+#            raise KeyError("%s is empty" % type(self).__name__) from None
+#        else:
+#            return (key, self.pop(key))
+#
+#    def __update(self, key):
+#        try:
+#            self.__order.move_to_end(key, last=False)
+#        except KeyError:
+#            self.__order[key] = None
+#
+#
+#class RRCache(Cache):
+#    """Random Replacement (RR) cache implementation."""
+#
+#    def __init__(self, maxsize, choice=random.choice, getsizeof=None):
+#        Cache.__init__(self, maxsize, getsizeof)
+#        self.__choice = choice
+#
+#    @property
+#    def choice(self):
+#        """The `choice` function used by the cache."""
+#        return self.__choice
+#
+#    def popitem(self):
+#        """Remove and return a random `(key, value)` pair."""
+#        try:
+#            key = self.__choice(list(self))
+#        except IndexError:
+#            raise KeyError("%s is empty" % type(self).__name__) from None
+#        else:
+#            return (key, self.pop(key))
+#
+#
+#class _TimedCache(Cache):
+#    """Base class for time aware cache implementations."""
+#
+#    class _Timer:
+#        def __init__(self, timer):
+#            self.__timer = timer
+#            self.__nesting = 0
+#
+#        def __call__(self):
+#            if self.__nesting == 0:
+#                return self.__timer()
+#            else:
+#                return self.__time
+#
+#        def __enter__(self):
+#            if self.__nesting == 0:
+#                self.__time = time = self.__timer()
+#            else:
+#                time = self.__time
+#            self.__nesting += 1
+#            return time
+#
+#        def __exit__(self, *exc):
+#            self.__nesting -= 1
+#
+#        def __reduce__(self):
+#            return _TimedCache._Timer, (self.__timer,)
+#
+#        def __getattr__(self, name):
+#            return getattr(self.__timer, name)
+#
+#    def __init__(self, maxsize, timer=time.monotonic, getsizeof=None):
+#        Cache.__init__(self, maxsize, getsizeof)
+#        self.__timer = _TimedCache._Timer(timer)
+#
+#    def __repr__(self, cache_repr=Cache.__repr__):
+#        with self.__timer as time:
+#            self.expire(time)
+#            return cache_repr(self)
+#
+#    def __len__(self, cache_len=Cache.__len__):
+#        with self.__timer as time:
+#            self.expire(time)
+#            return cache_len(self)
+#
+#    @property
+#    def currsize(self):
+#        with self.__timer as time:
+#            self.expire(time)
+#            return super().currsize
+#
+#    @property
+#    def timer(self):
+#        """The timer function used by the cache."""
+#        return self.__timer
+#
+#    def clear(self):
+#        with self.__timer as time:
+#            self.expire(time)
+#            Cache.clear(self)
+#
+#    def get(self, *args, **kwargs):
+#        with self.__timer:
+#            return Cache.get(self, *args, **kwargs)
+#
+#    def pop(self, *args, **kwargs):
+#        with self.__timer:
+#            return Cache.pop(self, *args, **kwargs)
+#
+#    def setdefault(self, *args, **kwargs):
+#        with self.__timer:
+#            return Cache.setdefault(self, *args, **kwargs)
+#
+#
+#class TTLCache(_TimedCache):
+#    """LRU Cache implementation with per-item time-to-live (TTL) value."""
+#
+#    class _Link:
+#
+#        __slots__ = ("key", "expires", "next", "prev")
+#
+#        def __init__(self, key=None, expires=None):
+#            self.key = key
+#            self.expires = expires
+#
+#        def __reduce__(self):
+#            return TTLCache._Link, (self.key, self.expires)
+#
+#        def unlink(self):
+#            next = self.next    # noqa: A001 RUF100
+#            prev = self.prev
+#            prev.next = next    # noqa: A001 RUF100
+#            next.prev = prev
+#
+#    def __init__(self, maxsize, ttl, timer=time.monotonic, getsizeof=None):
+#        _TimedCache.__init__(self, maxsize, timer, getsizeof)
+#        self.__root = root = TTLCache._Link()
+#        root.prev = root.next = root
+#        self.__links = collections.OrderedDict()
+#        self.__ttl = ttl
+#
+#    def __contains__(self, key):
+#        try:
+#            link = self.__links[key]  # no reordering
+#        except KeyError:
+#            return False
+#        else:
+#            return self.timer() < link.expires
+#
+#    def __getitem__(self, key, cache_getitem=Cache.__getitem__):
+#        try:
+#            link = self.__getlink(key)
+#        except KeyError:
+#            expired = False
+#        else:
+#            expired = not (self.timer() < link.expires)
+#        if expired:
+#            return self.__missing__(key)
+#        else:
+#            return cache_getitem(self, key)
+#
+#    def __setitem__(self, key, value, tsm: int = time.time_ns(), multicast: bool = True): # noqa: RUF100 FBT001 FBT002  McCache
+#        with self.timer as time:
+#            self.expire(time)
+#            super().__setitem__(self, key, value, tsm, multicast)   # McCache
+#        try:
+#            link = self.__getlink(key)
+#        except KeyError:
+#            self.__links[key] = link = TTLCache._Link(key)
+#        else:
+#            link.unlink()
+#        link.expires = time + self.__ttl
+#        link.next = root = self.__root
+#        link.prev = prev = root.prev
+#        prev.next = root.prev = link
+#
+#    def __delitem__(self, key, tsm: int = time.time_ns(), multicast: bool = True): # noqa: RUF100 FBT001 FBT002  McCache
+#        super().__delitem__(self, key, multicast)   # McCache
+#        link = self.__links.pop(key)
+#        link.unlink()
+#        if not (self.timer() < link.expires):
+#            raise KeyError(key)
+#
+#    def __iter__(self):
+#        root = self.__root
+#        curr = root.next
+#        while curr is not root:
+#            # "freeze" time for iterator access
+#            with self.timer as time:
+#                if time < curr.expires:
+#                    yield curr.key
+#            curr = curr.next
+#
+#    def __setstate__(self, state):
+#        self.__dict__.update(state)
+#        root = self.__root
+#        root.prev = root.next = root
+#        for link in sorted(self.__links.values(), key=lambda obj: obj.expires):
+#            link.next = root
+#            link.prev = prev = root.prev
+#            prev.next = root.prev = link
+#        self.expire(self.timer())
+#
+#    @property
+#    def ttl(self):
+#        """The time-to-live value of the cache's items."""
+#        return self.__ttl
+#
+#    def expire(self, time=None):
+#        """Remove expired items from the cache."""
+#        if time is None:
+#            time = self.timer()
+#        root = self.__root
+#        curr = root.next
+#        links = self.__links
+#        cache_delitem = Cache.__delitem__
+#        while curr is not root and not (time < curr.expires):
+#            cache_delitem(self, curr.key)
+#            del links[curr.key]
+#            next = curr.next    # noqa: A001
+#            curr.unlink()
+#            curr = next
+#
+#    def popitem(self):
+#        """Remove and return the `(key, value)` pair least recently used that
+#        has not already expired.
+#
+#        """
+#        with self.timer as time:
+#            self.expire(time)
+#            try:
+#                key = next(iter(self.__links))
+#            except StopIteration:
+#                raise KeyError("%s is empty" % type(self).__name__) from None
+#            else:
+#                return (key, self.pop(key))
+#
+#    def __getlink(self, key):
+#        value = self.__links[key]
+#        self.__links.move_to_end(key)
+#        return value
+#
+#
+#class TLRUCache(_TimedCache):
+#    """Time aware Least Recently Used (TLRU) cache implementation."""
+#
+#    @functools.total_ordering
+#    class _Item:
+#
+#        __slots__ = ("key", "expires", "removed")
+#
+#        def __init__(self, key=None, expires=None):
+#            self.key = key
+#            self.expires = expires
+#            self.removed = False
+#
+#        def __lt__(self, other):
+#            return self.expires < other.expires
+#
+#    def __init__(self, maxsize, ttu, timer=time.monotonic, getsizeof=None):
+#        _TimedCache.__init__(self, maxsize, timer, getsizeof)
+#        self.__items = collections.OrderedDict()
+#        self.__order = []
+#        self.__ttu = ttu
+#
+#    def __contains__(self, key):
+#        try:
+#            item = self.__items[key]  # no reordering
+#        except KeyError:
+#            return False
+#        else:
+#            return self.timer() < item.expires
+#
+#    def __getitem__(self, key, cache_getitem=Cache.__getitem__):
+#        try:
+#            item = self.__getitem(key)
+#        except KeyError:
+#            expired = False
+#        else:
+#            expired = not (self.timer() < item.expires)
+#        if expired:
+#            return self.__missing__(key)
+#        else:
+#            return cache_getitem(self, key)
+#
+#    def __setitem__(self, key, value, tsm: int = time.time_ns(), multicast: bool = True): # noqa: RUF100 FBT001 FBT002  McCache
+#        with self.timer as time:
+#            expires = self.__ttu(key, value, time)
+#            if not (time < expires):
+#                return  # skip expired items
+#            self.expire(time)
+#            super().__setitem__(self, key, value, tsm, multicast)   # McCache
+#        # removing an existing item would break the heap structure, so
+#        # only mark it as removed for now
+#        try:
+#            self.__getitem(key).removed = True
+#        except KeyError:
+#            pass
+#        self.__items[key] = item = TLRUCache._Item(key, expires)
+#        heapq.heappush(self.__order, item)
+#
+#    def __delitem__(self, key, tsm: int = time.time_ns(), multicast: bool = True): # noqa: RUF100 FBT001 FBT002  McCache
+#        with self.timer as time:
+#            # no self.expire() for performance reasons, e.g. self.clear() [#67]
+#            super().__delitem__(self, key, multicast)   # McCache
+#        item = self.__items.pop(key)
+#        item.removed = True
+#        if not (time < item.expires):
+#            raise KeyError(key)
+#
+#    def __iter__(self):
+#        for curr in self.__order:
+#            # "freeze" time for iterator access
+#            with self.timer as time:
+#                if time < curr.expires and not curr.removed:
+#                    yield curr.key
+#
+#    @property
+#    def ttu(self):
+#        """The local time-to-use function used by the cache."""
+#        return self.__ttu
+#
+#    def expire(self, time=None):
+#        """Remove expired items from the cache."""
+#        if time is None:
+#            time = self.timer()
+#        items = self.__items
+#        order = self.__order
+#        # clean up the heap if too many items are marked as removed
+#        if len(order) > len(items) * 2:
+#            self.__order = order = [item for item in order if not item.removed]
+#            heapq.heapify(order)
+#        cache_delitem = Cache.__delitem__
+#        while order and (order[0].removed or not (time < order[0].expires)):
+#            item = heapq.heappop(order)
+#            if not item.removed:
+#                cache_delitem(self, item.key)
+#                del items[item.key]
+#
+#    def popitem(self):
+#        """Remove and return the `(key, value)` pair least recently used that
+#        has not already expired.
+#
+#        """
+#        with self.timer as time:
+#            self.expire(time)
+#            try:
+#                key = next(iter(self.__items))
+#            except StopIteration:
+#                raise KeyError("%s is empty" % self.__class__.__name__) from None
+#            else:
+#                return (key, self.pop(key))
+#
+#    def __getitem(self, key):
+#        value = self.__items[key]
+#        self.__items.move_to_end(key)
+#        return value
+## fmt: on
 
 
 # McCache Section.
@@ -999,7 +999,8 @@ def get_cache( name: str | None=None ,callback: FunctionType | None=None ) -> Py
 
     SEE: https://dropbox.tech/infrastructure/caching-in-theory-and-practice
     Args:
-        name:   Name to isolate different caches.  Namespace dot notation is suggested.
+        name:       Name to isolate different caches.  Namespace dot notation is suggested.
+        callback:   Your function to call if a value got updated just after you have read it.
     Return:
         Cache instance to use identified with given name.
     """
@@ -1028,42 +1029,42 @@ def get_cache( name: str | None=None ,callback: FunctionType | None=None ) -> Py
         _mcCache[ name ] = cache
     return cache
 
-def _get_cache( name: str | None=None ,cache: Cache | None=None ,callback: FunctionType | None=None ) -> Cache:
-    """
-    Return a cache with the specified name ,creating it if necessary.
-    If no name is specified ,return the default TLRUCache or LRUCache cache depending on the optimism setting.
-    SEE: https://dropbox.tech/infrastructure/caching-in-theory-and-practice
-
-    Args:
-        name:   Name to isolate different caches.  Namespace dot notation is suggested.
-        cache:  Optional cache instance to override the default cache type.
-    Return:
-        Cache instance to use with given name.
-    """
-    if  name:
-        if  not isinstance( name ,str ):
-            raise TypeError('The cache name must be a string!')
-    else:
-        name = 'default'
-    if  cache:
-        if  not isinstance( cache ,Cache ):
-            raise TypeError(f"Cache name '{name}' is not of type Cache!")   # noqa: EM102
-    try:
-        _lock.acquire()
-        if  name in _mcCache:
-            cache = _mcCache[ name ]
-
-        if  cache is None:  # NOTE: "if not cache:" was a hard bug to debug. Was using v3.12
-            cache = LRUCache( maxsize=_mcConfig.cache_size )
-            _mcCache[ name ] = cache
-            logger.warning(f"{SRC_IP_ADD} Instantiating new Cache for {name}: {_mcCache}")   # NOTE: So that we can catch accidental blowing up the cache.
-
-        if  not cache.name:
-            cache.setname( name )
-    finally:
-        _lock.release()
-
-    return cache
+#def _get_cache( name: str | None=None ,cache: Cache | None=None ,callback: FunctionType | None=None ) -> Cache:
+#    """
+#    Return a cache with the specified name ,creating it if necessary.
+#    If no name is specified ,return the default TLRUCache or LRUCache cache depending on the optimism setting.
+#    SEE: https://dropbox.tech/infrastructure/caching-in-theory-and-practice
+#
+#    Args:
+#        name:   Name to isolate different caches.  Namespace dot notation is suggested.
+#        cache:  Optional cache instance to override the default cache type.
+#    Return:
+#        Cache instance to use with given name.
+#    """
+#    if  name:
+#        if  not isinstance( name ,str ):
+#            raise TypeError('The cache name must be a string!')
+#    else:
+#        name = 'default'
+#    if  cache:
+#        if  not isinstance( cache ,Cache ):
+#            raise TypeError(f"Cache name '{name}' is not of type Cache!")   # noqa: EM102
+#    try:
+#        _lock.acquire()
+#        if  name in _mcCache:
+#            cache = _mcCache[ name ]
+#
+#        if  cache is None:  # NOTE: "if not cache:" was a hard bug to debug. Was using v3.12
+#            cache = LRUCache( maxsize=_mcConfig.cache_size )
+#            _mcCache[ name ] = cache
+#            logger.warning(f"{SRC_IP_ADD} Instantiating new Cache for {name}: {_mcCache}")   # NOTE: So that we can catch accidental blowing up the cache.
+#
+#        if  not cache.name:
+#            cache.setname( name )
+#    finally:
+#        _lock.release()
+#
+#    return cache
 
 def clear_cache( name: str | None = None ) -> None:
     """Clear all the distributed caches.
@@ -1234,15 +1235,29 @@ def _get_mccache_logger( debug_log: str | None = None ) -> logging.Logger:
 
     return logger
 
+def _get_msgcomp( left: object ,right: object) -> str:
+    if  left == right:
+        return '=='
+    elif left < right:
+        return '<'
+    else:
+        return '>'
+
 def _log_ops_msg(
         lvl: int,
-        opc: str,                           # Op Code
-        sdr: str    | None = None,          # Sender
-        tsm: str    | None = None,          # Timestamp
-        nms: str    | None = None,          # Namespace
-        key: object | None = None,          # Key
-        crc: str    | None = None,          # Checksum (md5)
-        msg: str    | None = None) -> None: # Message
+        opc: str,                   # Op Code
+        sdr: str    | None = None,  # Sender
+        tsm: str    | None = None,  # Timestamp
+        nms: str    | None = None,  # Namespace
+        key: object | None = None,  # Key
+        crc: str    | None = None,  # Checksum (md5)
+        msg: str    | None = None,  # Message to log.
+        # In message replacement tokens.
+        prvtsm: int | None = None,  # Previous Timestamp
+        prvcrc: str | None = None,  # Previous Checksum (md5)
+        tsmcmp: str | None = None,  # Timestamp comparator.
+        crccmp: str | None = None,  # Checksum  comparator.
+    ) -> None:  # Message
     """A standardize format to log out McCache operation messages making them easier to parse in the test.
 
     Args:
@@ -1254,10 +1269,15 @@ def _log_ops_msg(
         key: object Optional key object.
         crc: str    Optional checksum for the value.
         msg: str    Optional comment or description.
+        #
+        prvtsm: int Optional previous Timestamp
+        prvcrc: str Optional previous Checksum (md5)
+        tsmcmp: str Optional Timestamp comparator.
+        crccmp: str Optional Checksum  comparator.
     Return:
         None
     """
-    lno = getframeinfo(stack()[1][0]).lineno
+    lno = getframeinfo(stack()[1][0]).lineno    # The line no where this method was called from.
     iam = SRC_IP_ADD
     md5 = crc
 
@@ -1281,8 +1301,24 @@ def _log_ops_msg(
     elif isinstance( crc ,bytes ):
         crc =  \
         md5 =  base64.b64encode( crc ).decode()
+    #   Addtional in message replacement tokens.
+    if  prvtsm is None:
+        prvtsm =  f"T={' '*14}"
+    else:
+        prvtsm =  prvtsm / 100_000_000.0
+    if  prvcrc is None:
+        prvcrc = f"C={' '*22}"
+    elif isinstance( prvcrc ,bytes ):
+        prvcrc = base64.b64encode( prvcrc ).decode()
 
+    # Cleanup the input message.
+    if  isinstance( msg ,str ):
+        msg = msg.format(   iam=iam ,sdr=sdr ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,md5=md5,
+                            # Following are the optional in message replacement.
+                            prvtsm=prvtsm ,prvcrc=prvcrc ,tsmcmp=tsmcmp ,crccmp=crccmp )
+    # Standardize the output format.
     txt =  LOG_MSGBDY.format( lno=lno ,iam=iam ,sdr=sdr ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,md5=md5 ,msg=msg )
+
     logger.log( lvl ,txt )
 
 #def _get_size( obj: object, seen: set | None = None ):
@@ -1774,8 +1810,9 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                     _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
                                                 ,msg=f">>  Calling: cache.__delitem__( {key} ,None )" )
 
-                # FIXME: Check for collision.  See: UPD.
-                mcc.__delitem__( key ,None )
+                # Delete it locally and dont multicast it out.
+                # TODO: Check for collision.  See: UPD.
+                mcc.__delitem__( key ,tsm ,False )
 
             # Acknowledge it.
             _mcQueue.put((OpCode.ACK ,tsm ,nms ,key ,crc ,None ,sdr))
@@ -1794,9 +1831,9 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
 
         case OpCode.INQ:    # Inquire.
             keys= [ key ] if key else sorted( mcc.keys() )
-            val = { k: {'crc': base64.b64encode( mcc.metadata[k]['crc'] ).decode(), # NOTE: Don't dump the raw data out for security reason.
+            # NOTE: Don't dump the raw data out for security reason.
+            val = { k: {'crc': mcc.metadata[k]['crc'] if isinstance(mcc.metadata[k]['crc'] ,str) else base64.b64encode( mcc.metadata[k]['crc'] ).decode(),
                         'tsm': f"{time.strftime('%H:%M:%S' ,time.gmtime(mcc.metadata[k]['tsm']//100_000_000))}.{mcc.metadata[k]['tsm']%100_000_000:0<8}",
-                        'upd': mcc.metadata[k]['upd']
                         }
                         for k in keys }
 
@@ -1841,28 +1878,25 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                     _mcCache[ n ].__delitem__( k ,EnableMultiCast.NO )
 
         case OpCode.UPD | OpCode.INS:   # Insert and Update.
-            lcs: str    = None # Local cache key's crc.
-            lts: int    = 0    # Local cache key's tsm.
-            # For PyCache
-            lcsb64: str = None
-            crcb64: str = base64.b64encode( crc ).decode()
+            lcs: bytes = '' # Local cache key's crc.
+            lts: int   = 0  # Local cache key's tsm.
             if  key in mcc:
                 lcs =  mcc.metadata[ key ]['crc']
                 lts =  mcc.metadata[ key ]['tsm']
-                lcsb64 = base64.b64encode( lcs ).decode()
 
             if  lts < tsm:  # Local timestamp is older than the arriving message timestamp.
                 #   Deep Tracing
                 if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
-                    _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
-                                                ,msg=f">   Local tsm: {lts} {'<' if (lts < tsm) else '>='} {tsm}" )    # noqa: E501
+                    tsmcmp = _get_msgcomp( lts ,tsm )
+                    _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,tsmcmp=tsmcmp
+                                                ,msg=">   Local tsm: {prvtsm} {tsmcmp} {tsm}" )    # noqa: E501
 
                     if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
                         _log_ops_msg( logging.DEBUG ,opc=OpCode.FYI ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
-                                                    ,msg=f">>  Calling: cache.__setitem__( {key} ,{crcb64} ,None ,{tsm} )" )    # noqa: E501
+                                                    ,msg=">>  Calling: cache.__setitem__( {key} ,{crc} ,None ,{tsm} )" )    # noqa: E501
 
-                # Store it locally.
-                mcc.__setitem__( key ,val ,None ,tsm )  # FIXME: Look into why `EnableMultiCast.NO` doesn't work inside of "__setitem__()"
+                # Store it locally and dont multicast it out.
+                mcc.__setitem__( key ,val ,tsm ,False ) # FIXME: Look into why `EnableMultiCast.NO` doesn't work inside of "__setitem__()"
 
                 #   Deep Tracing
                 if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
@@ -1872,30 +1906,26 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
 
                         if  lcs == crc and lts == tsm:
                             _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
-                                                        ,msg=f">>  OK: {key} stored in local." )
+                                                        ,msg=">>  OK: {key} stored locally." )
                         else:
-                            lcsb64 = base64.b64encode( lcs ).decode()
-                            tsmcmp = '=='
-                            if   (lts  < tsm):
-                                tsmcmp = '<'
-                            elif (lts  > tsm):
-                                tsmcmp = '>'
-                            _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
-                                                        ,msg=f">>  ERR:{key} out of sync in local.  Local tsm: {lcsb64} {'==' if (lcs == crc) else '<>'} {crcb64} ,{lts} {tsmcmp} {tsm}" )   # noqa: E501
+                            crccmp = _get_msgcomp( lcs ,crc )
+                            tsmcmp = _get_msgcomp( lts ,tsm )
+                            _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,prvcrc=lcs ,tsmcmp=tsmcmp ,crccmp=crccmp
+                                                        ,msg=">>  ERR:{key} locally out of sync.  Local tsm: {prvtsm} {tsmcmp} {tsm} crc: {prvcrc} {crccmp} {crc}" )    # noqa: E501
                     else:
                         _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
-                                                    ,msg=f">>  ERR:{key} NOT stored in local." )
-            elif lts == tsm and crc == lcs:
-                # Re-transmit message.
-                pass
+                                                    ,msg=">>  ERR:{key} NOT stored in local." )
             elif lts >  tsm and crc != lcs:
-                lcsb64 = base64.b64encode( lcs ).decode()
-                _log_ops_msg( logging.WARNING   ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
-                                                ,msg=f"Cache incoherent: Evict {key}! {lts} > {tsm} and {lcsb64} <> {crcb64}" )
+                _log_ops_msg( logging.WARNING   ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,prvcrc=lcs
+                                                ,msg="Cache incoherent: Evict {key}! {prvtsm} > {tsm} and {prvcrc} <> {crc}" )
 
                 # NOTE: Cache in-consistent, evict this key from all members.
                 del mcc[ key ]
                 _mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,crc ,None ,0))
+                # TODO: Maybe sync up the other members in the cluster.
+            elif lts == tsm and crc == lcs:
+                # Re-transmitted message.
+                pass
 
             val = None
             # Acknowledge it.
@@ -1905,7 +1935,7 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
             pass
 
     if  logger.level == logging.DEBUG or (opc == OpCode.INQ):
-        _log_ops_msg( logging.DEBUG ,opc ,sdr ,tsm ,nms ,key ,crc ,val )
+        _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,msg='Incoming processed.' if val is None else val )
 
 # Private thread methods.
 #
@@ -2008,9 +2038,9 @@ def _multicaster() -> None:
                 _send_fragment( sock ,frg_b )
 
             # DEBUG trace.
-            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLOUS:
+            if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
                 _log_ops_msg( logging.DEBUG ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc
-                                            ,msg=f">   Multicasted out to member{ ' '+rcv if rcv else 's.'}" )
+                                            ,msg=f">>  Multicasted out to member{ ' '+rcv if rcv else 's.'}" )
 
             if  opc == OpCode.MET:  # Metrics.
                 # Query out the local metrics.
