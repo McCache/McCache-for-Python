@@ -631,15 +631,6 @@ class Cache( OrderedDict ):
 
         return super().values()
 
-#if __name__ == "__main__":
-#    # SEE: https://phoenixnap.com/kb/python-initialize-dictionary
-#    k = ['key1' ,'key2' ,'key3']
-#    v = ['val1' ,'val2' ,'val3']
-#
-#    # Test.
-#    c = Cache()
-#    pass
-
 
 # The MIT License (MIT)
 # Copyright (c) 2023 McCache authors.

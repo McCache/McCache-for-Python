@@ -215,4 +215,4 @@ mc.get_cache_checksum( cache.name ) # Query the cache at exit.
 
 tsm = cache.TSM_VERSION()
 tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime(tsm//100_000_000))}.{tsm%100_000_000:0<8}"
-mc.logger.info(f"{mc.SRC_IP_ADD} Exiting at {tsm}\n")
+mc.logger.info(f"{mc.SRC_IP_ADD} Exiting at {tsm}.\n")
