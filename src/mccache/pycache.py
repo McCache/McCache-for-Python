@@ -19,7 +19,8 @@ from typing import Any
 #   "cwd": "${workspaceFolder}",
 #   "env": {"PYTHONPATH": "${workspaceFolder}${pathSeparator}src;${env:PYTHONPATH}"},
 #
-from  pycache.__about__ import __app__, __version__ # noqa
+#from  pycache.__about__ import __app__, __version__ # noqa
+from  mccache.__about__ import __app__, __version__ # noqa
 
 class Cache( OrderedDict ):
     """Cache based of the dict object.
@@ -65,7 +66,7 @@ class Cache( OrderedDict ):
         self.__msgbdy   :str    = 'L#{lno:>4}\tIm:{iam}\tOp:{opc}\tTs:{tsm}\tNm:{nms}\tKy:{key}\tCk:{crc}\tMg:{msg}'
         self.__logger   :logging.Logger = None
         self.__queue    :queue.Queue    = None
-        self.__callback :callable       = None
+        self.__callback :FunctionType   = None
         self.__cbwindow :int    = 1
         self.__debug    :bool   = False     # Internal debug is disabled.
         self.__oldest   :int    = Cache.TSM_VERSION()  # oldest entry in the cache.
@@ -272,11 +273,10 @@ class Cache( OrderedDict ):
             eviction    Originated from a cache eviction or deletion.
             queue_out   Request queing out opeartion info to external receiver.
         """
-        #if  tsm is None:
-        #    tsm =  Cache.TSM_VERSION()
+        if  tsm is None:
+            tsm =  Cache.TSM_VERSION()
         crc = self.__meta[ key ]['crc']
         lkp = self.__meta[ key ]['lkp']
-        tsm = self.__meta[ key ]['tsm']
         del self.__meta[ key ]
         #
         if  self.__queue and queue_out:
@@ -321,11 +321,13 @@ class Cache( OrderedDict ):
         """
         if  tsm is None:
             tsm =  Cache.TSM_VERSION()
-        md5 = hashlib.md5( bytearray(str( value ) ,encoding='utf-8') ).digest() # noqa: S324    Keep it small until we need to display it.
-        crc = self.__meta[ key ]['crc'] if key in self.__meta  else None
-        lkp = self.__meta[ key ]['lkp'] if key in self.__meta  else tsm
-        met = {'tsm': tsm ,'crc': md5 ,'lkp': lkp}
-        self.__meta[ key ] = met
+        if  key not in self.__meta:
+            self.__meta[ key ] = {'tsm': None ,'crc': None ,'lkp': 0 ,'upd': 0}
+
+        crc = self.__meta[ key ]['crc']     # Old crc value.
+        md5 = hashlib.md5( bytearray(str( value ) ,encoding='utf-8') ).digest()  # noqa: S324   New crc value.
+        self.__meta[ key ]['tsm'] = tsm
+        self.__meta[ key ]['crc'] = md5
 
         if  self.__queue and queue_out:
             opc = 'UPD' if update else 'INS'
@@ -337,13 +339,15 @@ class Cache( OrderedDict ):
         if  update:
             self.move_to_end( key ,last=True )    # FIFO
             self.updates += 1
+            self.__meta[ key ]['upd'] += 1
         else:
             self.inserts += 1
         self._set_spike()
 
         # Callback to notify a change in the cache.
+        lkp = self.__meta[ key ]['lkp']
         if  self.__callback and (tsm - lkp) < (self.__cbwindow * Cache.ONE_NS_SEC):
-            # The key/value got changed withing 1 second of last read.
+            # The key/value got changed since last read.
             self.__callback({'key': key ,'lkp': lkp ,'tsm': tsm ,'prvcrc': crc ,'newcrc': md5})
 
     def _set_spike(self,
