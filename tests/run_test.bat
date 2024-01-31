@@ -179,7 +179,12 @@ ECHO Starting the test cluster with %TEST_CLUSTER_SIZE% nodes.
 ECHO Run test using the output log from the cluster.
 
 :: Extract out and clean up the INQ result from each of the debug log files into a result file.
-tail -n 100 log/debug0*.log |grep -E "INQ|Done|Exiting" |grep -Ev "Fr:|Multicasted" |sed "s/}}//" |sed "s/{/\n  /" |sed "/Exiting/a}" |tr "}" "\n"  > log/result.txt
+tail -n 200 log/debug0*.log |grep -E "INQ|Done|Exiting" |grep -Ev "Fr:|Out going" |sed "s/}}//" |sed "s/{/\n  /" |sed "/Exiting/a}" |tr "}" "\n"  > log/result.txt
+
+:: Summarize
+::grep -i "after lookup|sec in the background"    >log/sum_spikes.log
+::grep -i "monkey is angry"                       >log/sum_drop_packets.log`
+
 
 :: pipenv run  pytest -q .
 

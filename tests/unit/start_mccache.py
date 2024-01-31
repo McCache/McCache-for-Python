@@ -26,10 +26,10 @@ def change(ctx: dict):
         elapse = round((ctx['tsm'] - ctx['lkp']) / mc.ONE_NS_SEC ,4)
         if  ctx['newcrc'] is None:
             mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.WRN ,tsm=time.time_ns() ,nms=cache.name ,key=ctx['key'] ,crc=ctx['newcrc']
-                                            ,msg=f">   FYI {ctx['key']} got deleted within {elapse:0.5f} sec in the background." )
+                                            ,msg=f">   WRN {ctx['key']} got deleted within {elapse:0.5f} sec in the background." )
         else:
             mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.WRN ,tsm=time.time_ns() ,nms=cache.name ,key=ctx['key'] ,crc=ctx['newcrc']
-                                            ,msg=f">   FYI {ctx['key']} got updated within {elapse:0.5f} sec in the background." )
+                                            ,msg=f">   WRN {ctx['key']} got updated within {elapse:0.5f} sec in the background." )
 
 
 # Initialization section.
@@ -41,11 +41,11 @@ else:
     rndseed = int(str(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]).split(".")[3])
 random.seed( rndseed )
 
-sleepspan = 100 # 1000 = 1sec
+sleepspan = 100
 if 'TEST_SLEEP_SPAN'  in os.environ:
     sleepspan = int(os.environ['TEST_SLEEP_SPAN'])    # In seconds.
 
-sleepunit = 100 # 1000 = 0.001s ,100 = 0.01s ,10 = 0.1s ,1 = 1s
+sleepunit = 100
 if 'TEST_SLEEP_UNIT'  in os.environ:
     sleepunit = int(os.environ['TEST_SLEEP_UNIT'])
 
@@ -57,8 +57,9 @@ duration = 5    # Five minute.
 if 'TEST_RUN_DURATION' in os.environ:
     duration = int(os.environ['TEST_RUN_DURATION'])  # In minutes.
 
-NEXT_SSEC = 5   # Synchronize seconds.
-cache = mc.get_cache( name='test' ,callback=change )
+NEXT_SSEC = 7    # Synchronize seconds.
+
+cache = mc.get_cache( callback=change )
 bgn = time.time()
 end = time.time()
 
@@ -95,8 +96,6 @@ while (end - bgn) < (duration*60):  # Seconds.
     match   opc:
         case 13|17:     # NOTE: 10% are deletes.
             if  key in cache:
-                #crc =  cache.getmeta( key )['crc']
-                # For PyCache
                 crc =  cache.metadata[ key ]['crc']
 
                 # DEBUG trace.
@@ -203,7 +202,7 @@ while (end - bgn) < (duration*60):  # Seconds.
 # Done stress testing.
 tsm = cache.TSM_VERSION()
 tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime(tsm//100_000_000))}.{tsm%100_000_000:0<8}"
-mc.logger.info(f"{mc.SRC_IP_ADD} Done at {tsm}. Querying final cache checksum.")
+mc.logger.info( f"Done at {tsm}. Querying final cache checksum." )
 
 # Wait for all members to catch up before existing together.
 bgn = time.time()
@@ -211,8 +210,12 @@ bgnsec = time.localtime().tm_sec
 time.sleep(NEXT_SSEC +(NEXT_SSEC - (bgnsec % NEXT_SSEC)))   # Try to get the cluster to stop at the same second to reduce RAK.
 end = time.time()
 
-mc.get_cache_checksum( cache.name ) # Query the cache at exit.
+# Query cluster metric.
+#mc.get_cluster_metrics()
+
+# Query the cache at exit.
+mc.get_cache_checksum( cache.name )
 
 tsm = cache.TSM_VERSION()
 tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime(tsm//100_000_000))}.{tsm%100_000_000:0<8}"
-mc.logger.info(f"{mc.SRC_IP_ADD} Exiting at {tsm}.\n")
+mc.logger.info( f"Exiting at {tsm}.\n" )
