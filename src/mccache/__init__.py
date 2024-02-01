@@ -81,7 +81,7 @@ ONE_MIB     = 1_048_576                 # 1 Mib
 ONE_NS_SEC  = 1_000_000_000             # One Nano second.
 MAGIC_BYTE  = 0b11111001                # 241 (Pattern + Version)
 HEADER_SIZE = 18                        # The fixed length header for each fragment packet.
-SEASON_TIME = 1.00                      # Seasoning time to wait before considering a retry. Max of 3 second.  Work with backoff.
+SEASON_TIME = 0.80                      # Seasoning time to wait before considering a retry. Max of 3 second.  Work with backoff.
 HUNDRED     = 100                       # Hundred percent.
 UINT2       = 65535                     # Unsigned 2 bytes.
 
@@ -175,7 +175,7 @@ class McCacheConfig:
     cache_size: int     = 256*1024      # Max size in bytes threshold for triggering entries eviction. Default= 256K.
     cache_sync: str     = 'FULL'        # Cache consistent syncing level. [Full ,Part]
     packet_mtu: int     = 1472          # Maximum Transmission Unit of your network packet payload.
-                                        # Ethernet frame is 1500 and jumbo frame is 9000, without the static 20 bytes IP and 8 bytes ICMP headers.
+                                        # Ethernet frame is 1500 without the static 20 bytes IP and 8 bytes ICMP headers.  Jumbo frame is 9000.
                                         # SEE: https://www.youtube.com/watch?v=Od5SEHEZnVU and https://www.youtube.com/watch?v=GjiDmU6cqyA
     packet_pace: float  = 0.001         # 1ms for congestion control.
                                         # SEE: https://cdn.ttgtmedia.com/rms/onlineimages/split_seconds-h.png
@@ -223,7 +223,7 @@ logger: logging.Logger = logging.getLogger()    # Root logger.
 
 # Public methods.
 #
-# For PyCache
+
 def get_cache( name: str | None=None ,callback: FunctionType | None=None ) -> PyCache:
     """Return a cache with the specified name ,creating it if necessary.
 
@@ -466,7 +466,7 @@ def _get_msgcomp( left: object ,right: object) -> str:
         return '>'
 
 def _log_ops_msg(
-        lvl: int,
+        lvl: int,                   # Logging level
         opc: str,                   # Op Code
         sdr: str    | None = None,  # Sender
         tsm: str    | None = None,  # Timestamp
@@ -542,34 +542,6 @@ def _log_ops_msg(
     txt =  LOG_MSGBDY.format( lno=lno ,iam=iam ,sdr=sdr ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,md5=md5 ,msg=msg )
 
     logger.log( lvl ,txt )
-
-#def _get_size( obj: object, seen: set | None = None ):
-#    """Recursively finds size of objects.
-#
-#    Credit goes to:
-#    https://goshippo.com/blog/measure-real-size-any-python-object
-#
-#    Args:
-#        seen:   A collection of seen objets.
-#    Return:
-#    """
-#    size = sys.getsizeof( obj )
-#    if  seen is None:
-#        seen =  set()
-#    obj_id = id( obj )
-#    if  obj_id in seen:
-#        return 0
-#    # Important mark as seen *before* entering recursion to gracefully handle
-#    # self-referential objects
-#    seen.add( obj_id )
-#    if  isinstance( obj ,dict ):
-#        size += sum([_get_size( v ,seen ) for v in obj.values()])
-#        size += sum([_get_size( k ,seen ) for k in obj.keys()])
-#    elif hasattr( obj ,'__dict__' ):
-#        size += _get_size( obj.__dict__ ,seen )
-#    elif hasattr( obj ,'__iter__' ) and not isinstance( obj ,str | bytes | bytearray ):
-#        size += sum([_get_size( i ,seen ) for i in obj])
-#    return size
 
 def _get_cache_metrics( name: str | None = None ) -> dict:
     """Return the metrics collected for the entire cache.
@@ -658,13 +630,13 @@ def _make_pending_ack( key_t: tuple ,val_t: tuple ,members: dict | str ,frame_si
     Header:
         Magic:      5 bits +--  1 byte
         Version:    3 bits |
-        Reserved:   1 byte      #   Reserved bitmap for future needs.
-        Sequence:   1 byte      #   The zero based sequence number.
-        Fragments:  1 byte      #   The total number of fragments for the outgoing message.
-        Key Length: 2 bytes     #   The length of the serialized key tuple.
-        Val Length: 2 bytes     #   The length of the serialized value tuple.
-        Timestamp:  8 bytes     #   The initial timestamp in nano seconds from the input key tuple.
-        Receiver:   2 byte      #   The last octet of the receiver IP address.
+        Reserved:   1 byte      # Reserved bitmap for future needs.
+        Sequence:   1 byte      # The zero based sequence number.
+        Fragments:  1 byte      # The total number of fragments for the outgoing message.
+        Key Length: 2 bytes     # The length of the serialized key tuple.
+        Val Length: 2 bytes     # The length of the serialized value tuple.
+        Timestamp:  8 bytes     # The initial timestamp in nano seconds from the input key tuple.
+        Receiver:   2 byte      # The last octet of the receiver IP address.
                    -------
                    18 bytes
     Args:
@@ -675,7 +647,7 @@ def _make_pending_ack( key_t: tuple ,val_t: tuple ,members: dict | str ,frame_si
     Return:
         A dictionary of the following structure:
         {
-            'initon':  int      # The time of the original message was queued in nano seconds.
+            'tsm':  int      # The time of the original message was queued in nano seconds.
             'crc':     str,     # The checksum for the entire message.
             'message': list(),  # Ordered list of fragments for re-send.
             'members': {
@@ -709,7 +681,7 @@ def _make_pending_ack( key_t: tuple ,val_t: tuple ,members: dict | str ,frame_si
     frg_m: int = frame_size - HEADER_SIZE # Max frame size.
     frg_c: int = int( pay_s / frg_m) +1
 
-    ack = { 'initon':  tsm,
+    ack = { 'tsm': tsm,
             'opc': val_t[0],
             'crc': val_t[1],
             'message': [None] * frg_c,  # Pre-allocated the list.
@@ -739,7 +711,7 @@ def _collect_fragment( pkt_b: bytes ,sender: str ) -> ():
     The fragments are collected in the global `_mcArrived` dictionary of the following structure:
         {
             aky_t: {
-                'initon':   int,    # The time of the original message was queued in nano seconds.
+                'tsm':      int,    # The time of the original message was queued in nano seconds.
                 'message':  list(), # Ordered list of fragments for the message.
                 'backoff':  set{}   # Backoff scale.
             }
@@ -787,7 +759,7 @@ def _collect_fragment( pkt_b: bytes ,sender: str ) -> ():
     # Packet is to be multicast to all members.
     aky_t: tuple = (sender ,frg_c ,key_s ,tsm)    # Pending assembly key.
     if  aky_t not in _mcArrived:
-        _mcArrived[ aky_t ] = { 'initon':  tsm,
+        _mcArrived[ aky_t ] = { 'tsm': tsm,
                                 'message': [None] * frg_c,  # Pre-allocated the list.
                                 'backoff': BACKOFF.copy()
                             }
@@ -884,7 +856,7 @@ def _check_sent_pending() -> None:
             key = pky_t[1]
             tsm = pky_t[2]
             crc = _mcPending[ pky_t ]['crc']
-            elps= (time.time_ns() - _mcPending[ pky_t ]['initon']) / ONE_NS_SEC    # Elapsed seconds since this key was queued.
+            elps= (time.time_ns() - _mcPending[ pky_t ]['tsm']) / ONE_NS_SEC    # Elapsed seconds since this key was queued.
 
             for ip in _mcPending[ pky_t ]['members'].keys():    # All members in the cluster for this key.
                 if  _mcPending[ pky_t ]['members'][ ip ]['backoff']:
@@ -935,7 +907,7 @@ def _check_recv_assembly() -> None:
     # FIXME: RuntimeError: dictionary "_mcArrived" changed size during iteration
     for aky_t in [key for key in _mcArrived.keys()]:    # aky_t: tuple = (sender ,frg_c ,key_s ,tsm)
         if  aky_t in _mcArrived:
-            elps = (time.time_ns() - _mcArrived[ aky_t ]['initon']) / ONE_NS_SEC
+            elps = (time.time_ns() - _mcArrived[ aky_t ]['tsm']) / ONE_NS_SEC
             if  _mcArrived[ aky_t ]['backoff']:
                 # NOTE: The following is NOT lock down and subjected to change.
                 # Get the head of the backoff pause.  Factor down the backoff for more rapid action to be taken.
@@ -1247,13 +1219,17 @@ def _multicaster() -> None:
                             if  pky_t in _mcPending and frg_i in _mcPending[ pky_t ]['message']:
                                 frg = [  _mcPending[ pky_t ]['message'][ frg_i ] ]
                             else:
-                                # Inform the requestor that we have an error on our side.
-                                # _mcQueue.put((OpCode.ERR ,pky_t[3] ,pky_t[0] ,pky_t[1] ,None ,None ,None))
-                                _log_ops_msg( logging.ERROR ,opc=opc ,sdr=fr_ip ,tsm=tsm ,nms=nms ,key=key ,crc=crc
-                                                            ,msg=f"{fr_ip} requested fragment{frg_i:3} for {pky_t} doesn't exist!" )    # noqa: E501
+                                #   Deep Tracing
+                                if  _mcConfig.debug_level >= McCacheDebugLevel.BASIC:
+                                    # Inform the requestor that we have an error on our side.
+                                    # _mcQueue.put((OpCode.ERR ,pky_t[3] ,pky_t[0] ,pky_t[1] ,None ,None ,None))
+                                    _log_ops_msg( logging.WARNING   ,opc=opc ,sdr=fr_ip ,tsm=tsm ,nms=nms ,key=key ,crc=crc
+                                                                    ,msg=f"{fr_ip} requested fragment{frg_i:3} for {pky_t} doesn't exist!" )    # noqa: E501
                     else:
-                        _log_ops_msg( logging.ERROR ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc
-                                                    ,msg=f"{pky_t} no longer exist in pending!" )
+                        #   Deep Tracing
+                        if  _mcConfig.debug_level >= McCacheDebugLevel.BASIC:
+                            _log_ops_msg( logging.WARNING   ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc
+                                                            ,msg=f"{pky_t} no longer exist in pending!" )
                 case _:
                     if  opc == OpCode.ACK and rcv is not None:
                         mbrs = { rcv: None }    #   Unicast, simulated.

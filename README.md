@@ -7,12 +7,12 @@ table {
 </style>
 -->
 ## Overview
-`McCache` is a distributed in-memory write through caching library that is build on the [`OrderedDict`](https://docs.python.org/3/library/collections.html#collections.OrderedDict) package.  A local cache lookup is faster than looking across a network.
+`McCache` is a distributed in-memory write through caching library that is build on the [`OrderedDict`](https://docs.python.org/3/library/collections.html#collections.OrderedDict) package.  A local cache lookup is faster than looking it up across a network.
 It uses **UDP** multicasting as the transport hence the name "Multi-Cast Cache", playfully abbreviated to "`McCache`".
 
 The goals of this package are:
-1. Reduce complexity by not be dependent on any external caching service such as `memcached`, `redis` or the likes.  We are guided by the principal of first scaling up before scaling out.  SEE: [Distributed Cache](https://en.wikipedia.org/wiki/Distributed_cache)
-
+1. Reduce complexity by not be dependent on any external caching service such as `memcached`, `redis` or the likes.  SEE: [Distributed Cache](https://en.wikipedia.org/wiki/Distributed_cache)
+   1. We are guided by the principal of first scaling up before scaling out.
 2. Keep the programming interface consistent with Python's dictionary.  The distributed nature of the cache is transparent to you.
 3. Performant
 
@@ -218,7 +218,7 @@ The multicasting member will keep track of all the send fragments to all the mem
 
 Collision happens when two or more nodes make a change to a same key at the same time.  The timestamp that is attached to the update is not granular enough to serialize the operation.  In this case, a warning is log and multi-cast out the eviction of this key to prevent the cache from becoming in-coherent.
 
-There is **no** lock.  Synchronization is implemented using a **monotonic** timestamp that is tagged to every cache entry.  This helps serialized the update operation on every node in the cluster.  An arrived change operation has a timestamp which will be compared to the timestamp of the local cahe entry.  Only operation with the a timestamp that is more recent shall be accepted.
+There are **no** locks.  Synchronization is implemented using a **monotonic** timestamp that is tagged to every cache entry.  This helps serialized the update operation on every node in the cluster.  An arrived change operation has a timestamp which will be compared to the timestamp of the local cahe entry.  Only remote operation with the timestamp that is more recent shall be applied to local cache.
 
 ## Limitation
 * Even though the latency is low, it will **eventually** be consistent.  There is a very micro chance that an event can slip in just after the cache is read with the old value.  You have the option to pass in callback function to `McCache` for it to invoke if a change to the value of your cached object have changed within one second ago.  The other possibility is to perform a manual check.  The following is a code snippet that illustrate both approaches:

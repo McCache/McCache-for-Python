@@ -76,7 +76,7 @@ TBD
 Cache in-coherence is when at least two nodes have different values for the same key.  To stress they `McCache`, the following is some guidelines to keep is realistic:
 * Keep the number of docker/podman containers to total number of cores on your machine minus one.
     * Our official stress ran in **9** docker/podman containers cluster.
-    * Casually observed the CPU utilization was below, an average, 35% during a stress run.
+    * We observed the CPU utilization was below, an average, **35**% during the stress runs.
 * Missing entries is **not** bad.  The node that do not have the entry will need to re-process the work and insert it into its local cache.  This wil ltrigger a multicast out to the other members in the cluster.
 * Entries that are different must be validated against test exiting timestamp.  If the test exiting timestamp is older, this is **not** bad.
 
@@ -90,6 +90,11 @@ The following testing parameters that did **not** produce any cache in-coherence
 
 Each batch of test consist of **5** independent runs in a cluster of **9** nodes for a duration of **10** minutes with the set of parameters listed below.  All **5** runs must pass consecutively to be considered successful.
 
+#### Command used
+```bash
+tests/run_test  -c 9 -d 10 -s 300 -u 1000 -l 0
+```
+
 ### Results
 
 |SLEEP<br>SPAN|SLEEP<br>UNIT|MAX<br>ENTRIES|<br>Status|<br>Comment|Spike<br>AvgHits|Spike<br>AvgLoad|
@@ -99,9 +104,16 @@ Each batch of test consist of **5** independent runs in a cluster of **9** nodes
 |  30 | 100 | 100 |  PASS  |Cache change within `0.01s - 0.30s` window of `0.01s ` increment for `100` entries.| | |
 |  25 | 100 | 100 |**FAIL**|Cache change within `0.01s - 0.25s` window of `0.01s ` increment for `100` entries.| | |
 ||||||
-|1000 |1000 | 100 |  PASS  |Cache change within `.001s - 1.00s` window of `.001s ` increment for `100` entries.|3090|0.1938s|
-| 700 |1000 | 100 |  PASS  |Cache change within `.001s - 0.70s` window of `.001s ` increment for `100` entries.|4485|0.1341s|
-| 600 |1000 | 100 |  PASS  |Cache change within `.001s - 0.60s` window of `.001s ` increment for `100` entries.|5338|0.1124s|
-| 500 |1000 | 100 |  RUNG  |Cache change within `.001s - 0.50s` window of `.001s ` increment for `100` entries.|6406|0.0934s|
+|1000 |1000 | 100 |  PASS  |Cache change within `.001s - 1.00s` window of `.001s ` increment for `100` entries.| 3090|0.1938s|
+| 700 |1000 | 100 |  PASS  |Cache change within `.001s - 0.70s` window of `.001s ` increment for `100` entries.| 4485|0.1341s|
+| 600 |1000 | 100 |  PASS  |Cache change within `.001s - 0.60s` window of `.001s ` increment for `100` entries.| 5338|0.1124s|
+| 500 |1000 | 100 |  PASS  |Cache change within `.001s - 0.50s` window of `.001s ` increment for `100` entries.| 6406|0.0934s|
+| 400 |1000 | 100 |  PASS  |Cache change within `.001s - 0.40s` window of `.001s ` increment for `100` entries.| 7974|0.0753s|
+| 300 |1000 | 100 |  PASS  |Cache change within `.001s - 0.30s` window of `.001s ` increment for `100` entries.|10628|0.0564s|
+| 200 |1000 | 100 |  PASS  |Cache change within `.001s - 0.20s` window of `.001s ` increment for `100` entries.|16429|0.0368s|
+| 100 |1000 | 100 |        |Cache change within `.001s - 0.10s` window of `.001s ` increment for `100` entries.|32378|0.0187s|
 ||||||
 |10000|10000| 100 |        |Cache change within `.0001s- 1.00s` window of `.0001s` increment for `100` entries.| | |
+| 4000|10000| 100 |        |Cache change within `.0001s- 0.40s` window of `.0001s` increment for `100` entries.| | |
+| 2000|10000| 100 |        |Cache change within `.0001s- 0.20s` window of `.0001s` increment for `100` entries.| | |
+| 1000|10000| 100 |        |Cache change within `.0001s- 0.10s` window of `.0001s` increment for `100` entries.| | |
