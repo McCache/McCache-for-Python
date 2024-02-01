@@ -2,12 +2,12 @@
 The following is the stress testing performed on my laptop.
 
 ### Local Hardware
-Lenovo P14s laptop
 ```
-O/S:    Windows 11 Pro
-CPU:    AMD Ryzen 7 Pro 6850U, 8 cores
-Clock:  2.7 GHz (Base)  4.7 GHz (Turbo)
-RAM:    32 Gib
+Lenovo P14s laptop                              Acer Nitro 5 laptop
+    O/S:    Windows 11 Pro                          O/S:    Windows 11 Home
+    CPU:    AMD Ryzen 7 Pro 6850U, 8 cores          CPU:    Intel Core i7-12700H, 14 cores
+    Clock:  2.7 GHz (Base)  4.7 GHz (Turbo)         Clock:  2.7 GHz (Base) 4.7 GHz (Turbo)
+    RAM:    32 Gib                                  RAM:    16 Gib
 ```
 
 ### Container
