@@ -65,25 +65,37 @@ SET TEST_DEBUG_LEVEL=3
 
 :: Start of CLI.
 :SOF_CLI
-IF  /I "%~1"=="-k"  GOTO :SET_TEST_MAX_ENTRIES
+IF  /I "%~1"=="-c"  GOTO :SET_TEST_CLUSTER_SIZE
 IF  /I "%~1"=="-d"  GOTO :SET_TEST_RUN_DURATION
+IF  /I "%~1"=="-k"  GOTO :SET_TEST_MAX_ENTRIES
+IF  /I "%~1"=="-l"  GOTO :SET_TEST_DEBUG_LEVEL
+IF  /I "%~1"=="-m"  GOTO :SET_TEST_MONKEY_TANTRUM
 IF  /I "%~1"=="-s"  GOTO :SET_TEST_SLEEP_SPAN
 IF  /I "%~1"=="-u"  GOTO :SET_TEST_SLEEP_UNIT
-IF  /I "%~1"=="-m"  GOTO :SET_TEST_MONKEY_TANTRUM
-IF  /I "%~1"=="-c"  GOTO :SET_TEST_CLUSTER_SIZE
-IF  /I "%~1"=="-g"  GOTO :SET_TEST_DEBUG_LEVEL
 IF  /I "%~1"==""    GOTO :EOF_CLI
 
 ECHO Invalid parameter value.  Try the following:
-ECHO %0  [-k ###] [-m ###] [-s ###] [-u ###] [-m ###] [-c ###] [-g ###]
-ECHO -k ###  Max entries.    Default 100.
+ECHO %0  [-c ##] [-d ##] [-k ##] [-l ##] [-m ##] [-s ##] [-u ##]
+ECHO -c ###  Cluster size.   Default 3.  Max is 9.
 ECHO -d ###  Run duration.   Default 5 minutes.
+ECHO -k ###  Max entries.    Default 100.
+ECHO -l ###  Debug level.    Default 3.  0=Off ,1=Basic ,3=Extra ,5=Superfluos
+ECHO -m ###  Monkey tantrum. Default 0.
 ECHO -s ###  Sleep span.     Default 100.
 ECHO -u ###  Sleep unit.     Default 100.
-ECHO -m ###  Monkey tantrum. Default 0.
-ECHO -c ###  Cluster size.   Default 3.  Max is 9.
-ECHO -g ###  Debug level.    Default 3.  0=Off ,1=Basic ,3=Extra ,5=Superfluos
 GOTO :EOF_SCRIPT
+
+:SET_TEST_CLUSTER_SIZE
+SET  TEST_CLUSTER_SIZE=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+:SET_TEST_RUN_DURATION
+SET  TEST_RUN_DURATION=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
 
 :SET_TEST_MAX_ENTRIES
 SET  TEST_MAX_ENTRIES=%2
@@ -91,8 +103,14 @@ SHIFT
 SHIFT
 GOTO :SOF_CLI
 
-:SET_TEST_RUN_DURATION
-SET  TEST_RUN_DURATION=%2
+:SET_TEST_DEBUG_LEVEL
+SET  TEST_DEBUG_LEVEL=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+:SET_TEST_MONKEY_TANTRUM
+SET  TEST_MONKEY_TANTRUM=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
@@ -109,36 +127,18 @@ SHIFT
 SHIFT
 GOTO :SOF_CLI
 
-:SET_TEST_MONKEY_TANTRUM
-SET  TEST_MONKEY_TANTRUM=%2
-SHIFT
-SHIFT
-GOTO :SOF_CLI
-
-:SET_TEST_CLUSTER_SIZE
-SET  TEST_CLUSTER_SIZE=%2
-SHIFT
-SHIFT
-GOTO :SOF_CLI
-
-:SET_TEST_DEBUG_LEVEL
-SET  TEST_DEBUG_LEVEL=%2
-SHIFT
-SHIFT
-GOTO :SOF_CLI
-
 :: End of CLI.
 :EOF_CLI
 
 
 ECHO Running McCache test with envar:
 ECHO    RUN_TIMESTAMP:      %RUN_TIMESTAMP%
+ECHO    TEST_CLUSTER_SIZE:  %TEST_CLUSTER_SIZE%
 ECHO    TEST_MAX_ENTRIES:   %TEST_MAX_ENTRIES%
 ECHO    TEST_RUN_DURATION:  %TEST_RUN_DURATION%
 ECHO    TEST_SLEEP_SPAN:    %TEST_SLEEP_SPAN%
 ECHO    TEST_SLEEP_UNIT:    %TEST_SLEEP_UNIT%
 ECHO    TEST_MONKEY_TANTRUM:%TEST_MONKEY_TANTRUM%
-ECHO    TEST_CLUSTER_SIZE:  %TEST_CLUSTER_SIZE%
 ECHO    TEST_DEBUG_LEVEL:   %TEST_DEBUG_LEVEL%
 ECHO:
 
