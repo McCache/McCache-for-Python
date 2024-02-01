@@ -21,11 +21,15 @@ def change(ctx: dict):
                     If 'prvcrc' is None then it is a insertion.
                     If 'newcrc' is None then it is a deletion.
     """
-    elapse = round((ctx['tsm'] - ctx['lkp']) / mc.ONE_NS_SEC ,4)
-    if  ctx['newcrc'] is None:
-        mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.FYI ,tsm=time.time_ns() ,nms=cache.name ,key=ctx['key'] ,crc=ctx['newcrc'] ,msg=f")>   FYI {key} got deleted within {elapse} sec in the background." )
-    else:
-        mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.FYI ,tsm=time.time_ns() ,nms=cache.name ,key=ctx['key'] ,crc=ctx['newcrc'] ,msg=f")>   FYI {key} got updated within {elapse} sec in the background." )
+    # DEBUG trace.
+    if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.BASIC:
+        elapse = round((ctx['tsm'] - ctx['lkp']) / mc.ONE_NS_SEC ,4)
+        if  ctx['newcrc'] is None:
+            mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.WRN ,tsm=time.time_ns() ,nms=cache.name ,key=ctx['key'] ,crc=ctx['newcrc']
+                                            ,msg=f">   WRN {ctx['key']} got deleted within {elapse:0.5f} sec in the background." )
+        else:
+            mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.WRN ,tsm=time.time_ns() ,nms=cache.name ,key=ctx['key'] ,crc=ctx['newcrc']
+                                            ,msg=f">   WRN {ctx['key']} got updated within {elapse:0.5f} sec in the background." )
 
 
 # Initialization section.
@@ -37,11 +41,11 @@ else:
     rndseed = int(str(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]).split(".")[3])
 random.seed( rndseed )
 
-sleepspan = 100 # 1000 = 1sec
+sleepspan = 100
 if 'TEST_SLEEP_SPAN'  in os.environ:
     sleepspan = int(os.environ['TEST_SLEEP_SPAN'])    # In seconds.
 
-sleepunit = 100 # 1000 = 0.001s ,100 = 0.01s ,10 = 0.1s ,1 = 1s
+sleepunit = 100
 if 'TEST_SLEEP_UNIT'  in os.environ:
     sleepunit = int(os.environ['TEST_SLEEP_UNIT'])
 
@@ -53,8 +57,9 @@ duration = 5    # Five minute.
 if 'TEST_RUN_DURATION' in os.environ:
     duration = int(os.environ['TEST_RUN_DURATION'])  # In minutes.
 
-NEXT_SSEC = 5   # Synchronize seconds.
-cache = mc.get_cache()
+NEXT_SSEC = 7    # Synchronize seconds.
+
+cache = mc.get_cache( callback=change )
 bgn = time.time()
 end = time.time()
 
@@ -76,13 +81,14 @@ while (end - bgn) < (duration*60):  # Seconds.
         key = f'K000-{int((time.time_ns()/100) % entries):04}'
 
     # DEBUG trace.
-    if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.BASIC:
+    if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.EXTRA:
         # Since the last read, did the value got updated?  If so, how long after the read?
         if  key in lookuptsm and key in cache.metadata:
             if (lookuptsm[ key ]['tsm'] < cache.metadata[ key ]['tsm']) and (lookuptsm[ key ]['crc'] != cache.metadata[ key ]['crc']):
                 dur = round((cache.metadata[ key ]['tsm'] - lookuptsm[ key ]['tsm']) / mc.ONE_NS_SEC ,4)
                 crc = cache.metadata[ key ]['crc']
-                mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.WRN ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f">   Value changed within {dur:0.5f} sec after lookup." )
+                mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.WRN ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                                                ,msg=f">   Value changed {dur:0.5f} sec after lookup." )
                 del lookuptsm[ key ]
 
     ctr +=  1
@@ -90,13 +96,12 @@ while (end - bgn) < (duration*60):  # Seconds.
     match   opc:
         case 13|17:     # NOTE: 10% are deletes.
             if  key in cache:
-                #crc =  cache.getmeta( key )['crc']
-                # For PyCache
                 crc =  cache.metadata[ key ]['crc']
 
                 # DEBUG trace.
                 if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.EXTRA:
-                    mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f")>   DEL {key} in test script." )
+                    mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                                                    ,msg=f">   DEL {key} in test script." )
 
                 # Evict cache.
                 try:
@@ -106,7 +111,8 @@ while (end - bgn) < (duration*60):  # Seconds.
                     if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.BASIC:
                         if  key in lookuptsm:
                             dur = round((time.time_ns() - lookuptsm[ key ]['tsm']) / mc.ONE_NS_SEC ,4)
-                            mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=None ,msg=f">   Value changed within {dur:0.5f} sec after lookup." )
+                            mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=None
+                                                            ,msg=f">   Value changed within {dur:0.5f} sec after lookup." )
 
                 # Cache entry was just deleted, evict the lookup tsm.
                 if  key in lookuptsm:
@@ -115,9 +121,11 @@ while (end - bgn) < (duration*60):  # Seconds.
                 # DEBUG trace.
                 if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLOUS:
                     if  key in cache:
-                        mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f")>   ERR:{key} still persist in cache in test script!" )
+                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                                                        ,msg=f">   ERR:{key} still persist in cache in test script!" )
                     else:
-                        mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f")>   OK: {key} deleted from cache in test script." )
+                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                                                        ,msg=f">   OK: {key} deleted from cache in test script." )
         case 0|1|2|3:   # NOTE: 20% are inserts.
             if  key not in cache:
                 val = (mc.SRC_IP_SEQ ,datetime.datetime.now(datetime.UTC) ,ctr) # The mininum fields to totally randomize the value.
@@ -126,7 +134,8 @@ while (end - bgn) < (duration*60):  # Seconds.
 
                 # DEBUG trace.
                 if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLOUS:
-                    mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f")>   INS {key}={val} in test script." )
+                    mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                                                    ,msg=f">   INS {key}={val} in test script." )
 
                 # Insert cache.
                 cache[ key ] = val
@@ -134,12 +143,15 @@ while (end - bgn) < (duration*60):  # Seconds.
                 # DEBUG trace.
                 if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLOUS:
                     if  key not in cache:
-                        mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f")>   ERR:{key} NOT persisted in cache in test script!" )
+                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                                                        ,msg=f">   ERR:{key} NOT persisted in cache in test script!" )
                     else:
                         if  val != cache[ key ]:
-                            mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f")>   ERR:{key} value is incoherent in cache in test script!" )
+                            mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                                                            ,msg=f">   ERR:{key} value is incoherent in cache in test script!" )
                         else:
-                            mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f")>   OK: {key} persisted in cache in test script." )
+                            mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                                                            ,msg=f">   OK: {key} persisted in cache in test script." )
         case 4|5|6|7|8|9:   # NOTE: 30% are updates.  Simulate much more updates than inserts.
             if  key in cache:
                 val = (mc.SRC_IP_SEQ ,datetime.datetime.now(datetime.UTC) ,ctr) # The mininum fields to totally randomize the value.
@@ -148,7 +160,8 @@ while (end - bgn) < (duration*60):  # Seconds.
 
                 # DEBUG trace.
                 if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLOUS:
-                    mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f")>   UPD {key}={val} in test script." )
+                    mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.UPD ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                                                    ,msg=f">   UPD {key}={val} in test script." )
 
                 # Update cache.
                 cache[ key ] = val
@@ -160,12 +173,15 @@ while (end - bgn) < (duration*60):  # Seconds.
                 # DEBUG trace.
                 if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLOUS:
                     if  key not in cache:
-                        mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.UPD ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f")>   ERR:{key} NOT persisted in cache in test script!" )
+                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.UPD ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                                                        ,msg=f">   ERR:{key} NOT persisted in cache in test script!" )
                     else:
                         if  val != cache[ key ]:
-                            mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.UPD ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f")>   ERR:{key} value is incoherent in test script!" )
+                            mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.UPD ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                                                            ,msg=f">   ERR:{key} value is incoherent in test script!" )
                         else:
-                            mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.UPD ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc ,msg=f")>   OK: {key} persisted in cache in test script!" )
+                            mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.UPD ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                                                            ,msg=f">   OK: {key} persisted in cache in test script!" )
         case _:     # NOTE: 40% are lookups.
             # Look up cache.
             val = cache.get( key ,None )
@@ -179,9 +195,14 @@ while (end - bgn) < (duration*60):  # Seconds.
             # DEBUG trace.
             if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLOUS:
                 if  not val:
-                    mc._log_ops_msg( logging.DEBUG ,opc=mc.OpCode.INQ ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=None ,msg=f")>   WRN:{key} value is None in test script!")
-
+                    mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INQ ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=None
+                                                    ,msg=f">   WRN:{key} value is None in test script!")
     end = time.time()
+
+# Done stress testing.
+tsm = cache.TSM_VERSION()
+tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime(tsm//100_000_000))}.{tsm%100_000_000:0<8}"
+mc.logger.info( f"Done at {tsm}. Querying final cache checksum." )
 
 # Wait for all members to catch up before existing together.
 bgn = time.time()
@@ -189,11 +210,12 @@ bgnsec = time.localtime().tm_sec
 time.sleep(NEXT_SSEC +(NEXT_SSEC - (bgnsec % NEXT_SSEC)))   # Try to get the cluster to stop at the same second to reduce RAK.
 end = time.time()
 
-# Format ouput to be consistent with the McCache log format.
-mc.logger.info(f"{mc.SRC_IP_ADD} Done testing. Querying final cache checksum.")
+# Query cluster metric.
+#mc.get_cluster_metrics()
 
-mc.get_cache_checksum( cache.name ) # Query the cache at exit.
+# Query the cache at exit.
+mc.get_cache_checksum( cache.name )
 
 tsm = cache.TSM_VERSION()
-tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime(tsm//100_000_000))}.{tsm%100_000_000}"
-mc.logger.info(f"{mc.SRC_IP_ADD} Exiting at {tsm}")
+tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime(tsm//100_000_000))}.{tsm%100_000_000:0<8}"
+mc.logger.info( f"Exiting at {tsm}.\n" )

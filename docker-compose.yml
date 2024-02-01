@@ -16,7 +16,7 @@ services:
     environment:
       - TEST_RANDOM_SEED=11
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
-      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-10}    # Default to  10 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -39,9 +39,9 @@ services:
     image: mccache-img
     container_name: mccache02
     environment:
-      - TEST_RANDOM_SEED=13
+      - TEST_RANDOM_SEED=23
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
-      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-10}    # Default to  10 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -64,9 +64,9 @@ services:
     image: mccache-img
     container_name: mccache03
     environment:
-      - TEST_RANDOM_SEED=17
+      - TEST_RANDOM_SEED=37
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
-      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-10}    # Default to  10 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -89,9 +89,9 @@ services:
     image: mccache-img
     container_name: mccache04
     environment:
-      - TEST_RANDOM_SEED=19
+      - TEST_RANDOM_SEED=47
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
-      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-10}    # Default to  10 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -113,9 +113,9 @@ services:
     image: mccache-img
     container_name: mccache05
     environment:
-      - TEST_RANDOM_SEED=23
+      - TEST_RANDOM_SEED=59
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
-      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-10}    # Default to  10 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -137,9 +137,9 @@ services:
     image: mccache-img
     container_name: mccache06
     environment:
-      - TEST_RANDOM_SEED=29
+      - TEST_RANDOM_SEED=67
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
-      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-10}    # Default to  10 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -161,9 +161,9 @@ services:
     image: mccache-img
     container_name: mccache07
     environment:
-      - TEST_RANDOM_SEED=31
+      - TEST_RANDOM_SEED=79
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
-      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-10}    # Default to  10 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -185,9 +185,9 @@ services:
     image: mccache-img
     container_name: mccache08
     environment:
-      - TEST_RANDOM_SEED=18
+      - TEST_RANDOM_SEED=89
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
-      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-10}    # Default to  10 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -209,9 +209,9 @@ services:
     image: mccache-img
     container_name: mccache09
     environment:
-      - TEST_RANDOM_SEED=37
+      - TEST_RANDOM_SEED=97
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
-      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-10}    # Default to  10 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.

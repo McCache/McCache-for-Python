@@ -29,31 +29,34 @@ export RUN_TIMESTAMP=$(date +'_%Y%m%d_%H%M')
 #   -t :    The maximum percentage of simulated drop packets.
 
 # Setup the variable TEST_MAX_ENTRIES to be passed into the container composer.
-export TEST_MAX_ENTRIES=100
+TEST_MAX_ENTRIES=100
 
 # Setup the variable TEST_RUN_DURATION  to be passed into the container composer.
-export TEST_RUN_DURATION=5
+TEST_RUN_DURATION=5
 
 # Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
-export TEST_SLEEP_SPAN=100
+TEST_SLEEP_SPAN=100
 
 # Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
-export TEST_SLEEP_UNIT=100
+TEST_SLEEP_UNIT=100
 
 # Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
-export TEST_MONKEY_TANTRUM=0
+TEST_MONKEY_TANTRUM=0
 
-# Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
-export TEST_CLUSTER_SIZE=3
+# Setup the variable TEST_CLUSTER_SIZE to be passed into the container composer.
+TEST_CLUSTER_SIZE=3
+
+# Setup the variable TEST_DEBUG_LEVEL to be passed into the container composer.
+TEST_DEBUG_LEVEL=3
 
 # Start of CLI.
-while getopts "k:d:s:u:m:c:" opt; do
+while getopts "c:d:k:l:m:s:u:" opt; do
     case  $opt  in
-        k)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+        c)  if  [[ $OPTARG =~ ^[2-9]$ ]]
             then
-                TEST_MAX_ENTRIES=${OPTARG}
+                TEST_CLUSTER_SIZE=${OPTARG}
             else
-                echo "Option for -k MUST be a positive integer."
+                echo "Option for -c MUST be a positive integer. 2-9"
                 exit  1
             fi
             ;;
@@ -62,6 +65,30 @@ while getopts "k:d:s:u:m:c:" opt; do
                 TEST_RUN_DURATION=${OPTARG}
             else
                 echo "Option for -m MUST be a positive integer."
+                exit  1
+            fi
+            ;;
+        k)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+            then
+                TEST_MAX_ENTRIES=${OPTARG}
+            else
+                echo "Option for -k MUST be a positive integer."
+                exit  1
+            fi
+            ;;
+        l)  if  [[ $OPTARG =~ ^[2-5]$ ]]
+            then
+                TEST_DEBUG_LEVEL=${OPTARG}
+            else
+                echo "Option for -g MUST be a positive integer. 0-5"
+                exit  1
+            fi
+            ;;
+        m)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+            then
+                TEST_MONKEY_TANTRUM=${OPTARG}
+            else
+                echo "Option for -u MUST be a positive integer. 0-9"
                 exit  1
             fi
             ;;
@@ -81,30 +108,15 @@ while getopts "k:d:s:u:m:c:" opt; do
                 exit  1
             fi
             ;;
-        m)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
-            then
-                TEST_MONKEY_TANTRUM=${OPTARG}
-            else
-                echo "Option for -u MUST be a positive integer. 0-20"
-                exit  1
-            fi
-            ;;
-        c)  if  [[ $OPTARG =~ ^[2-9]$ ]]
-            then
-                TEST_CLUSTER_SIZE=${OPTARG}
-            else
-                echo "Option for -c MUST be a positive integer. 2-9"
-                exit  1
-            fi
-            ;;
         *)  echo  Invalid parameter value.  Try the following:
-            echo  $0  '[-k ###] [-m ###] [-s ###] [-u ###] [-m ###] [-c ###]'
-            echo  ' -k ###  Max entries.    Default 100.'
+            echo  $0  '[-c ##] [-d ##] [-k ##] [-l ##] [-m ##] [-s ##] [-u ##]'
+            echo  ' -c ###  Cluster size.   Default 3.  Max is 9.'
             echo  ' -d ###  Run duration.   Default 5 minutes.'
+            echo  ' -k ###  Max entries.    Default 100.'
+            echo  ' -l ###  Debug level.    Default 3.  0=Off ,1=Basic ,3=Extra ,5=Superfluos'
+            echo  ' -m ###  Monkey tantrum. Default 0.'
             echo  ' -s ###  Sleep span.     Default 100.'
             echo  ' -u ###  Sleep unit.     Default 100.'
-            echo  ' -m ###  Monkey tantrum. Default 0.'
-            echo  ' -c ###  Cluster size.   Default 3.  Max is 9.'
             exit  1
             ;;
     esac
@@ -114,12 +126,13 @@ echo ${TEST_MAX_ENTRIES} ${TEST_RUN_DURATION}
 
 echo Running McCache test with envar:
 echo    RUN_TIMESTAMP:      ${RUN_TIMESTAMP}
+echo    TEST_CLUSTER_SIZE:  ${TEST_CLUSTER_SIZE}
 echo    TEST_MAX_ENTRIES:   ${TEST_MAX_ENTRIES}
 echo    TEST_RUN_DURATION:  ${TEST_RUN_DURATION}
 echo    TEST_SLEEP_SPAN:    ${TEST_SLEEP_SPAN}
 echo    TEST_SLEEP_UNIT:    ${TEST_SLEEP_UNIT}
 echo    TEST_MONKEY_TANTRUM:${TEST_MONKEY_TANTRUM}
-echo    TEST_CLUSTER_SIZE:  ${TEST_CLUSTER_SIZE}
+echo    TEST_DEBUG_LEVEL:   ${TEST_DEBUG_LEVEL}
 echo
 
 # The following are CLI input parameter you can use to parse out the script name information.
@@ -153,7 +166,7 @@ ${CONTAINER_EXE} up  ${NODE01} ${NODE02} ${NODE03} ${NODE04} ${NODE05} ${NODE06}
 echo Run test using the output log from the cluster.
 
 # Extract out and clean up the INQ result from each of the debug log files into a result file.
-tail log/debug0*.log |grep -E "INQ|Exiting" |grep -Ev "Fr:|Multicasted" |sed "s/{/\n  /" |tr "}" "\n"  > log/result.txt
+tail -n 200 log/debug0*.log |grep -E "INQ|Done|Exiting" |grep -Ev "Fr:|Out going" |sed "s/}}//" |sed "s/{/\n  /" |sed "/Exiting/a}" |tr "}" "\n"  > log/result.txt
 
 pipenv run  pytest -q .
 

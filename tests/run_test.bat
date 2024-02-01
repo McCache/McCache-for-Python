@@ -4,6 +4,9 @@
 @ECHO OFF
 ::@ECHO ON
 
+:: All variables set in this script shall be local variables.
+SETLOCAL
+
 :: Check if either podman or docker is installed.
 ::
 WHERE podman-compose.exe   2> NUL
@@ -57,26 +60,42 @@ SET TEST_MONKEY_TANTRUM=0
 :: Setup the variable TEST_CLUSTER_SIZE to be passed into the container composer.
 SET TEST_CLUSTER_SIZE=3
 
+:: Setup the variable TEST_DEBUG_LEVEL to be passed into the container composer.
+SET TEST_DEBUG_LEVEL=3
 
 :: Start of CLI.
 :SOF_CLI
-IF  /I "%~1"=="-k"  GOTO :SET_TEST_MAX_ENTRIES
+IF  /I "%~1"=="-c"  GOTO :SET_TEST_CLUSTER_SIZE
 IF  /I "%~1"=="-d"  GOTO :SET_TEST_RUN_DURATION
+IF  /I "%~1"=="-k"  GOTO :SET_TEST_MAX_ENTRIES
+IF  /I "%~1"=="-l"  GOTO :SET_TEST_DEBUG_LEVEL
+IF  /I "%~1"=="-m"  GOTO :SET_TEST_MONKEY_TANTRUM
 IF  /I "%~1"=="-s"  GOTO :SET_TEST_SLEEP_SPAN
 IF  /I "%~1"=="-u"  GOTO :SET_TEST_SLEEP_UNIT
-IF  /I "%~1"=="-m"  GOTO :SET_TEST_MONKEY_TANTRUM
-IF  /I "%~1"=="-c"  GOTO :SET_TEST_CLUSTER_SIZE
 IF  /I "%~1"==""    GOTO :EOF_CLI
 
 ECHO Invalid parameter value.  Try the following:
-ECHO %0  [-k ###] [-m ###] [-s ###] [-u ###] [-m ###] [-c ###]
-ECHO -k ###  Max entries.    Default 100.
+ECHO %0  [-c ##] [-d ##] [-k ##] [-l ##] [-m ##] [-s ##] [-u ##]
+ECHO -c ###  Cluster size.   Default 3.  Max is 9.
 ECHO -d ###  Run duration.   Default 5 minutes.
+ECHO -k ###  Max entries.    Default 100.
+ECHO -l ###  Debug level.    Default 3.  0=Off ,1=Basic ,3=Extra ,5=Superfluos
+ECHO -m ###  Monkey tantrum. Default 0.
 ECHO -s ###  Sleep span.     Default 100.
 ECHO -u ###  Sleep unit.     Default 100.
-ECHO -m ###  Monkey tantrum. Default 0.
-ECHO -c ###  Cluster size.   Default 3.  Max is 9.
 GOTO :EOF_SCRIPT
+
+:SET_TEST_CLUSTER_SIZE
+SET  TEST_CLUSTER_SIZE=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+:SET_TEST_RUN_DURATION
+SET  TEST_RUN_DURATION=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
 
 :SET_TEST_MAX_ENTRIES
 SET  TEST_MAX_ENTRIES=%2
@@ -84,8 +103,14 @@ SHIFT
 SHIFT
 GOTO :SOF_CLI
 
-:SET_TEST_RUN_DURATION
-SET  TEST_RUN_DURATION=%2
+:SET_TEST_DEBUG_LEVEL
+SET  TEST_DEBUG_LEVEL=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+:SET_TEST_MONKEY_TANTRUM
+SET  TEST_MONKEY_TANTRUM=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
@@ -102,30 +127,19 @@ SHIFT
 SHIFT
 GOTO :SOF_CLI
 
-:SET_TEST_MONKEY_TANTRUM
-SET  TEST_MONKEY_TANTRUM=%2
-SHIFT
-SHIFT
-GOTO :SOF_CLI
-
-:SET_TEST_CLUSTER_SIZE
-SET  TEST_CLUSTER_SIZE=%2
-SHIFT
-SHIFT
-GOTO :SOF_CLI
-
 :: End of CLI.
 :EOF_CLI
 
 
 ECHO Running McCache test with envar:
 ECHO    RUN_TIMESTAMP:      %RUN_TIMESTAMP%
+ECHO    TEST_CLUSTER_SIZE:  %TEST_CLUSTER_SIZE%
 ECHO    TEST_MAX_ENTRIES:   %TEST_MAX_ENTRIES%
 ECHO    TEST_RUN_DURATION:  %TEST_RUN_DURATION%
 ECHO    TEST_SLEEP_SPAN:    %TEST_SLEEP_SPAN%
 ECHO    TEST_SLEEP_UNIT:    %TEST_SLEEP_UNIT%
 ECHO    TEST_MONKEY_TANTRUM:%TEST_MONKEY_TANTRUM%
-ECHO    TEST_CLUSTER_SIZE:  %TEST_CLUSTER_SIZE%
+ECHO    TEST_DEBUG_LEVEL:   %TEST_DEBUG_LEVEL%
 ECHO:
 
 :: The following are CLI input parameter you can use to parse out the script name information.
@@ -151,6 +165,8 @@ IF NOT EXIST  log (MD log) ELSE (DEL /q log\*)
 SET  NODE01=node01
 SET  NODE02=node02
 
+:: Unset previously set env vars.
+FOR /L %%v  IN ( 3 ,1 ,%TEST_CLUSTER_SIZE% )  DO  SET NODE0%%v=
 FOR /L %%v  IN ( 1 ,1 ,%TEST_CLUSTER_SIZE% )  DO  SET NODE0%%v=node0%%v
 
 :: Bring up the cluster of containers and wait until we are done exercising the cache.
@@ -163,9 +179,16 @@ ECHO Starting the test cluster with %TEST_CLUSTER_SIZE% nodes.
 ECHO Run test using the output log from the cluster.
 
 :: Extract out and clean up the INQ result from each of the debug log files into a result file.
-tail log/debug0*.log |grep -E "INQ|Exiting" |grep -Ev "Fr:|Multicasted" |sed "s/{/\n  /" |tr "}" "\n"  > log/result.txt
+tail -n 200 log/debug0*.log |grep -E "INQ|Done|Exiting" |grep -Ev "Fr:|Out going" |sed "s/}}//" |sed "s/{/\n  /" |sed "/Exiting/a}" |tr "}" "\n"  > log/result.txt
+
+:: Summarize
+::grep -i "after lookup|sec in the background"    >log/sum_spikes.log
+::grep -i "monkey is angry"                       >log/sum_drop_packets.log`
+
 
 :: pipenv run  pytest -q .
 
 :EOF_SCRIPT
 POPD
+::Restore all variables from the start of SETLOCAL.
+ENDLOCAL
