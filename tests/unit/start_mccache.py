@@ -71,7 +71,7 @@ mc.logger.info(f"{mc.SRC_IP_ADD} Test config: Seed={rndseed:3} ,Duration={durati
 lookuptsm = dict()
 ctr:int = 0     # Counter
 while (end - bgn) < (duration*60):  # Seconds.
-    time.sleep( random.randint(1 ,sleepspan) / sleepunit )
+    time.sleep( random.randint(0 ,sleepspan) / sleepunit )
 
     if  random.randint(0 ,20) % 5 == 0: # Arbitarily.
         # Keys unique to this node.

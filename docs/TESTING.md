@@ -15,9 +15,9 @@ Lenovo P14s laptop                              Acer Nitro 5 laptop
 ```
 podman-compose  up  --build  -d
 ```
-or the default test script located under `.\tests\run_test.bat` wit h the following CLI parameters:
+or the default test script located under `.\tests\run_test.bat` with the following CLI parameters:
 ```
-.\tests\run_test -c 9 -d 10 -g 1
+.\tests\run_test -c 9 -d 10 -l 1
 ```
 
 Since the test is running locally on my laptop in acontainer environment, there is no physical wired network between the nodes.  We almost have a near zero communication latency between the nodes.  Lost packets does occur when the cache is highly stress.
@@ -73,11 +73,10 @@ The above have been manully formatted for readability.  For stress testing purpo
 TBD
 
 ### Testing Parameters
-Cache in-coherence is when at least two nodes have different values for the same key.  To stress they `McCache`, the following is some guidelines to keep is realistic:
+Cache in-coherence is when at least two nodes have different values for the same key.  To stress `McCache`, the following is some guidelines to keep it realistic:
 * Keep the number of docker/podman containers to total number of cores on your machine minus one.
     * Our official stress ran in **9** docker/podman containers cluster.
-    * We observed the CPU utilization was below, an average, **35**% during the stress runs.
-* Missing entries is **not** bad.  The node that do not have the entry will need to re-process the work and insert it into its local cache.  This wil ltrigger a multicast out to the other members in the cluster.
+* Missing entries is **not** bad.  The node that do not have the entry will need to re-process the work and insert it into its local cache.  This will trigger a multicast out to the other members in the cluster.
 * Entries that are different must be validated against test exiting timestamp.  If the test exiting timestamp is older, this is **not** bad.
 
 The following testing parameters that did **not** produce any cache in-coherence after five consecutive runs among the nodes in my local docker/podman cluster.  The three main knobs to tune the stress test are: 1) `MAX_ENTRIES` ,2) `SLEEP_SPAN` and 3) `SLEEP_UNIT`.  Increasing the mentioned parameters have the following affects:
@@ -92,28 +91,21 @@ Each batch of test consist of **5** independent runs in a cluster of **9** nodes
 
 #### Command used
 ```bash
-tests/run_test  -c 9 -d 10 -s 300 -u 1000 -l 0
+tests/run_test  -c 9 -d 10 -s 100 -u 1000 -l 0
 ```
 
 ### Results
 
 |SLEEP<br>SPAN|SLEEP<br>UNIT|MAX<br>ENTRIES|<br>Status|<br>Comment|Spike<br>AvgHits|Spike<br>AvgLoad|
-|------------:|------------:|-------------:|:--------:|-----------|------------:|------------:|
-| 100 | 100 | 100 |  PASS  |Cache change within `0.01s - 1.00s` window of `0.01s ` increment for `100` entries.| | |
-|  50 | 100 | 100 |  PASS  |Cache change within `0.01s - 0.50s` window of `0.01s ` increment for `100` entries.| | |
-|  30 | 100 | 100 |  PASS  |Cache change within `0.01s - 0.30s` window of `0.01s ` increment for `100` entries.| | |
-|  25 | 100 | 100 |**FAIL**|Cache change within `0.01s - 0.25s` window of `0.01s ` increment for `100` entries.| | |
-||||||
-|1000 |1000 | 100 |  PASS  |Cache change within `.001s - 1.00s` window of `.001s ` increment for `100` entries.| 3090|0.1938s|
-| 700 |1000 | 100 |  PASS  |Cache change within `.001s - 0.70s` window of `.001s ` increment for `100` entries.| 4485|0.1341s|
-| 600 |1000 | 100 |  PASS  |Cache change within `.001s - 0.60s` window of `.001s ` increment for `100` entries.| 5338|0.1124s|
-| 500 |1000 | 100 |  PASS  |Cache change within `.001s - 0.50s` window of `.001s ` increment for `100` entries.| 6406|0.0934s|
-| 400 |1000 | 100 |  PASS  |Cache change within `.001s - 0.40s` window of `.001s ` increment for `100` entries.| 7974|0.0753s|
-| 300 |1000 | 100 |  PASS  |Cache change within `.001s - 0.30s` window of `.001s ` increment for `100` entries.|10628|0.0564s|
-| 200 |1000 | 100 |  PASS  |Cache change within `.001s - 0.20s` window of `.001s ` increment for `100` entries.|16429|0.0368s|
-| 100 |1000 | 100 |        |Cache change within `.001s - 0.10s` window of `.001s ` increment for `100` entries.|32378|0.0187s|
-||||||
-|10000|10000| 100 |        |Cache change within `.0001s- 1.00s` window of `.0001s` increment for `100` entries.| | |
-| 4000|10000| 100 |        |Cache change within `.0001s- 0.40s` window of `.0001s` increment for `100` entries.| | |
-| 2000|10000| 100 |        |Cache change within `.0001s- 0.20s` window of `.0001s` increment for `100` entries.| | |
-| 1000|10000| 100 |        |Cache change within `.0001s- 0.10s` window of `.0001s` increment for `100` entries.| | |
+|----:|-----:|----:|:------:|--------------------------------------------------------------------------------|----:|------:|
+|1000 | 1000 | 100 |  PASS  |Cache change within `0s - 1.00s` window of `.001s ` increment for `100` entries.| 3090|0.1938s|
+| 700 | 1000 | 100 |  PASS  |Cache change within `0s - 0.70s` window of `.001s ` increment for `100` entries.| 4485|0.1341s|
+| 600 | 1000 | 100 |  PASS  |Cache change within `0s - 0.60s` window of `.001s ` increment for `100` entries.| 5338|0.1124s|
+| 500 | 1000 | 100 |  PASS  |Cache change within `0s - 0.50s` window of `.001s ` increment for `100` entries.| 6406|0.0934s|
+| 400 | 1000 | 100 |  PASS  |Cache change within `0s - 0.40s` window of `.001s ` increment for `100` entries.| 7974|0.0753s|
+| 300 | 1000 | 100 |  PASS  |Cache change within `0s - 0.30s` window of `.001s ` increment for `100` entries.|10628|0.0564s|
+| 200 | 1000 | 100 |  PASS  |Cache change within `0s - 0.20s` window of `.001s ` increment for `100` entries.|16429|0.0368s|
+| 100 | 1000 | 100 |  PASS  |Cache change within `0s - 0.10s` window of `.001s ` increment for `100` entries.|32378|0.0187s|
+| 100 | 2000 | 100 |  PASS  |Cache change within `0s - 0.05s` window of `.0005s` increment for `100` entries.|63771|0.0096s|
+| 100 | 5000 | 100 |        |Cache change within `0s - 0.02s` window of `.0002s` increment for `100` entries.|||
+| 100 |10000 | 100 |        |Cache change within `0s - 0.01s` window of `.0001s` increment for `100` entries.|||
