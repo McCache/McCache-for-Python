@@ -5,6 +5,7 @@ import hashlib
 import logging
 import os
 import queue
+import random
 import socket
 import sys
 import time
@@ -31,10 +32,18 @@ class Cache( OrderedDict ):
         - Support time-to-live eviction.  Updated item will have its ttl reset.
         - Support telemetry communication with external via queue.
     """
+    IP4_ADDRESS = sorted(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET ))[0][4][0]
     ONE_NS_SEC  = 1_000_000_000     # One second in nano seconds.
     ONE_NS_MIN  = 60 * ONE_NS_SEC   # One minute in nano seconds.
+    # NOTE: time.monotonic_ns() behave differently on different OS.  Different precisipon is returned.
+    #       Win11:  13446437000000
+    #       WSL:    11881976237028
+    #
+    #       time.time_ns()
+    #       Win11:  1707278030313783400
+    #       WSL:    1707276577346395597
+    #
     TSM_VERSION = time.monotonic_ns if sys.platform == 'darwin' else time.time_ns
-    IP4_ADDRESS = sorted(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET ))[0][4][0]
 
     def __init__(self ,other=() ,/ ,**kwargs) -> None:  # NOTE: The / as an argument marks the end of arguments that are positional.
         """Cache constructor.
@@ -53,6 +62,7 @@ class Cache( OrderedDict ):
                                 If 'prvcrc' is None then it is a insertion.
                                 If 'newcrc' is None then it is a deletion.
             cbwindow:int        The preceding number of seconds from the last value lookup to trigger a callback if it is updated.
+            throttle:float      A congestion throttle to slow down the changes to the cache.
             debug   :bool       Enable internal debugging.  Default to `False`.
         Raise:
             TypeError
@@ -66,9 +76,9 @@ class Cache( OrderedDict ):
         self.__logger   :logging.Logger = None
         self.__queue    :queue.Queue    = None
         self.__callback :FunctionType   = None
-        self.__cbwindow :int    = 1
+        self.__cbwindow :int    = 1         # The update window to trigger a callback, in seconds.
         self.__debug    :bool   = False     # Internal debug is disabled.
-        self.__oldest   :int    = Cache.TSM_VERSION()  # oldest entry in the cache.
+        self.__oldest   :int    = Cache.TSM_VERSION()  # Oldest entry in the cache.
         self.__latest   :int    = Cache.TSM_VERSION()  # Latest time the cache was touch on.
         self.__meta     :dict   = {}
         # Public instance metrics.
@@ -82,11 +92,11 @@ class Cache( OrderedDict ):
                             raise TypeError('The cache name must be a string!')
                         self.__name = str( val )
                     case 'max':
-                        self.__maxlen = int( val )
+                        self.__maxlen = abs(int( val ))
                     case 'size':
-                        self.__maxsize = int( val )
+                        self.__maxsize = abs(int( val ))
                     case 'ttl':
-                        self.__ttl = int( val )
+                        self.__ttl = abs(int( val ))
                     case 'msgbdy':
                         self.__msgbdy = str( val )
                     case 'logger':
@@ -102,7 +112,7 @@ class Cache( OrderedDict ):
                             raise TypeError('An instance of "type.FunctionType" is required as a callback function!')
                         self.__callback = val   # The callback function.
                     case 'cbwindow':
-                        self.__cbwindow = int( val )
+                        self.__cbwindow = abs(int( val ))
                     case 'debug':
                         self.__debug = bool( val )
 
@@ -156,6 +166,10 @@ class Cache( OrderedDict ):
     def queue(self) -> queue.Queue:
         return  self.__queue
 
+    @property
+    def tsm_version(self) -> int:
+        return Cache.TSM_VERSION()
+
     # This class's private method section.
     #
     def _reset_metrics(self):
@@ -201,9 +215,10 @@ class Cache( OrderedDict ):
         if  opc is None:
             opc =  f"O={' '* 4}"
         if  tsm is None:
-            tsm =  f"T={' '*14}"
+            tsm =  f"T={' '*16}"
         else:
             tsm =  tsm / 100_000_000.0
+            tsm =  f"{time.strftime('%H:%M:%S' ,time.gmtime(tsm // Cache.ONE_NS_SEC))}.{tsm % Cache.ONE_NS_SEC:0<8}"
         if  nms is None:
             nms =  f"N={' '* 6}"
         if  key is None:
@@ -294,9 +309,11 @@ class Cache( OrderedDict ):
         self._set_spike()
 
         # Callback to notify a change in the cache.
-        if  self.__callback and (tsm - lkp) < (self.__cbwindow * Cache.ONE_NS_SEC):
-            # The key/value got changed withing 1 second of last read.
-            self.__callback({'key': key ,'lkp': lkp ,'tsm': tsm ,'prvcrc': crc ,'newcrc': None})
+        elp = round((tsm - lkp) / Cache.ONE_NS_SEC ,5)
+        if  self.__callback and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
+            # TODO: Should we call the callback in on a different thread so that this update doesn't block?
+            # The key/value got changed within callback window of last read.
+            self.__callback({'typ': 1 ,'nms': self.__name ,'key': key ,'lkp': lkp ,'tsm': tsm ,'elp': elp ,'prvcrc': crc ,'newcrc': None})
 
     def _post_get(self,
             key: Any    ) -> None:
@@ -345,15 +362,17 @@ class Cache( OrderedDict ):
         self._set_spike()
 
         # Callback to notify a change in the cache.
+        # TODO: Handle incoherence.
         lkp = self.__meta[ key ]['lkp']
-        if  self.__callback and (tsm - lkp) < (self.__cbwindow * Cache.ONE_NS_SEC):
+        elp = round((tsm - lkp) / Cache.ONE_NS_SEC ,5)
+        if  self.__callback and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
             # The key/value got changed since last read.
-            self.__callback({'key': key ,'lkp': lkp ,'tsm': tsm ,'prvcrc': crc ,'newcrc': md5})
+            self.__callback({'typ': 2 ,'nms': self.__name ,'key': key ,'lkp': lkp ,'tsm': tsm ,'elp': elp ,'prvcrc': crc ,'newcrc': md5})
 
     def _set_spike(self,
             now: int | None = None ) -> None:
         """Update the internal spike metrics.
-        A spikes are high frequncy delete/insert/update that are within 5 seconds.
+        A spikes are high frequency delete/insert/update that are within 5 seconds.
 
         Args:
             now     The current timestamp to determine a spike.  Default to present.
@@ -364,11 +383,11 @@ class Cache( OrderedDict ):
         if  span > 0:
             # Monotonic.
             self.__latest  = now
-            if  span <= (5 * Cache.ONE_NS_SEC): # 5 seconds.
+            if  span <  (3 * Cache.ONE_NS_SEC): # 3 seconds.
                 self.spikeDur = ((self.spikeDur * self.spikes) + span) / (self.spikes + 1)
                 self.spikes  += 1
 
-    # Private OrderedDict magic/dunder methods overwrite section.
+    # Private OrderedDict magic/dunder methods overwrite section.int
     #
     def __delitem__(self,
             key: Any,
@@ -385,8 +404,9 @@ class Cache( OrderedDict ):
         Raise:
             KeyError
         """
-        if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
+# Trying to figure out why suce a hign cache incoherence.
+#        if  self.__ttl > 0:
+#            _ = self._evict_ttl_items()
 
         super().__delitem__( key )
 
@@ -408,8 +428,9 @@ class Cache( OrderedDict ):
         Raise:
             KeyError
         """
-        if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
+# Trying to figure out why suce a hign cache incoherence.
+#        if  self.__ttl > 0:
+#            _ = self._evict_ttl_items()
 
         val = super().__getitem__( key )
         self.lookups += 1
@@ -442,13 +463,14 @@ class Cache( OrderedDict ):
             tsm         Optional timestamp for the deletion.
             queue_out   Request queing out opeartion info to external receiver.
         """
-        if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
-
-        # NOTE: Very coarse way to check for eviction.  Not meant to be precise.
-        while super().__len__()     > 0 and \
-            ((super().__len__() + 1 > self.__maxlen) or (super().__sizeof__() + sys.getsizeof( value ) > self.__maxsize)):
-                _ = self._evict_cap_items()
+# Trying to figure out why suce a hign cache incoherence.
+#        if  self.__ttl > 0:
+#            _ = self._evict_ttl_items()
+#
+#        # NOTE: Very coarse way to check for eviction.  Not meant to be precise.
+#        while super().__len__()     > 0 and \
+#            ((super().__len__() + 1 > self.__maxlen) or (super().__sizeof__() + sys.getsizeof( value ) > self.__maxsize)):
+#                _ = self._evict_cap_items()
 
         updmode: bool = self.__contains__( key )   # If exist we are in UPD mode ,else INS mode.
         super().__setitem__( key ,value )
@@ -503,8 +525,9 @@ class Cache( OrderedDict ):
             key         Key to the item to get.
             default     Default value to return if the key doesn't exist in the cache.
         """
-        if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
+# Trying to figure out why suce a hign cache incoherence.
+#        if  self.__ttl > 0:
+#            _ = self._evict_ttl_items()
 
         val = super().get( key ,default )
         self.lookups += 1
@@ -543,8 +566,9 @@ class Cache( OrderedDict ):
             key         Key to the item to get.
             default     Default value to return if the key doesn't exist in the cache.
         """
-        if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
+# Trying to figure out why suce a hign cache incoherence.
+#        if  self.__ttl > 0:
+#            _ = self._evict_ttl_items()
 
         if  self.__debug:
             crc = self.__meta['crc'] if 'crc' in self.__meta else None
@@ -565,8 +589,9 @@ class Cache( OrderedDict ):
             last        True is LIFO ,False is FIFO
             default     Default value to return if the key doesn't exist in the cache.
         """
-        if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
+# Trying to figure out why suce a hign cache incoherence.
+#        if  self.__ttl > 0:
+#            _ = self._evict_ttl_items()
 
         key ,val = super().popitem( last )
         if  self.__debug:
@@ -606,8 +631,9 @@ class Cache( OrderedDict ):
         Args:
             iterable    A list of key/value pairs to update the cache with.
         """
-        if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
+# Trying to figure out why suce a hign cache incoherence.
+#        if  self.__ttl > 0:
+#            _ = self._evict_ttl_items()
 
         updates = {}
         for key ,val in iterable.items():
