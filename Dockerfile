@@ -37,7 +37,7 @@ RUN         pip     install -U  pip
 
 # Setup mccache user workspace.
 #
-RUN         useradd -U -md                      /home/${USRGRP} ${USRGRP}
+RUN         useradd -U -md      /home/${USRGRP} ${USRGRP}
 WORKDIR     /home/${USRGRP}
 # NOTE: Must copy all pertinent files.  If not "pip install -e ." will break.
 #       There is a `.dockerignore` file that is used to filter out files of no interest to us.

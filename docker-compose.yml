@@ -14,7 +14,9 @@ services:
     image: mccache-img
     container_name: mccache01
     environment:
-      - TEST_RANDOM_SEED=11
+      - TEST_RANDOM_SEED=101
+      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-1.0}         # Default to 1 second.
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_APT:-100}        # Default to 100th (0.01 sec) aperture increment.
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
       - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
@@ -39,7 +41,9 @@ services:
     image: mccache-img
     container_name: mccache02
     environment:
-      - TEST_RANDOM_SEED=23
+      - TEST_RANDOM_SEED=127
+      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-1.0}         # Default to 1 second.
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_APT:-100}        # Default to 100th (0.01 sec) aperture increment.
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
       - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
@@ -64,7 +68,9 @@ services:
     image: mccache-img
     container_name: mccache03
     environment:
-      - TEST_RANDOM_SEED=37
+      - TEST_RANDOM_SEED=131
+      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-1.0}         # Default to 1 second.
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_APT:-100}        # Default to 100th (0.01 sec) aperture increment.
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
       - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
@@ -89,7 +95,9 @@ services:
     image: mccache-img
     container_name: mccache04
     environment:
-      - TEST_RANDOM_SEED=47
+      - TEST_RANDOM_SEED=149
+      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-1.0}         # Default to 1 second.
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_APT:-100}        # Default to 100th (0.01 sec) aperture increment.
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
       - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
@@ -113,7 +121,9 @@ services:
     image: mccache-img
     container_name: mccache05
     environment:
-      - TEST_RANDOM_SEED=59
+      - TEST_RANDOM_SEED=151
+      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-1.0}         # Default to 1 second.
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_APT:-100}        # Default to 100th (0.01 sec) aperture increment.
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
       - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
@@ -137,7 +147,9 @@ services:
     image: mccache-img
     container_name: mccache06
     environment:
-      - TEST_RANDOM_SEED=67
+      - TEST_RANDOM_SEED=163
+      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-1.0}         # Default to 1 second.
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_APT:-100}        # Default to 100th (0.01 sec) aperture increment.
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
       - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
@@ -161,7 +173,9 @@ services:
     image: mccache-img
     container_name: mccache07
     environment:
-      - TEST_RANDOM_SEED=79
+      - TEST_RANDOM_SEED=173
+      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-1.0}         # Default to 1 second.
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_APT:-100}        # Default to 100th (0.01 sec) aperture increment.
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
       - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
@@ -185,7 +199,9 @@ services:
     image: mccache-img
     container_name: mccache08
     environment:
-      - TEST_RANDOM_SEED=89
+      - TEST_RANDOM_SEED=181
+      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-1.0}         # Default to 1 second.
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_APT:-100}        # Default to 100th (0.01 sec) aperture increment.
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
       - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
@@ -209,7 +225,9 @@ services:
     image: mccache-img
     container_name: mccache09
     environment:
-      - TEST_RANDOM_SEED=97
+      - TEST_RANDOM_SEED=191
+      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-1.0}         # Default to 1 second.
+      - TEST_SLEEP_UNIT=${TEST_SLEEP_APT:-100}        # Default to 100th (0.01 sec) aperture increment.
       - TEST_SLEEP_SPAN=${TEST_SLEEP_SPAN:-100}       # 1 - 100 time span scala.
       - TEST_SLEEP_UNIT=${TEST_SLEEP_UNIT:-100}       # 10 = 0.1s ,100=0.01s ,1000=0.001s (1ms)
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-100}     # Default to 100 key entries.
