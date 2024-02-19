@@ -166,8 +166,14 @@ ${CONTAINER_EXE} up  ${NODE01} ${NODE02} ${NODE03} ${NODE04} ${NODE05} ${NODE06}
 echo Run test using the output log from the cluster.
 
 # Extract out and clean up the INQ result from each of the debug log files into a result file.
-tail -n 200 log/debug0*.log |grep -E "INQ|Done|Exiting" |grep -Ev "Fr:|Out going" |sed "s/}}//" |sed "s/{/\n  /" |sed "/Exiting/a}" |tr "}" "\n"  > log/result.txt
+tail -n 500 log/debug0*.log |grep -E "INQ|Done|Exiting" |grep -Ev "Fr:|Out going" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "s/},/}\n/g" |sed "s/}}/}/"   > log/result.txt
 
-pipenv run  pytest -q .
+# Validate the stress test rsults.
+pytest  tests/stress/test_stress.py
+
+# Summarize
+grep -iE  "after lookup|in the background"      log/debug0*.log >log/sum_expire.log
+grep -i   "cache incoherent"                    log/debug0*.log >log/sum_incoherent.log`
+grep -i   "monkey is angry"                     log/debug0*.log >log/sum_drop_packets.log`
 
 popd

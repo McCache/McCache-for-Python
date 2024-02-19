@@ -36,10 +36,12 @@ FOR /f "tokens=*" %%v IN ('powershell get-date -format "{_yyyyMMdd_HHmm}"') DO S
 :: Parse the command line parameters with the following format:
 :: run_test.bat [ key1 val1 [key2 val2 [key3 val3 [...]]]]
 :: where the case insensitive keys:
+::  MCCACHE_CACHE_MAX   The maximum cache entries.
+::  MCCACHE_CACHE_SIZE  The maximum cache size in bytes.
 ::  TEST_MAX_ENTRIES    The maximum unique keys to use.
 ::  TEST_RUN_DURATION   The maximum duration, in minutes, for this test run.
-::  TEST_SLEEP_SPAN     The maximum range for the random duration to sleep.
-::  TEST_SLEEP_UNIT     The unit for the sleep duration. 1 = 1s ,10 = 0.1s ,100 = 0.01s ,1000 = 0.001s
+::  TEST_SLEEP_MAX      The maximum range for the random duration to sleep.
+::  TEST_SLEEP_APT      The unit for the sleep duration. 1 = 1s ,10 = 0.1s ,100 = 0.01s ,1000 = 0.001s
 ::  TEST_MONKEY_TANTRUM The maximum percentage of simulated drop packets. 0-20
 
 :: Setup the variable TEST_MAX_ENTRIES to be passed into the container composer.
@@ -48,10 +50,12 @@ SET TEST_MAX_ENTRIES=100
 :: Setup the variable TEST_RUN_DURATION to be passed into the container composer.
 SET TEST_RUN_DURATION=5
 
-:: Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
+:: Setup the variable TEST_SLEEP_MAX to be passed into the container composer.
+SET TEST_SLEEP_MAX=1.0
 SET TEST_SLEEP_SPAN=100
 
-:: Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
+:: Setup the variable TEST_SLEEP_APT to be passed into the container composer.
+SET TEST_SLEEP_APT=100
 SET TEST_SLEEP_UNIT=100
 
 :: Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
@@ -72,6 +76,8 @@ IF  /I "%~1"=="-l"  GOTO :SET_TEST_DEBUG_LEVEL
 IF  /I "%~1"=="-m"  GOTO :SET_TEST_MONKEY_TANTRUM
 IF  /I "%~1"=="-s"  GOTO :SET_TEST_SLEEP_SPAN
 IF  /I "%~1"=="-u"  GOTO :SET_TEST_SLEEP_UNIT
+IF  /I "%~1"=="-x"  GOTO :SET_TEST_SLEEP_MAX
+IF  /I "%~1"=="-t"  GOTO :SET_TEST_SLEEP_APT
 IF  /I "%~1"==""    GOTO :EOF_CLI
 
 ECHO Invalid parameter value.  Try the following:
@@ -83,6 +89,8 @@ ECHO -l ###  Debug level.    Default 3.  0=Off ,1=Basic ,3=Extra ,5=Superfluos
 ECHO -m ###  Monkey tantrum. Default 0.
 ECHO -s ###  Sleep span.     Default 100.
 ECHO -u ###  Sleep unit.     Default 100.
+ECHO -x ###  Sleep max sec.  Default 1.0.
+ECHO -t ###  Sleep aperture. Default 100.
 GOTO :EOF_SCRIPT
 
 :SET_TEST_CLUSTER_SIZE
@@ -99,6 +107,19 @@ GOTO :SOF_CLI
 
 :SET_TEST_MAX_ENTRIES
 SET  TEST_MAX_ENTRIES=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+
+:SET_TEST_SLEEP_MAX
+SET  TEST_SLEEP_MAX=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+:SET_TEST_SLEEP_APT
+SET  TEST_SLEEP_APT=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
@@ -133,9 +154,13 @@ GOTO :SOF_CLI
 
 ECHO Running McCache test with envar:
 ECHO    RUN_TIMESTAMP:      %RUN_TIMESTAMP%
+ECHO    MCCACHE_CACHE_MAX   %MCCACHE_CACHE_MAX%
+ECHO    MCCACHE_CACHE_SIZE  %MCCACHE_CACHE_SIZE%
 ECHO    TEST_CLUSTER_SIZE:  %TEST_CLUSTER_SIZE%
 ECHO    TEST_MAX_ENTRIES:   %TEST_MAX_ENTRIES%
 ECHO    TEST_RUN_DURATION:  %TEST_RUN_DURATION%
+ECHO    TEST_SLEEP_MAX:     %TEST_SLEEP_MAX%
+ECHO    TEST_SLEEP_APT:     %TEST_SLEEP_APT%
 ECHO    TEST_SLEEP_SPAN:    %TEST_SLEEP_SPAN%
 ECHO    TEST_SLEEP_UNIT:    %TEST_SLEEP_UNIT%
 ECHO    TEST_MONKEY_TANTRUM:%TEST_MONKEY_TANTRUM%
@@ -179,14 +204,15 @@ ECHO Starting the test cluster with %TEST_CLUSTER_SIZE% nodes.
 ECHO Run test using the output log from the cluster.
 
 :: Extract out and clean up the INQ result from each of the debug log files into a result file.
-tail -n 200 log/debug0*.log |grep -E "INQ|Done|Exiting" |grep -Ev "Fr:|Out going" |sed "s/}}//" |sed "s/{/\n  /" |sed "/Exiting/a}" |tr "}" "\n"  > log/result.txt
+tail -n 500 log/debug0*.log |grep -E "INQ|Done|Exiting" |grep -Ev "Fr:|Out going" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "s/},/}\n/g" |sed "s/}}/}/"   > log/result.txt
+
+:: Validate the stress test rsults.
+pytest  tests\stress\test_stress.py
 
 :: Summarize
-::grep -i "after lookup|sec in the background"    >log/sum_spikes.log
-::grep -i "monkey is angry"                       >log/sum_drop_packets.log`
-
-
-:: pipenv run  pytest -q .
+grep -iE  "after lookup|in the background"      log/debug0*.log >log/sum_expire.log
+grep -i   "cache incoherent"                    log/debug0*.log >log/sum_incoherent.log
+grep -i   "monkey is angry"                     log/debug0*.log >log/sum_drop_packets.log
 
 :EOF_SCRIPT
 POPD
