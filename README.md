@@ -14,7 +14,9 @@ The goals of this package are:
 1. Reduce complexity by not be dependent on any external caching service such as `memcached`, `redis` or the likes.  SEE: [Distributed Cache](https://en.wikipedia.org/wiki/Distributed_cache)
    1. We are guided by the principal of first scaling up before scaling out.
 2. Keep the programming interface consistent with Python's dictionary.  The distributed nature of the cache is transparent to you.
+   1. This is an in process cache.
 3. Performant
+   1. Need to handle updates that are 0.01sec (10 ms) apart.
 
 ## Installation
 ```console
@@ -200,6 +202,12 @@ export MCCACHE_TTL=900
 export MCCACHE_MTU=1472
 ```
 
+## Architecture Diagram
+### The other implementation
+TBD
+### This implementation
+TBD
+
 ## Design
 `McCache` overwrite both the `__setitem__()` and `__delitem__()` dunder methods of `OrderedDict` to shim in the communication sub-layer to sync-up the other members in the cluster.  All changes to the cache dictonary are captured and queued up to be multicasted out.
 
@@ -227,7 +235,9 @@ There are **no** locks.  Synchronization is implemented using a **monotonic** ti
 import mcache as mc
 
 def change(ctx: dict):
-    print('Cache got change 1 second ago.')
+    """Callback method to be informed of changes to your local cache from a remote update.
+    """
+    print('Cache got change 1 second ago.  Context "ctx" have more details.')
 
 c = mc.get_cache( callback=change )
 c['k'] = False

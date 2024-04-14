@@ -308,11 +308,16 @@ class Cache( OrderedDict ):
             self.deletes += 1
         self._set_spike()
 
+        # NOTE: Process cache evicting at the end so that we can get the messsage out to the other cluster members ASAP.
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
+
         # Callback to notify a change in the cache.
         elp = round((tsm - lkp) / Cache.ONE_NS_SEC ,5)
         if  self.__callback and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
             # TODO: Should we call the callback in on a different thread so that this update doesn't block?
             # The key/value got changed within callback window of last read.
+            # Developer is responsible to NOT block this call.
             self.__callback({'typ': 1 ,'nms': self.__name ,'key': key ,'lkp': lkp ,'tsm': tsm ,'elp': elp ,'prvcrc': crc ,'newcrc': None})
 
     def _post_get(self,
@@ -361,12 +366,23 @@ class Cache( OrderedDict ):
             self.inserts += 1
         self._set_spike()
 
+        # NOTE: Process cache evicting at the end so that we can get the messsage out to the other cluster members ASAP.
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
+
+        # NOTE: Very coarse way to check for eviction.  Not meant to be precise.
+        while super().__len__()     > 0 and \
+            ((super().__len__() + 1 > self.__maxlen) or (super().__sizeof__() + sys.getsizeof( value ) > self.__maxsize)):
+                _ = self._evict_cap_items()
+
         # Callback to notify a change in the cache.
         # TODO: Handle incoherence.
         lkp = self.__meta[ key ]['lkp']
         elp = round((tsm - lkp) / Cache.ONE_NS_SEC ,5)
         if  self.__callback and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
+            # TODO: Should we call the callback in on a different thread so that this update doesn't block?
             # The key/value got changed since last read.
+            # Developer is responsible to NOT block this call.
             self.__callback({'typ': 2 ,'nms': self.__name ,'key': key ,'lkp': lkp ,'tsm': tsm ,'elp': elp ,'prvcrc': crc ,'newcrc': md5})
 
     def _set_spike(self,
@@ -404,10 +420,6 @@ class Cache( OrderedDict ):
         Raise:
             KeyError
         """
-# Trying to figure out why suce a hign cache incoherence.
-#        if  self.__ttl > 0:
-#            _ = self._evict_ttl_items()
-
         super().__delitem__( key )
 
         if  tsm is None:
@@ -415,6 +427,7 @@ class Cache( OrderedDict ):
         if  self.__debug:
             crc = self.__meta[ key ]['crc'] if key in self.__meta else None
             self._log_ops_msg( opc='DEL' ,tsm=tsm ,nms=self.__name ,key=key ,crc=crc ,msg='Deleted via __delitem__()')
+
         self._post_del( key=key ,tsm=tsm ,eviction=False ,queue_out=queue_out )
 
     def __getitem__(self,
@@ -428,9 +441,8 @@ class Cache( OrderedDict ):
         Raise:
             KeyError
         """
-# Trying to figure out why suce a hign cache incoherence.
-#        if  self.__ttl > 0:
-#            _ = self._evict_ttl_items()
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
 
         val = super().__getitem__( key )
         self.lookups += 1
@@ -463,15 +475,6 @@ class Cache( OrderedDict ):
             tsm         Optional timestamp for the deletion.
             queue_out   Request queing out opeartion info to external receiver.
         """
-# Trying to figure out why suce a hign cache incoherence.
-#        if  self.__ttl > 0:
-#            _ = self._evict_ttl_items()
-#
-#        # NOTE: Very coarse way to check for eviction.  Not meant to be precise.
-#        while super().__len__()     > 0 and \
-#            ((super().__len__() + 1 > self.__maxlen) or (super().__sizeof__() + sys.getsizeof( value ) > self.__maxsize)):
-#                _ = self._evict_cap_items()
-
         updmode: bool = self.__contains__( key )   # If exist we are in UPD mode ,else INS mode.
         super().__setitem__( key ,value )
 
@@ -482,6 +485,7 @@ class Cache( OrderedDict ):
             msg = f"{'Updated' if updmode else 'Inserted'} via __setitem__()"
             crc = self.__meta[ key ]['crc'] if key in self.__meta else None
             self._log_ops_msg( opc=opc ,tsm=tsm ,nms=self.__name ,key=key ,crc=crc ,msg=msg)
+
         self._post_set( key=key ,value=value ,tsm=tsm ,update=updmode ,queue_out=queue_out )
 
     # Public dictionary methods section.
@@ -525,9 +529,8 @@ class Cache( OrderedDict ):
             key         Key to the item to get.
             default     Default value to return if the key doesn't exist in the cache.
         """
-# Trying to figure out why suce a hign cache incoherence.
-#        if  self.__ttl > 0:
-#            _ = self._evict_ttl_items()
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
 
         val = super().get( key ,default )
         self.lookups += 1
@@ -566,9 +569,8 @@ class Cache( OrderedDict ):
             key         Key to the item to get.
             default     Default value to return if the key doesn't exist in the cache.
         """
-# Trying to figure out why suce a hign cache incoherence.
-#        if  self.__ttl > 0:
-#            _ = self._evict_ttl_items()
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
 
         if  self.__debug:
             crc = self.__meta['crc'] if 'crc' in self.__meta else None
@@ -589,9 +591,8 @@ class Cache( OrderedDict ):
             last        True is LIFO ,False is FIFO
             default     Default value to return if the key doesn't exist in the cache.
         """
-# Trying to figure out why suce a hign cache incoherence.
-#        if  self.__ttl > 0:
-#            _ = self._evict_ttl_items()
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
 
         key ,val = super().popitem( last )
         if  self.__debug:
@@ -631,9 +632,8 @@ class Cache( OrderedDict ):
         Args:
             iterable    A list of key/value pairs to update the cache with.
         """
-# Trying to figure out why suce a hign cache incoherence.
-#        if  self.__ttl > 0:
-#            _ = self._evict_ttl_items()
+        if  self.__ttl > 0:
+            _ = self._evict_ttl_items()
 
         updates = {}
         for key ,val in iterable.items():

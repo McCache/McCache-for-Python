@@ -111,14 +111,15 @@ while (end - bgn) < (duration*60):  # Seconds.
     #       time.time_ns()
     #       Win11:  1707278030313783400
     #       WSL:    1707276577346395597
-    #
-    match sys.platform:
-        case 'linux':
-            rnd = (cache.TSM_VERSION()) % entries
-        case 'win32':
-            rnd = (cache.TSM_VERSION() // 100) % entries
-        case  _:
-            rnd = random.randint( 0 ,entries )
+
+    # match sys.platform:
+    #     case 'linux':
+    #         rnd = (cache.TSM_VERSION()) % entries
+    #     case 'win32':
+    #         rnd = (cache.TSM_VERSION() // 100) % entries
+    #     case  _:
+    #         rnd = random.randint( 0 ,entries )
+    rnd = random.randint( 0 ,entries )
     seg = frg.format( frg=rnd )
 
     if  random.randint(0 ,20) == 5: # Arbitarily 5% is strictly can be genrate on this node.
