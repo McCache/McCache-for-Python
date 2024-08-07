@@ -1,5 +1,4 @@
 version: '3'
-services:
   # Set the following environment variable externally from the CLI, shell or from .env file:
   #   TEST_SLEEP_MAX
   #   TEST_SLEEP_APT
@@ -8,6 +7,7 @@ services:
   #   TEST_MONKEY_TANTRUM
   #   TEST_DEBUG_LEVEL
   #   SEE: https://docs.docker.com/compose/environment-variables/set-environment-variables/
+services:
   node01:
     build: .
     image: mccache-img
@@ -21,7 +21,7 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=5                         # 5 seconds window to alert changes.
+      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
@@ -45,9 +45,9 @@ services:
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
-#     - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
+      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=5                         # 5 seconds window to alert changes.
+      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
@@ -73,7 +73,7 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=5                         # 5 seconds window to alert changes.
+      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
@@ -99,7 +99,7 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=5                         # 5 seconds window to alert changes.
+      - MCCACHE_CALLBACK_WIN=3                       # 3 seconds window to alert changes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
@@ -125,7 +125,7 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=5                         # 5 seconds window to alert changes.
+      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
@@ -151,7 +151,7 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=5                         # 5 seconds window to alert changes.
+      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
@@ -177,7 +177,7 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=5                         # 5 seconds window to alert changes.
+      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
@@ -203,7 +203,7 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=5                         # 5 seconds window to alert changes.
+      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
@@ -229,7 +229,7 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=5                         # 5 seconds window to alert changes.
+      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
