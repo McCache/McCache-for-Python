@@ -5,6 +5,8 @@
 
 import hashlib
 import json
+import logging
+import os
 import time
 
 from datetime import timedelta
@@ -15,53 +17,73 @@ class   TestClass:
     """Test `Class`
     """
 
-    def get_result(self) -> dict:
+    def get_result(self ,caplog) -> dict:
+        logger = logging.getLogger()
         chksums= dict()
-        endtsm: str = None
-        exttsm: str = None
+        endtsm: str = None  # Done testing time.
+        exttsm: str = None  # Exit testing time.
         member: str = None
 
         with open("./log/result.txt") as fn:
             for ln in fn:
-                if 'Done' in ln:
+                if '\tDone' in ln:
                     # Example:
-                    # 1706831937.173151 Done at 23:49:31.73074860. Querying final cache checksum.
-                    tks     = ln.split(' ')         # Tokenize the line.
-                    endtsm  = tks[3][ :-1]          # Strip the trailing period.
-                elif 'Exiting' in ln:
-                    # Example:
-                    # 1706834869.792038 Exiting at 07:58:17.91994199.
-                    tks     = ln.split(' ')         # Tokenize the line.
-                    exttsm  = tks[3][ :-1]          # Strip the trailing period.
-
-                    chksums[ member ]['crc'] = hashlib.md5( bytearray(str( chksums[ member ]['data'] ) ,encoding='utf-8') ).digest()
-                elif 'INQ' in ln:
+                    # 1714334606.717288 L# 262 Im:10.89.2.55\t\tFYI\t20:03:26.710504870
+                    tokens  = ln.split('\t')        # Tokenize the line.
+                    endtsm  = tokens[3]
+                elif '\tINQ' in ln:
                     # Example
                     # 1706834856.017798 L#1145 Im:10.89.2.71
-                    tks     = ln.split(' ')         # Tokenize the line.
-                    member  = tks[2][3: ].strip()   # Strip away 'Im:'
-                elif 'crc' in ln and 'tsm' in ln:
+                    tokens  = ln.split(' ')         # Tokenize the line.
+                    member  = tokens[2][3: ].strip()   # Strip away 'Im:'
                     if  member not in chksums:
-                        chksums[ member ] = {'endtsm': endtsm ,'exttsm': exttsm ,'crc': None ,'data': {}}
+                        chksums[ member ] = {'endtsm': None ,'exttsm': None ,'crc': None ,'data': {}}
 
+                elif 'crc' in ln and 'tsm' in ln:
                     # Example:
                     # 'K000-003': {'crc': 'fkU4sT6XTwQhLQT6ZvUb3w', 'tsm': '07:47:33.89543949'}
                     sts = json.loads( '{' + ln.replace("'" ,'"') + '}')
                     chksums[ member ]['data'].update( sts )
+                elif '\tExiting' in ln:
+                    # Example:
+                    # 1714334606.944546 L# 271 Im:10.89.2.55\t\tFYI\t20:03:26.935912182
+                    tokens  = ln.split('\t')        # Tokenize the line.
+                    exttsm  = tokens[3]
+                    chksums[ member ]['endtsm'] = endtsm
+                    chksums[ member ]['exttsm'] = exttsm
+                    chksums[ member ]['crc'] = hashlib.md5( bytearray(str( chksums[ member ]['data'] ) ,encoding='utf-8') ).digest()
 
-        # First remove all members that have identical checksums using nested loop iteration.
+        # First remove all members that have identical checksums so we have fewer entries to compare.
         #
-        for i ,prv  in enumerate(list(chksums.items())):
-            if  i > 0:
-                for _ ,cur  in enumerate(list(chksums.items())):
-                    if  prv[0] != cur[0]:
-                        if  prv[0] in chksums and prv[1]['crc'] == cur[1]['crc']:
-                            _ = chksums.pop(prv[0])
+#       for i ,prv  in enumerate(list(chksums.items())):
+#           if  i > 0:
+#               for _ ,cur  in enumerate(list(chksums.items())):
+#                   if  prv[0] != cur[0]:
+#                       if  prv[0] in chksums and prv[1]['crc'] == cur[1]['crc']:
+#                           _ = chksums.pop(prv[0])
 
         return  chksums
 
-    def test_stress_01(self):
-        chksums = self.get_result()
+    def test_stress_00(self ,caplog):
+        logger = logging.getLogger()
+        with caplog.at_level(logging.INFO):
+            logger.info(f"In test_stress_00 ...")
+
+        assert  os.path.exists( "./log/result.txt")     ,"File not found: ./log/result.txt"
+        assert  os.path.getsize("./log/result.txt") > 0 ,"File size zero: ./log/result.txt"
+
+    def test_stress_01(self ,caplog):
+        logger = logging.getLogger()
+        with caplog.at_level(logging.INFO):
+            logger.info(f"In test_stress_01 ...")
+
+        chksums = self.get_result( caplog )
+
+        if 'TEST_CLUSTER_SIZE' in os.environ:
+            _cs = int( os.environ['TEST_CLUSTER_SIZE'] )
+            _ls = len(chksums)
+            assert  _cs == _ls ,f"Expecting {_cs} INQ results but got {_ls}."
+            print("Hello World!")
 
         # Compare the remainder members.
         # Any entry timestamp that older than the compared to endings (endtsm) timestamp is discarded
@@ -70,12 +92,12 @@ class   TestClass:
         for _  ,prv in enumerate(list(chksums.items())):
             if  prv[0]  in  chksums:
                 for _  ,cur in  enumerate(list(chksums.items())):
-                    if  cur[0]  in  chksums and prv[0] != cur[0]:
+                    if  cur[0]  in  chksums and prv[0] != cur[0]:   # Different IP address.
                         # Compare previous to current.
                         #
                         for k   in  prv[1]['data'].keys():
                             if  k   in cur[1]['data']:
-                                # NOTE: If we have 2 values with different CRC then something got change and we need to validate the  timestamp.
+                                # NOTE: If we have 2 values with different CRC then something got change and we need to validate the timestamp.
                                 #       Only validate if:
                                 #           The previous entry timestamp is less than the current  node completion timestamp, and
                                 #           the current  entry timestamp is less than the previous node completion timestamp.

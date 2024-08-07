@@ -37,9 +37,6 @@ FOR /f "tokens=*" %%v IN ('powershell get-date -format "{_yyyyMMdd_HHmm}"') DO S
 :: run_test.bat [ key1 val1 [key2 val2 [key3 val3 [...]]]]
 :: where the case insensitive keys:
 
-:: Setup the variable MCCACHE_CALLBACK_WIN to be passed into the container composer.
-SET MCCACHE_CALLBACK_WIN=0
-
 :: Setup the variable TEST_CLUSTER_SIZE to be passed into the container composer.
 SET TEST_CLUSTER_SIZE=3
 
@@ -57,9 +54,12 @@ SET TEST_SLEEP_APT=100
 
 :: Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
 SET TEST_MONKEY_TANTRUM=0
+
 :: Setup the variable TEST_DEBUG_LEVEL to be passed into the container composer.
 SET TEST_DEBUG_LEVEL=1
 
+:: Setup the variable MCCACHE_CALLBACK_WIN to be passed into the container composer.
+SET MCCACHE_CALLBACK_WIN=0
 
 :: Start of CLI.
 :SOF_CLI
@@ -68,19 +68,19 @@ IF  /I "%~1"=="-d"  GOTO :SET_TEST_RUN_DURATION
 IF  /I "%~1"=="-k"  GOTO :SET_TEST_MAX_ENTRIES
 IF  /I "%~1"=="-l"  GOTO :SET_TEST_DEBUG_LEVEL
 IF  /I "%~1"=="-p"  GOTO :SET_TEST_SLEEP_APT
-IF  /I "%~1"=="-x"  GOTO :SET_TEST_SLEEP_MAX
+IF  /I "%~1"=="-s"  GOTO :SET_TEST_SLEEP_MAX
 IF  /I "%~1"=="-y"  GOTO :SET_TEST_MONKEY_TANTRUM
 IF  /I "%~1"=="-w"  GOTO :SET_MCCACHE_CALLBACK_WIN
 IF  /I "%~1"==""    GOTO :EOF_CLI
 
 ECHO Invalid parameter value.  Try the following:
-ECHO %0  [-c ##] [-d ##] [-k ##] [-l ##] [-p ###] [-x ###] [-y ##] [-w ###]
+ECHO %0  [-c ##] [-d ##] [-k ##] [-l ##] [-p ###] [-s ###] [-y ##] [-w ###]
 ECHO -c ###  Cluster size.          Default 3.  Max is 9.
 ECHO -d ###  Run duration.          Default 5 minutes.
 ECHO -k ###  Max entries.           Default 200.
 ECHO -l ###  Debug level.           Default 0.  0=Off ,1=Basic ,3=Extra ,5=Superfluous
 ECHO -p ###  Sleep aperture.        Default 100. 100=10ms ,1000=1ms ,5000=0.5ms ,10000=0.1ms/100us
-ECHO -x ###  Sleep max sec.         Default 2.
+ECHO -s ###  Sleep max sec.         Default 2.
 ECHO -y ###  Monkey tantrum.        Default 0.
 ECHO -w ###  Callback window sec.   Default 0.
 GOTO :EOF_SCRIPT
@@ -191,8 +191,7 @@ ECHO Run test using the output log from the cluster.
 
 :: Extract out and clean up the INQ result from each of the debug log files into a result file.
 :: NOTE: There is a leading tab character before each search string.
-::tail -n 1000 log/debug0*.log |grep -E "	BYE|	INQ|	Done|	Exiting" |sed "/BYE/s/Out going/Out Going/" |grep -Ev "Fr:|Out going" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "s/},/}\n/g" |sed "s/}}/}\n/"   > log/result.txt
-cat log/debug0*.log |grep -E "	INQ|Done|Exiting" |grep -Eiv "Fr:|Out going|Delete" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "s/},/}\n/g" |sed "s/}}/}\n/"   > log/result.txt
+cat log/debug0*.log |grep -E "	INQ|	MET|Done|Exiting" |grep -Ev "Fr:|Out going|Delete" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "s/},/}\n/g" |sed "s/}}/}\n/"   > log/result.txt
 
 :: Validate the stress test rsults.
 pytest  tests\stress\test_stress.py
