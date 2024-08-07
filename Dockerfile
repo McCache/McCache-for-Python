@@ -1,10 +1,13 @@
 #   Steps to build and run this container.  You can either use podman or docker.
 #
+#S  podman  machine init --disk-size 48         # deafult: 16.5Gb
 #$  podman  build   -t          mccache-img     .
+#S  podman  system  df
 #$  podman  run  -d --rm --name mccache-test    mccache-img
 #$  podman  ps
 #$  podman  exec    -it         mccache-test    bash
 #$  podman  stop                mccache-test
+#$  podman  system  prune
 #
 #$  pipenv  install --dev       podman-compose
 #$  podman-compose    up  -d
@@ -13,12 +16,11 @@
 #   SEE: https://dzone.com/articles/podman-compose-vs-docker-compose
 #
 
-#RG         IMAGE_VERSION=3.8.18
-#RG         IMAGE_VERSION=3.9.18
-#RG         IMAGE_VERSION=3.10.13
-#RG         IMAGE_VERSION=3.11.6
-ARG         IMAGE_VERSION=3.11.7
-#RG         IMAGE_VERSION=3.12.0
+#RG         IMAGE_VERSION=3.8.19
+#RG         IMAGE_VERSION=3.9.19
+#RG         IMAGE_VERSION=3.10.14
+ARG         IMAGE_VERSION=3.11.9
+#RG         IMAGE_VERSION=3.12.4
 #RG         IMAGE_VERSION=latest
 #RG         IMAGE_VERSION=slim
 FROM        python:${IMAGE_VERSION}
@@ -42,11 +44,12 @@ WORKDIR     /home/${USRGRP}
 # NOTE: Must copy all pertinent files.  If not "pip install -e ." will break.
 #       There is a `.dockerignore` file that is used to filter out files of no interest to us.
 COPY    .   /home/${USRGRP}
+#COPY        requirements.txt    /home/${USRGRP}
 
-RUN         mkdir   -p  /var/log/${USRGRP}  \
-        &&  chown   -R  ${USRGRP}:${USRGRP} /var/log/${USRGRP}
-RUN         mkdir   -p  /home/${USRGRP}/log \
-        &&  chown   -R  ${USRGRP}:${USRGRP} /home/${USRGRP}
+RUN         mkdir   -p          /var/log/${USRGRP}  \
+        &&  chown   -R          ${USRGRP}:${USRGRP} /var/log/${USRGRP}
+RUN         mkdir   -p          /home/${USRGRP}/log \
+        &&  chown   -R          ${USRGRP}:${USRGRP} /home/${USRGRP}
 
 # Get Python project dependencies ready.
 #
