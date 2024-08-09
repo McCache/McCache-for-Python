@@ -1,7 +1,6 @@
 version: '3'
   # Set the following environment variable externally from the CLI, shell or from .env file:
-  #   TEST_SLEEP_MAX
-  #   TEST_SLEEP_APT
+  #   TEST_APERTURE
   #   TEST_MAX_ENTRIES
   #   TEST_RUN_DURATION
   #   TEST_MONKEY_TANTRUM
@@ -14,8 +13,7 @@ services:
     container_name: mccache01
     environment:
       - TEST_RANDOM_SEED=101
-      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-2.0}         # Default to 2 second.
-      - TEST_SLEEP_APT=${TEST_SLEEP_APT:-100}         # Default to 100th (0.01 sec).  100=10ms ,1000=1ms ,5000=0.5ms ,10000=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -40,8 +38,7 @@ services:
     container_name: mccache02
     environment:
       - TEST_RANDOM_SEED=127
-      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-2.0}         # Default to 2 second.
-      - TEST_SLEEP_APT=${TEST_SLEEP_APT:-100}         # Default to 100th (0.01 sec).  100=10ms ,1000=1ms ,5000=0.5ms ,10000=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -66,8 +63,7 @@ services:
     container_name: mccache03
     environment:
       - TEST_RANDOM_SEED=131
-      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-2.0}         # Default to 2 second.
-      - TEST_SLEEP_APT=${TEST_SLEEP_APT:-100}         # Default to 100th (0.01 sec).  100=10ms ,1000=1ms ,5000=0.5ms ,10000=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -92,14 +88,13 @@ services:
     container_name: mccache04
     environment:
       - TEST_RANDOM_SEED=149
-      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-2.0}         # Default to 2 second.
-      - TEST_SLEEP_APT=${TEST_SLEEP_APT:-100}         # Default to 100th (0.01 sec).  100=10ms ,1000=1ms ,5000=0.5ms ,10000=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=3                       # 3 seconds window to alert changes.
+      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
       - MCCACHE_MULTICAST_IP=224.0.0.3:4000
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
@@ -118,8 +113,7 @@ services:
     container_name: mccache05
     environment:
       - TEST_RANDOM_SEED=151
-      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-2.0}         # Default to 2 second.
-      - TEST_SLEEP_APT=${TEST_SLEEP_APT:-100}         # Default to 100th (0.01 sec).  100=10ms ,1000=1ms ,5000=0.5ms ,10000=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -144,8 +138,7 @@ services:
     container_name: mccache06
     environment:
       - TEST_RANDOM_SEED=163
-      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-2.0}         # Default to 2 second.
-      - TEST_SLEEP_APT=${TEST_SLEEP_APT:-100}         # Default to 100th (0.01 sec).  100=10ms ,1000=1ms ,5000=0.5ms ,10000=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -170,8 +163,7 @@ services:
     container_name: mccache07
     environment:
       - TEST_RANDOM_SEED=173
-      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-2.0}         # Default to 2 second.
-      - TEST_SLEEP_APT=${TEST_SLEEP_APT:-100}         # Default to 100th (0.01 sec).  100=10ms ,1000=1ms ,5000=0.5ms ,10000=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -196,8 +188,7 @@ services:
     container_name: mccache08
     environment:
       - TEST_RANDOM_SEED=181
-      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-2.0}         # Default to 2 second.
-      - TEST_SLEEP_APT=${TEST_SLEEP_APT:-100}         # Default to 100th (0.01 sec).  100=10ms ,1000=1ms ,5000=0.5ms ,10000=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
@@ -222,8 +213,7 @@ services:
     container_name: mccache09
     environment:
       - TEST_RANDOM_SEED=191
-      - TEST_SLEEP_MAX=${TEST_SLEEP_MAX:-2.0}         # Default to 2 second.
-      - TEST_SLEEP_APT=${TEST_SLEEP_APT:-100}         # Default to 100th (0.01 sec).  100=10ms ,1000=1ms ,5000=0.5ms ,10000=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.

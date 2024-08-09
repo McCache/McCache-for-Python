@@ -33,56 +33,51 @@ SET CONTAINER_EXE=docker-compose
 ::
 FOR /f "tokens=*" %%v IN ('powershell get-date -format "{_yyyyMMdd_HHmm}"') DO SET RUN_TIMESTAMP=%%v
 
-:: Parse the command line parameters with the following format:
-:: run_test.bat [ key1 val1 [key2 val2 [key3 val3 [...]]]]
-:: where the case insensitive keys:
-
 :: Setup the variable TEST_CLUSTER_SIZE to be passed into the container composer.
 SET TEST_CLUSTER_SIZE=3
-
-:: Setup the variable TEST_MAX_ENTRIES to be passed into the container composer.
-SET TEST_MAX_ENTRIES=200
 
 :: Setup the variable TEST_RUN_DURATION to be passed into the container composer.
 SET TEST_RUN_DURATION=5
 
-:: Setup the variable TEST_SLEEP_MAX to be passed into the container composer.
-SET TEST_SLEEP_MAX=2.0
+:: Setup the variable TEST_MAX_ENTRIES to be passed into the container composer.
+SET TEST_MAX_ENTRIES=200
 
-:: Setup the variable TEST_SLEEP_APT to be passed into the container composer.
-SET TEST_SLEEP_APT=100
-
-:: Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
-SET TEST_MONKEY_TANTRUM=0
+:: Setup the variable TEST_APERTURE to be passed into the container composer.
+SET TEST_APERTURE=0.01
 
 :: Setup the variable TEST_DEBUG_LEVEL to be passed into the container composer.
 SET TEST_DEBUG_LEVEL=1
+
+:: Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
+SET TEST_MONKEY_TANTRUM=0
 
 :: Setup the variable MCCACHE_CALLBACK_WIN to be passed into the container composer.
 SET MCCACHE_CALLBACK_WIN=0
 
 :: Start of CLI.
+:: Parse the command line parameters with the following format:
+:: run_test.bat [ key1 val1 [key2 val2 [key3 val3 [...]]]]
+:: where the case insensitive keys:
 :SOF_CLI
 IF  /I "%~1"=="-c"  GOTO :SET_TEST_CLUSTER_SIZE
 IF  /I "%~1"=="-d"  GOTO :SET_TEST_RUN_DURATION
 IF  /I "%~1"=="-k"  GOTO :SET_TEST_MAX_ENTRIES
 IF  /I "%~1"=="-l"  GOTO :SET_TEST_DEBUG_LEVEL
-IF  /I "%~1"=="-p"  GOTO :SET_TEST_SLEEP_APT
-IF  /I "%~1"=="-s"  GOTO :SET_TEST_SLEEP_MAX
+IF  /I "%~1"=="-p"  GOTO :SET_TEST_APERTURE
 IF  /I "%~1"=="-y"  GOTO :SET_TEST_MONKEY_TANTRUM
 IF  /I "%~1"=="-w"  GOTO :SET_MCCACHE_CALLBACK_WIN
 IF  /I "%~1"==""    GOTO :EOF_CLI
 
 ECHO Invalid parameter value.  Try the following:
-ECHO %0  [-c ##] [-d ##] [-k ##] [-l ##] [-p ###] [-s ###] [-y ##] [-w ###]
-ECHO -c ###  Cluster size.          Default 3.  Max is 9.
-ECHO -d ###  Run duration.          Default 5 minutes.
-ECHO -k ###  Max entries.           Default 200.
-ECHO -l ###  Debug level.           Default 0.  0=Off ,1=Basic ,3=Extra ,5=Superfluous
-ECHO -p ###  Sleep aperture.        Default 100. 100=10ms ,1000=1ms ,5000=0.5ms ,10000=0.1ms/100us
-ECHO -s ###  Sleep max sec.         Default 2.
-ECHO -y ###  Monkey tantrum.        Default 0.
-ECHO -w ###  Callback window sec.   Default 0.
+ECHO %0  [-c #] [-d #] [-k #] [-l #] [-p #] [-s #] [-y ##] [-w #]
+ECHO -c #  Cluster size.          Default 3.  Max is 9.
+ECHO -d #  Run duration.          Default 5 minutes.
+ECHO -k #  Max entries.           Default 200.
+ECHO -l #  Debug level.           Default 0.  0=Off ,1=Basic ,3=Extra ,5=Superfluous
+ECHO -p #  Sleep aperture.        Default 0.01. 0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
+ECHO -s #  Sleep max sec.         Default 2.
+ECHO -y #  Monkey tantrum.        Default 0.
+ECHO -w #  Callback window sec.   Default 0.
 GOTO :EOF_SCRIPT
 
 :SET_TEST_CLUSTER_SIZE
@@ -103,15 +98,8 @@ SHIFT
 SHIFT
 GOTO :SOF_CLI
 
-
-:SET_TEST_SLEEP_MAX
-SET  TEST_SLEEP_MAX=%2
-SHIFT
-SHIFT
-GOTO :SOF_CLI
-
-:SET_TEST_SLEEP_APT
-SET  TEST_SLEEP_APT=%2
+:SET_TEST_APERTURE
+SET  TEST_APERTURE=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
@@ -140,18 +128,14 @@ GOTO :SOF_CLI
 
 ECHO Running McCache test with envar:
 ECHO    RUN_TIMESTAMP:          %RUN_TIMESTAMP%
-ECHO    MCCACHE_CACHE_MAX       %MCCACHE_CACHE_MAX%
-ECHO    MCCACHE_CACHE_SIZE      %MCCACHE_CACHE_SIZE%
-ECHO    MCCACHE_CALLBACK_WIN:   %MCCACHE_CALLBACK_WIN%
-ECHO    TEST_CLUSTER_SIZE:      %TEST_CLUSTER_SIZE%
-ECHO    TEST_MAX_ENTRIES:       %TEST_MAX_ENTRIES%
-ECHO    TEST_RUN_DURATION:      %TEST_RUN_DURATION%
-ECHO    TEST_SLEEP_MAX:         %TEST_SLEEP_MAX%
-ECHO    TEST_SLEEP_APT:         %TEST_SLEEP_APT%
-ECHO    TEST_MONKEY_TANTRUM:    %TEST_MONKEY_TANTRUM%
 ECHO    TEST_DEBUG_LEVEL:       %TEST_DEBUG_LEVEL%
+ECHO    TEST_CLUSTER_SIZE:      %TEST_CLUSTER_SIZE%
+ECHO    TEST_RUN_DURATION:      %TEST_RUN_DURATION%
+ECHO    TEST_MAX_ENTRIES:       %TEST_MAX_ENTRIES%
+ECHO    TEST_APERTURE:          %TEST_APERTURE%
+ECHO    TEST_MONKEY_TANTRUM:    %TEST_MONKEY_TANTRUM%
+ECHO    MCCACHE_CALLBACK_WIN:   %MCCACHE_CALLBACK_WIN%
 ECHO:
-
 
 :: The following are CLI input parameter you can use to parse out the script name information.
 :: ECHO From Dir:     %CD%
@@ -190,8 +174,8 @@ ECHO Starting the test cluster with %TEST_CLUSTER_SIZE% nodes.
 ECHO Run test using the output log from the cluster.
 
 :: Extract out and clean up the INQ result from each of the debug log files into a result file.
-:: NOTE: There is a leading tab character before each search string.
-cat log/debug0*.log |grep -E "	INQ|	MET|Done|Exiting" |grep -Ev "Fr:|Out going|Delete" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "s/},/}\n/g" |sed "s/}}/}\n/"   > log/result.txt
+:: NOTE: There is a embedded TAB character in the search string.
+cat log/debug0*.log |grep -E "	INQ	|	MET	|Done|Exiting" |grep -Ev "Fr:|Out going|Delete" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "s/},/}\n/g" |sed "s/}}/}\n/"   > log/result.txt
 
 :: Validate the stress test rsults.
 pytest  tests\stress\test_stress.py
@@ -199,10 +183,10 @@ pytest  tests\stress\test_stress.py
 :: Sort the logs in chronological order.
 sort    log/debug0*.log >log/chronological.txt
 
-:: Summarize
-grep -iE  "after lookup|in the background"      log/debug0*.log >log/sum_expire.log
-grep -i   "cache incoherent"                    log/debug0*.log >log/sum_incoherent.log
-grep -i   "monkey is angry"                     log/debug0*.log >log/sum_drop_packets.log
+:: Detail details.
+grep -iE  "after lookup|in the background"      log/debug0*.log >log/detail_expire.log
+grep -i   "cache incoherent"                    log/debug0*.log >log/detail_incoherent.log
+grep -i   "monkey is angry"                     log/debug0*.log >log/detail_drop_packets.log
 
 :EOF_SCRIPT
 POPD

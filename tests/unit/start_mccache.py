@@ -13,6 +13,7 @@ import time
 from   math import sqrt
 
 import mccache as mc
+from   pycache import Cache
 
 # Callback method for key that are updated within 1 second of lookup in the background.
 #
@@ -36,31 +37,19 @@ def test_callback(ctx: dict) -> bool:
     if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.BASIC:
         match ctx['typ']:
             case 1: # Deletion
-                mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.WRN ,tsm=time.time_ns() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
-                                                ,msg=f"^   WRN {ctx['key']} got deleted within {ctx['elp']:0.5f} sec in the background." )
+                mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.WRN ,tsm=cache.TSM_VERSION ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
+                                                ,msg=f"^   WRN {ctx['key']} got deleted     within {ctx['elp']:0.5f} sec in the background." )
             case 2: # Updates
-                mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.WRN ,tsm=time.time_ns() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
-                                                ,msg=f"^   WRN {ctx['key']} got updated within {ctx['elp']:0.5f} sec in the background." )
+                mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.WRN ,tsm=cache.TSM_VERSION ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
+                                                ,msg=f"^   WRN {ctx['key']} got updated     within {ctx['elp']:0.5f} sec in the background." )
+            case 3: # Incoherence
+                mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.WRN ,tsm=cache.TSM_VERSION ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
+                                                ,msg=f"^   WRN {ctx['key']} got incoherent  within {ctx['elp']:0.5f} sec in the background." )
     return  True
 
 
 # Initialization section.
 #
-# SEE:  https://stackoverflow.com/questions/43357278/how-can-i-make-time-sleep-shorter
-#   minsleep = 0.01
-#   for f in [ 0.003 ,0.002 ,0.001 ,0.0008 ,0.0006 ,0.0004 ,0.0002 ,0.00008 ,0.00006 ,0.00004 ,0.00002 ]:
-#       time.sleep( 1 )
-#       bgn = datetime.datetime.now()
-#       time.sleep( f )
-#       end = datetime.datetime.now()
-#       dif = end - bgn
-#       if  dif.total_seconds() > f*1.29:
-#           #   print(f" {f:<6}: {dif.total_seconds():<8} > {f*1.29:<8}")
-#           break
-#       #   print(f" {f:<6}: {dif.total_seconds():<8} < {f*1.29:<8}")
-#       minsleep = f
-#   mc.logger.info(f"Python time.sleep( {minsleep} ) is the smallest aperture for this machine.")
-
 rndseed = 17
 if 'TEST_RANDOM_SEED' in os.environ:
     rndseed = int(os.environ['TEST_RANDOM_SEED'])
@@ -71,11 +60,10 @@ random.seed( rndseed )
 # The artificial pauses in between cache operation.  Targeting between 10 to 30 ms.
 # SEE: https://www.centurylink.com/home/help/internet/how-to-improve-gaming-latency.html
 #
-sleepmax:float= 2   if 'TEST_SLEEP_MAX'     not in os.environ else float(os.environ['TEST_SLEEP_MAX']  )
-sleepapt:int  = 100 if 'TEST_SLEEP_APT'     not in os.environ else int(  os.environ['TEST_SLEEP_APT']  )
-
+aperture:float=0.01 if 'TEST_APERTURE'      not in os.environ else float(os.environ['TEST_APERTURE']  )
 entries:int   = 200 if 'TEST_MAX_ENTRIES'   not in os.environ else int(  os.environ['TEST_MAX_ENTRIES'])
-duration:int  = 5   if 'TEST_RUN_DURATION'  not in os.environ else int(  os.environ['TEST_RUN_DURATION'])#
+duration:int  = 5   if 'TEST_RUN_DURATION'  not in os.environ else int(  os.environ['TEST_RUN_DURATION'])
+cluster:int   = 3   if 'TEST_CLUSTER_SIZE'  not in os.environ else int(  os.environ['TEST_CLUSTER_SIZE'])
 
 if  mc._mcConfig.callback_win < 0.1:    # Only this tight in testing.
     cache = mc.get_cache( callback=test_callback )
@@ -88,19 +76,28 @@ frg = '{'+'frg:0{l}'.format( l=len(str( entries )))+'}'
 
 # Random test section.
 #
-mc.logger.info(f"{mc.SRC_IP_ADD} Config: Seed={rndseed:3}  ,CBck={mc._mcConfig.callback_win:2} sec ,Duration={duration:2} min ,Keys={entries:3} ,SMax={sleepmax} ,SApt={sleepapt}")
+mc.logger.info(f"{mc.SRC_IP_ADD} Config: Seed={rndseed:3}  ,CBck={mc._mcConfig.callback_win:2} sec ,Duration={duration:2} min ,Keys={entries:3} ,Aptr={aperture}")
 
-# NOTE: We are targeting 10-50% ms fair latency.  https://www.centurylink.com/home/help/internet/how-to-improve-gaming-latency.html#:~:text=Low%20latency%20means%20less%20lag,a%20noticeable%20lag%20in%20gaming.
+itg = 0 # Integral, the digits to the left of the decimal.
+scl = 1 # The number of digits to the right of the decimal.
+while (aperture * scl) < 1:
+    scl *= 10
+itg = int(scl * aperture)   # The factor to offset upwards of teh aperture.
 
-ctr:int = 0     # Counter
+ctr:int   = 0   # Counter
+slp:float = 0.0 # Average sleep interval.
 while (end - bgn) < (duration*60):  # Seconds.
+    snooze = random.randrange( int(itg*scl) ,int(itg*scl*10) ,1 ) / (scl*scl)   # Keep it within 1 digit of the aperture scale.
     # SEE: https://stackoverflow.com/questions/1133857/how-accurate-is-pythons-time-sleep (1ms)
-    snooze = random.randrange(1 ,int(sleepmax*sleepapt) ,10) / (sleepapt*sleepapt/10)
     time.sleep( snooze )
+
+    elp = time.time() - end
+    slp = ((slp *ctr) + elp) / (ctr +1) # Running average of sleep time.
+    ctr +=  1
+
     if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLUOUS:
-        elp = time.time() - end
         glp = '~' if abs((elp - snooze) / snooze) < 0.335 else '!'  # 33% Glyph.
-        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.FYI ,tsm=time.time_ns() ,nms=cache.name ,key=' '*8
+        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=' '*8
                                         ,msg=f">   {round(elp ,5):0.5f} {glp} {round(snooze ,5):0.5f} sec paused in test script." )
 
     rnd = random.randint( 0 ,entries )
@@ -113,7 +110,6 @@ while (end - bgn) < (duration*60):  # Seconds.
         # Keys can be generated by every nodes.
         key = f'K000-{seg}'
 
-    ctr +=  1
     opc =   random.randint( 0 ,20 )
     match   opc:
         case 0:
@@ -126,7 +122,7 @@ while (end - bgn) < (duration*60):  # Seconds.
 
                 # DEBUG trace.
                 if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.EXTRA:
-                    mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc[:-2]
+                    mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=crc[:-2]
                                                     ,msg=f">   INS {key}={val} in test script." )
 
                 # Insert cache entry.
@@ -135,19 +131,19 @@ while (end - bgn) < (duration*60):  # Seconds.
                 # DEBUG trace.
                 if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLUOUS:
                     if  key not in cache:
-                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=crc[:-2]
                                                         ,msg=f">   ERR:{key} NOT persisted in cache in test script!" )
                     else:
                         try:
                             if  val != cache[ key ]:
-                                mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                                mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=crc[:-2]
                                                                 ,msg=f">   ERR:{key} value is incoherent in cache in test script!" )
                             else:
-                                mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                                mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=crc[:-2]
                                                                 ,msg=f">   OK: {key} persisted in cache in test script." )
                         except KeyError:
-                            mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
-                                                            ,msg=f">   ERR:{key} Not found in cache in test script." )
+                            mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=crc[:-2]
+                                                            ,msg=f">   ERR:{key} Not found in cache after insert in test script." )
 
         case 5|6|7|8:   # NOTE: 20% are updates.
             if  key in cache:
@@ -157,7 +153,7 @@ while (end - bgn) < (duration*60):  # Seconds.
 
                 # DEBUG trace.
                 if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.EXTRA:
-                    mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.UPD ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc[:-2]
+                    mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.UPD ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=crc[:-2]
                                                     ,msg=f">   UPD {key}={val} in test script." )
 
                 # Update cache entry.
@@ -166,29 +162,33 @@ while (end - bgn) < (duration*60):  # Seconds.
                 # DEBUG trace.
                 if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLUOUS:
                     if  key not in cache:
-                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.UPD ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.UPD ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=crc[:-2]
                                                         ,msg=f">   ERR:{key} NOT persisted in cache in test script!" )
                     else:
-                        if  val != cache[ key ]:
-                            mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.UPD ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
-                                                            ,msg=f">   ERR:{key} value is incoherent in test script!" )
-                        else:
-                            mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.UPD ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
-                                                            ,msg=f">   OK: {key} persisted in cache in test script!" )
+                        try:
+                            if  val != cache[ key ]:
+                                mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.UPD ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=crc[:-2]
+                                                                ,msg=f">   ERR:{key} value is incoherent in test script!" )
+                            else:
+                                mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.UPD ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=crc[:-2]
+                                                                ,msg=f">   OK: {key} persisted in cache in test script!" )
+                        except KeyError:
+                            mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=crc[:-2]
+                                                            ,msg=f">   ERR:{key} Not found in cache after update in test script." )
         case 9:     # NOTE: 5% are deletes.
             if  key in cache:
                 # Evict cache.
                 try:
                     # DEBUG trace.
                     if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.EXTRA:
-                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.DEL ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=None
                                                         ,msg=f">   DEL {key} in test script." )
                     # Delete cache entry.
                     crc =  cache.metadata[ key ]['crc']
 
                     # DEBUG trace.
                     if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLUOUS:
-                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.DEL ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=crc[:-2]
                                                         ,msg=f">   DEL {key} in test script." )
 
                     del cache[ key ]
@@ -198,10 +198,10 @@ while (end - bgn) < (duration*60):  # Seconds.
                 # DEBUG trace.
                 if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLUOUS:
                     if  key in cache:
-                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.DEL ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=crc[:-2]
                                                         ,msg=f">   ERR:{key} still persist in cache in test script!" )
                     else:
-                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.DEL ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=crc
+                        mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.DEL ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=crc[:-2]
                                                         ,msg=f">   OK: {key} deleted from cache in test script." )
         case _:     # NOTE: 55% are lookups.
             # Look up cache.
@@ -210,7 +210,7 @@ while (end - bgn) < (duration*60):  # Seconds.
             # DEBUG trace.
             if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLUOUS:
                 if  not val:
-                    mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.FYI ,tsm=time.time_ns() ,nms=cache.name ,key=key ,crc=None
+                    mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION ,nms=cache.name ,key=key ,crc=None
                                                     ,msg=f">   WRN:{key} not in cache in test script!")
     end = time.time()
 
@@ -219,17 +219,17 @@ while (end - bgn) < (duration*60):  # Seconds.
 
 # All incoming updates after the the following "Done." cutoff should be discarded.
 #
+# Wait for some straggler to trickle in before to dump out the cache.
+time.sleep( cluster / 3 )   # NOTE: 1/3 the number of nodes in the cluster.
+
 # Lock to take a snapshot.
 mc._lock.acquire()
-mc._log_ops_msg( logging.INFO   ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=f"Done testing. Querying final cache checksum." )
-
-# Wait for some straggler to trickle in before to dump out the cache.
-time.sleep( 1 )
+mc._log_ops_msg( logging.INFO   ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=f"Done testing with {slp:0.4f} sec/ops with {ctr} ops.  Querying final cache checksum." )
 
 # Query the local cache and metrics and exit.
 #
 mc.get_cache_checksum( name=cache.name ,node=mc.SRC_IP_ADD )
-mc.get_cluster_metrics( mc.SRC_IP_ADD )
+mc.get_cluster_metrics( node=mc.SRC_IP_ADD )
 
 mc._log_ops_msg( logging.INFO   ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=f"Exiting test." )
 mc._lock.release()

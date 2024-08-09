@@ -38,7 +38,9 @@ class   TestClass:
                     member  = tokens[2][3: ].strip()   # Strip away 'Im:'
                     if  member not in chksums:
                         chksums[ member ] = {'endtsm': None ,'exttsm': None ,'crc': None ,'data': {}}
-
+                elif 'spikes' in ln:
+                    met = json.loads( '{' + ln.replace("'" ,'"') + '}')
+                    chksums[ member ]['metric'] = met['mccache']
                 elif 'crc' in ln and 'tsm' in ln:
                     # Example:
                     # 'K000-003': {'crc': 'fkU4sT6XTwQhLQT6ZvUb3w', 'tsm': '07:47:33.89543949'}
@@ -164,6 +166,9 @@ class   TestClass:
                                     #if  prv[1]['data'][ k ]['tsm'] < cur[1]['endtsm']:
                                     #    msg =   f"Key: {k} ,Nodes: {prv[0]} {cur[0]} ,PrvTsm: {prv[1]['data'][ k ]['tsm']} CurEnd: {cur[1]['endtsm']} ,CRC: {prv[1]['data'][ k ]['crc']} != {cur[1]['data'][ k ]['crc']}"
                                     #    assert  cur[1]['data'][ k ]['tsm'] == prv[1]['data'][ k ]['tsm'] ,msg
+        #
+        # Assert the incoherence count.
+        pass
 
 
 # The MIT License (MIT)
