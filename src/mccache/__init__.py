@@ -155,6 +155,7 @@ class OpCode(StrEnum):
     # Keep everything here as 3 character fixed length strings.
     ACK = 'ACK'     # Acknowledgement of a received message fragment.
     BYE = 'BYE'     # Member announcing it is leaving the group.
+    DBG = 'DBG'     # Member communicating debug information..
     DEL = 'DEL'     # Member requesting the group to delete the cache entry.
     ERR = 'ERR'     # Member announcing an error to the group.
     EVT = 'EVT'     # Member announcing an eviction to the group.
@@ -169,6 +170,7 @@ class OpCode(StrEnum):
     REQ = 'REQ'     # Member requesting resend message fragment from originator.
     RSD = 'RSD'     # Member to re-send the entire message to the group.
     RST = 'RST'     # Member requesting reset of the cache.
+    SYC = 'SYC'     # Member requesting cache synchronizing among the group members.
     UPD = 'UPD'     # Update an existing cache entry.
     WRN = 'WRN'     # Member announcing an warning to the group.
 
@@ -181,7 +183,8 @@ class OpCode(StrEnum):
 
 @dataclass
 class McCacheConfig:
-    cache_ttl: int      = 900           # Total Time to Live in seconds for a cached entry.  Default is 15 minutes.
+    cache_ttl: int      = 3600          # Total Time to Live in seconds for a cached entry.  Default is 60 minutes.
+                                        # SEE: https://dev.acquia.com/blog/how-choose-right-cache-expiry-lifetime
     cache_max: int      = 256           # Max entries threshold for triggering entries eviction.
     cache_size: int     = 256*1024      # Max size in bytes threshold for triggering entries eviction. Default= 256K.
     cache_sync: str     = 'FULL'        # Cache consistent syncing level. [Full ,Part]
@@ -200,6 +203,7 @@ class McCacheConfig:
     random_seed: int    = int(str(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]).split(".")[3])
     debug_level: int    = 0             # Debug tracing is default to off/false. 0=off ,1=basic ,3=extra ,5=superfluous
     log_format: str     = f"%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d.%(thread)05d)[%(levelname)s {__app__}@%(lineno)d] %(message)s"
+    debug_opcode: str   = None          # To enable logging all message pertaining to this Opcode.
     debug_logfile: str  = 'log/debug.log'
 
 # Module initialization.
@@ -363,13 +367,14 @@ def get_cache_checksum( name: str | None = None ,key: str | None = None ,node: s
         return
 
     tsm = PyCache.TSM_VERSION() # To maintain a common unique checkpoint across the cluster.
-    # TODO: Redo this.
-    if  node is None:
-        _mcOBQueue.put((OpCode.INQ ,tsm ,name ,key ,None ,None ,node))   # Ask other members.
-    aky_t = ()
-    key_t = ( name ,key ,tsm )
-    val_o = ( OpCode.INQ ,None ,None )
-    _ = _decode_message( aky_t ,key_t ,val_o ,sdr=None ) # Ask myself.
+    if  node is None or node != SRC_IP_ADD:
+        # Either broadcast the inquiry out or unicast to a specific member in the cluster other than myself.
+        _mcOBQueue.put((OpCode.INQ ,tsm ,name ,key ,None ,None ,node))
+    else:
+        aky_t = ()
+        key_t = ( name ,key ,tsm )
+        val_o = ( OpCode.INQ ,None ,None )
+        _ = _decode_message( aky_t ,key_t ,val_o ,sdr=None )    # Ask myself.
 
 # Public utilities methods.
 #
@@ -527,7 +532,7 @@ def _log_ops_msg(
         nms: str    | None = None,  # Namespace
         key: object | None = None,  # Key
         crc: str    | None = None,  # Checksum (md5)
-        msg: str    | None = None,  # Message to log.
+        msg: object | None = None,  # Message to log.
         # In message replacement tokens.
         prvtsm: int | None = None,  # Previous Timestamp
         prvcrc: str | None = None,  # Previous Checksum (md5)
@@ -566,9 +571,9 @@ def _log_ops_msg(
     else:
         tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime(tsm // ONE_NS_SEC))}.{tsm % ONE_NS_SEC:0<8}"
     if  nms is None:
-        nms =  f"N={' '* 6}"
+        nms =  f"N={' '* 5}"
     if  key is None:
-        key =  f"K={' '* 6}"
+        key =  f"K={' '* 5}"
     if  msg is None:
         msg = ''
     if  crc is None:
@@ -618,11 +623,12 @@ def _get_cache_metrics( name: str | None = None ) -> dict:
                 'netioinfo':    psutil.net_io_counters()
             }
         }   # Process stats.
-    nms =   {n: {   'count':    len( _mcCache[ n ]),
+    nms =   {n: {   'count':    len(_mcCache[ n ]),
                     'size':     _mcCache[ n ].ttlSize,
                     'spikes':   _mcCache[ n ].spikes,
                     'spikeInt':
                         round(  _mcCache[ n ].spikeInt/ONE_NS_SEC ,4),
+                    'misses':   _mcCache[ n ].misses,
                     'lookups':  _mcCache[ n ].lookups,
                     'inserts':  _mcCache[ n ].inserts,
                     'updates':  _mcCache[ n ].updates,
@@ -632,7 +638,8 @@ def _get_cache_metrics( name: str | None = None ) -> dict:
                 for n in _mcCache.keys() if n == name or name is None
         }   # Namespace stats.
 
-    return prc | nms    # Python v3.9 way to merge multiple dictionaries.
+    val = prc | nms    # Python v3.9 way to merge multiple dictionaries.
+    return val
 
 def _get_socket(is_sender: SocketWorker) -> socket.socket:
     """Get a configured socket for either the sender or receiver.
@@ -706,7 +713,7 @@ def _make_pending_ack( key_t: tuple ,val_t: tuple ,members: dict | str ,frame_si
             'message': list(),  # Ordered list of fragments for re-send.
             'members': {
                 ip: {
-                    'unack':    set(),  # Set of unacknowledge fragments for the given IP key.
+                    'unack':    set(),  # Set of unacknowledged fragments for the given IP key.
                     'backoff':  set()   # Backoff scale.
                 }
             }
@@ -742,7 +749,7 @@ def _make_pending_ack( key_t: tuple ,val_t: tuple ,members: dict | str ,frame_si
             'members': {
                 ip: {'unack': { f },
                      'backoff': BACKOFF.copy()
-                    } for ip in members.keys() for f in range(0 ,frg_c) # TODO: Need to support targetting of individual member.
+                    } for ip in members.keys() for f in range(0 ,frg_c) # TODO: Need to support targeting of individual member.
             }
         }
 
@@ -821,7 +828,7 @@ def _collect_fragment( pkt_b: bytes ,sender: str ) -> ():
 
     return  aky_t if all([ f is not None for f in _mcArrived[ aky_t ]['message']]) else None  # noqa: C419
 
-def _assemble_message( aky_t: tuple ) -> (tuple ,object):
+def _assemble_message( aky_t: tuple ) -> tuple[tuple ,object]:  # (tuple ,object):
     """Assemble the fragments back into the key and value tuple.
 
     Args:
@@ -956,8 +963,9 @@ def _check_sent_pending() -> None:
         try:
             _lock.acquire()
             if  pky_t in _mcPending:
-                mbr = len(_mcPending[ pky_t ]['members'])
                 uak = [ip for ip in _mcPending[ pky_t ]['members'].keys() if len(_mcPending[ pky_t ]['members'][ ip ]['backoff']) == 0]
+                mbr = len(_mcPending[ pky_t ]['members'])
+                # FIXME: Encountered "RuntimeError: dictionary changed size during iteration" inside this locked section.
 
                 if  mbr == len(_mcMember) and uak:
                     #   Deep Tracing
@@ -1059,6 +1067,7 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
     mcc: object = get_cache( nms )
 
     # TODO: Deal with the concurrent deletion of the house keeping dictionaries.
+    # TODO: Refactor each op code handling into its own method.
     match opc:
         case OpCode.ACK:    # Acknowledgment.
             if  pky in _mcPending:
@@ -1148,6 +1157,7 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                             for k in keys if k in mcc.metadata}
             finally:
                 _lock.release()
+
         case OpCode.MET:    # Metrics.
             val = _get_cache_metrics( nms )
 
@@ -1182,6 +1192,7 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
             else:
                 # Didn't receive message fragment and need sender to resend it.
                 _mcOBQueue.put((OpCode.NAK ,tsm ,nms ,key ,crc ,None ,sdr))
+
         case OpCode.REQ:
             # TODO: Implement this.
             # Receive this: _mcOBQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,None ,f"{seq}" ,aky_t[0])) # FIXME: Parse out 4th octet.
@@ -1192,87 +1203,86 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                 for k in filter( lambda kk: kk == key or key is None ,_mcCache[ n ].keys() ):   # Keys within namespace.
                     _mcCache[ n ].__delitem__( k ,EnableMultiCast.NO )
 
+        case OpCode.SYC:
+            # TODO: Implement this.
+            pass
+
         case OpCode.UPD | OpCode.INS:   # Insert and Update.
             lcs: bytes = '' # Local cache key's crc.
             lts: int   = 0  # Local cache key's tsm.
-            if  key in mcc:
-                try:    # TODO: Redo this.
+            try:
+                if  key in mcc:
                     lcs =  mcc.metadata[ key ]['crc']
                     lts =  mcc.metadata[ key ]['tsm']
-                except:
-                    _ = None    # TODO: Figure out how to disable Bandit B110.
-                    pass    # NOTE: Got deleted in another thread.
 
-            if  lts < tsm:  # Local timestamp is older than the arriving message timestamp.
-                #   Deep Tracing
-                if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
-                    tsmcmp = _get_msgcomp( lts ,tsm )
-                    _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,tsmcmp=tsmcmp
-                                                ,msg=">   Local tsm: {prvtsm} {tsmcmp} {tsm}" )
-
-                    if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLUOUS:
-                        _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
-                                                    ,msg=">>  Calling: cache.__setitem__( {key} ,{crc} ,None ,{tsm} )" )
-
-                # Update it locally and DONT multicast it out.
-                mcc.__setitem__( key ,val ,tsm ,EnableMultiCast.NO )
-
-                # TODO: Invalidate pending acks for this key.
-                # pky_t = (nms ,key ,tsm) # Key for this message pending acknowledgement.
-                for pky_t in list(_mcPending.keys()):
-                    if  pky_t[0] == nms and pky_t[1] == key and pky_t[2] < tsm and pky_t in _mcPending:
-                        lcs: bytes = '' # Local cache key's crc.
-                        lts: int   = 0  # Local cache key's tsm.
-                        try:
-                            lcs = _mcPending[ pky_t ]['crc']
-                            lts = _mcPending[ pky_t ]['tsm']
-                            del   _mcPending[ pky_t ]
-                        except:
-                            _ = None    # TODO: Figure out how to disable Bandit B110.
-                            pass    # NOTE: Got deleted in another thread.
-
+                    if  lts < tsm:  # NOTE: Local timestamp is older than the new arriving message timestamp.
                         #   Deep Tracing
                         if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
-                            if  lts:
-                                crccmp = _get_msgcomp( lcs ,crc )
-                                tsmcmp = _get_msgcomp( lts ,tsm )
-                                _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,prvcrc=lcs ,tsmcmp=tsmcmp ,crccmp=crccmp
-                                                            ,msg=">   Ack NOT needed. Newer value arrived.  Pending tsm: {prvtsm} {tsmcmp} {tsm} crc: {prvcrc} {crccmp} {crc}" )    # noqa: E501
-
-                #   Deep Tracing
-                if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLUOUS:
-                    if  key in mcc and  mcc[ key ]:
-                        try:    # TODO: Redo this.
-                            lcs =  mcc.metadata[ key ]['crc']
-                            lts =  mcc.metadata[ key ]['tsm']
-                        except:
-                            _ = None    # TODO: Figure out how to disable Bandit B110.
-                            pass    # NOTE: Got deleted in another thread.
-
-                        if  lcs == crc and lts == tsm:
-                            _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
-                                                        ,msg=">>  OK: {key} stored locally." )
-                        else:
-                            crccmp = _get_msgcomp( lcs ,crc )
                             tsmcmp = _get_msgcomp( lts ,tsm )
-                            _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,prvcrc=lcs ,tsmcmp=tsmcmp ,crccmp=crccmp
-                                                        ,msg=">>  ERR:{key} locally out of sync.  Local tsm: {prvtsm} {tsmcmp} {tsm} crc: {prvcrc} {crccmp} {crc}" )    # noqa: E501
-                    else:
-                        _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
-                                                    ,msg=">>  ERR:{key} NOT stored in local." )
-            elif lts >  tsm and crc != lcs:
-                _log_ops_msg( logging.WARNING   ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,prvcrc=lcs
-                                                ,msg="Cache incoherent: Evict {key}! {prvtsm} > {tsm} and {prvcrc} <> {crc}" )
+                            _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,tsmcmp=tsmcmp
+                                                        ,msg=">   Local tsm: {prvtsm} {tsmcmp} {tsm}" )
 
-                # NOTE: Cache in-consistent, evict this key from all members in the cluster.
-                # TODO: We need some congestion control.  Keep pounding the cache is making is worse.
-                if  key in mcc:
-                    del mcc[ key ]
-                # TODO: Maybe sync up the other members in the cluster.
-                #_mcQueue.put((OpCode.DEL ,tsm ,nms ,key ,crc ,None ,None))
-            elif lts == tsm and crc == lcs:
-                # Re-transmitted message.
-                pass
+                            if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLUOUS:
+                                _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
+                                                            ,msg=">>  Calling: cache.__setitem__( {key} ,{crc} ,None ,{tsm} )" )
+
+                        # Update it locally and DONT multicast it out.
+                        mcc.__setitem__( key ,val ,tsm ,EnableMultiCast.NO )
+
+                        # TODO: Invalidate pending acks for this key.
+                        # pky_t = (nms ,key ,tsm) # Key for this message pending acknowledgement.
+                        for pky_t in list(_mcPending.keys()):
+                            try:
+                                if  pky_t[0] == nms and pky_t[1] == key and pky_t[2] < tsm and pky_t in _mcPending:
+                                    lcs: bytes = '' # Local cache key's crc.
+                                    lts: int   = 0  # Local cache key's tsm.
+
+                                    lcs = _mcPending[ pky_t ]['crc']
+                                    lts = _mcPending[ pky_t ]['tsm']
+                                    del   _mcPending[ pky_t ]
+                            except  KeyError:   # NOTE: Got deleted in another thread.
+                                #   Deep Tracing
+                                if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+                                    if  lts:
+                                        crccmp = _get_msgcomp( lcs ,crc )
+                                        tsmcmp = _get_msgcomp( lts ,tsm )
+                                        _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,prvcrc=lcs ,tsmcmp=tsmcmp ,crccmp=crccmp
+                                                                    ,msg=">   Ack NOT needed. Newer value arrived.  Pending tsm: {prvtsm} {tsmcmp} {tsm} crc: {prvcrc} {crccmp} {crc}" )    # noqa: E501
+                        #   Deep Tracing
+                        if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLUOUS:
+                            try:
+                                if  key in mcc and  mcc[ key ]:
+                                    lcs =  mcc.metadata[ key ]['crc']
+                                    lts =  mcc.metadata[ key ]['tsm']
+
+                                    if  lcs == crc and lts == tsm:
+                                        _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
+                                                                    ,msg=">>  OK: {key} stored locally." )
+                                    else:
+                                        crccmp = _get_msgcomp( lcs  ,crc )
+                                        tsmcmp = _get_msgcomp( lts  ,tsm )
+                                        _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,prvcrc=lcs ,tsmcmp=tsmcmp ,crccmp=crccmp
+                                                                    ,msg=">>  ERR:{key} locally out of sync.  Local tsm: {prvtsm} {tsmcmp} {tsm} crc: {prvcrc} {crccmp} {crc}" )    # noqa: E501
+                                else:
+                                    _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
+                                                                ,msg=">>  ERR:{key} NOT stored in local metadata." )
+                            except  KeyError:   # NOTE: Got deleted in another thread.
+                                _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
+                                                            ,msg=f">>  ERR:{key} NOT found in cache/metadata after calling __setitem__() with EnableMultiCast.NO." )
+                    elif lts >  tsm and crc != lcs:
+                        _log_ops_msg( logging.WARNING   ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,prvcrc=lcs
+                                                        ,msg="Cache incoherent: Evict {key}! {prvtsm} > {tsm} and {prvcrc} <> {crc}" )
+
+                        # NOTE: Cache in-consistent, evict this key from all members in the cluster.
+                        # TODO: We need some congestion control.  Keep pounding the cache is making is worse.
+                        if  key in mcc:
+                            del mcc[ key ]
+                    elif lts == tsm and crc == lcs:
+                        # Re-transmitted message.
+                        pass
+            except  KeyError:   # NOTE: Got deleted in another thread.
+                _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
+                                            ,msg=f">>  ERR:{key} NOT found in cache while processing {opc}." )
 
             val = None
             # Acknowledge it.
@@ -1305,7 +1315,7 @@ def _goodbye() -> None:
     """
     _mcOBQueue.put((OpCode.BYE ,PyCache.TSM_VERSION() ,None ,None ,None ,None ,None))
     _mcOBQueue.put((OpCode.MET ,PyCache.TSM_VERSION() ,None ,None ,None ,None ,None))
-#   time.sleep( 1 ) # Give enough time to send out the above ops to other cluster members.
+    time.sleep( 1 ) # Give enough time to send out the above ops to other cluster members.  Needed to output metrics.
 
 def _multicaster() -> None:
     """Dequeue and multicast out the cache operation to all the members in the group.
@@ -1334,7 +1344,7 @@ def _multicaster() -> None:
     opc: str = ''   # Op Code
     while opc != OpCode.BYE:
         try:
-            msg = _mcOBQueue.get()  # Dequeue the cache operation.
+            msg = _mcOBQueue.get()  # Dequeue the local cache operation.
             opc         = msg[0]    # Op Code
             tsm: int    = msg[1]    # Timestamp
             nms: str    = msg[2]    # Namespace
@@ -1396,10 +1406,11 @@ def _multicaster() -> None:
             if  logger.level == logging.DEBUG:
                 _log_ops_msg( logging.DEBUG ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc
                                             ,msg=f"Out going to { rcv if rcv else 'members.'}" )
+
             if  opc == OpCode.MET:  # Metrics.
                 # Query out the local metrics.
-                txt = _get_cache_metrics( nms )
-                _log_ops_msg( logging.INFO  ,opc=opc ,tsm=tsm ,nms=nms ,msg=txt )
+                val = _get_cache_metrics( nms )
+                _log_ops_msg( logging.INFO  ,opc=opc ,tsm=tsm ,nms=nms ,msg=val )
         except  Exception as ex:    # noqa: BLE001
             logger.error( ex )
             traceback.print_exc()
@@ -1435,6 +1446,10 @@ def _housekeeper() -> None:
             # Check metadata expiration.
             #
             _check_metadata()
+
+            # Check cache synchronization.
+            #
+            # TODO: Implement it.
         except  Exception as ex:    # noqa: BLE001
             logger.error( ex )
             traceback.print_exc()
@@ -1485,10 +1500,9 @@ def  _processor() -> None:
 
     while True:
         try:
-#           pkt_b ,sender = sock.recvfrom( _mcConfig.packet_mtu )
-            pkt_b ,sender = _mcIBQueue.get()  # Dequeue the cache operation.
+            pkt_b ,sender = _mcIBQueue.get()  # Dequeue the remote cache operation.
             fr_ip = sender[0]
-            #ip_o4 = fr_ip.split('.')[ 3 ]   # The 4th IP octet.
+
             # Maintain the cluster membership.
             if  fr_ip not in _mySelf and fr_ip not in _mcMember:
                 _mcMember[ fr_ip ] = None

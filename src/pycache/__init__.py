@@ -11,6 +11,7 @@ import time
 #
 from collections import OrderedDict
 from collections.abc import Iterable
+from enum import Flag ,IntEnum
 from inspect import getframeinfo, stack
 from threading import RLock #,Lock
 from types import FunctionType
@@ -22,6 +23,28 @@ from typing import Any
 #
 from  pycache.__about__ import __app__, __version__ # noqa
 
+class EnableMultiCast( Flag ):
+    YES = True      # Multicast out the change.
+    NO  = False     # Do not multicast out the change.  This is the default.
+
+    def __repr__(self):
+        return self.value
+
+    def __str__(self):
+        return str( self.value )
+
+class CallbackType( IntEnum ):
+    DELETE      = 1
+    UPDATE      = 2
+    INCOHERENT  = 3
+
+    def __repr__(self):
+        return self.value
+
+    def __str__(self):
+        return str( self.value )
+
+# TODO: Reduce the locks in area that are NOT critical.
 class Cache( OrderedDict ):
     """Cache based of the ordered dict object.
        ... "who says inheritance is bad" ...
@@ -39,7 +62,6 @@ class Cache( OrderedDict ):
         - https://dropbox.tech/infrastructure/caching-in-theory-and-practice
     """
     CACHE_LOCK  = RLock()           # Lock for serializing access to shared data.
-    # CACHE_LOCK  = Lock()    # DEBUG
     ONE_NS_SEC  = 1_000_000_000     # One second in nano seconds.
     ONE_NS_MIN  = 60 * ONE_NS_SEC   # One minute in nano seconds.
     TSM_VERSION = time.monotonic_ns if sys.platform == 'darwin' else time.time_ns
@@ -88,7 +110,7 @@ class Cache( OrderedDict ):
         self.__logger   :logging.Logger = None
         self.__queue    :queue.Queue    = None
         self.__callback :FunctionType   = None
-        self.__cbwindow :int    = 1
+        self.__cbwindow :int    = 3         # Callback window, in seconds, for changes in the cache since last looked up.
         self.__debug    :bool   = False     # Internal debug is disabled.
         self.__oldest   :int    = Cache.TSM_VERSION()  # Oldest entry in the cache.
         self.__latest   :int    = Cache.TSM_VERSION()  # Latest time the cache was touch on.
@@ -231,9 +253,9 @@ class Cache( OrderedDict ):
         else:
             tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime(tsm // Cache.ONE_NS_SEC))}.{tsm % Cache.ONE_NS_SEC:0<8}"
         if  nms is None:
-            nms =  f"N={' '* 6}"
+            nms =  f"N={' '* 5}"
         if  key is None:
-            key =  f"K={' '* 6}"
+            key =  f"K={' '* 5}"
         if  msg is None:
             msg =  ""
         if  crc is None:
@@ -264,7 +286,7 @@ class Cache( OrderedDict ):
 
         oldest: int = Cache.TSM_VERSION()
         try:
-            Cache.CACHE_LOCK.acquire()
+            Cache.CACHE_LOCK.acquire()      # TODO: Remove for the caller is already locking a block of code.
             for key in self.__meta.copy():  # Make a shallow copy of the keys.
                 val = self.__meta[ key ]
                 if  ttl < now - val['tsm']:
@@ -360,10 +382,11 @@ class Cache( OrderedDict ):
 
         # Callback to notify a change in the cache.
         if  self.__callback and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
+            # Type: 1=Deletion ,2=Update ,3=Incoherence
             # The key/value got changed since last read.
             # We are still in a locked state so the callee method MUST NOT block!
             # TODO: Spin it off on a different thread?
-            self.__callback({'typ': 1 ,'nms': self.__name ,'key': key ,'lkp': lkp ,'tsm': tsm ,'elp': elp ,'prvcrc': crc ,'newcrc': crc})
+            self.__callback({'typ': CallbackType.DELETION ,'nms': self.__name ,'key': key ,'lkp': lkp ,'tsm': tsm ,'elp': elp ,'prvcrc': crc ,'newcrc': crc})
 
     def _post_get(self,
             key: Any    ) -> None:
@@ -415,10 +438,11 @@ class Cache( OrderedDict ):
 
         # Callback to notify a change in the cache.
         if  self.__callback and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
+            # Type: 1=Deletion ,2=Update ,3=Incoherence
             # The key/value got changed since last read.
             # We are still in a locked state so the callee method MUST NOT block!
             # TODO: Spin it off on a different thread?
-            self.__callback({'typ': 2 ,'nms': self.__name ,'key': key ,'lkp': lkp ,'tsm': tsm ,'elp': elp ,'prvcrc': crc ,'newcrc': md5})
+            self.__callback({'typ': CallbackType.UPDATE ,'nms': self.__name ,'key': key ,'lkp': lkp ,'tsm': tsm ,'elp': elp ,'prvcrc': crc ,'newcrc': md5})
 
     def _set_spike(self,
             now: int | None = None ) -> None:
@@ -434,9 +458,11 @@ class Cache( OrderedDict ):
         if  span > 0:
             # Monotonic.
             self.__latest  = now
-            if  span <= (5 * Cache.ONE_NS_SEC): # 5 seconds.
+            if  span <= (self.__cbwindow * Cache.ONE_NS_SEC): # Default is 3 seconds.
                 self.spikeInt = ((self.spikeInt * self.spikes) + span) / (self.spikes + 1)
                 self.spikes  += 1
+                # TODO:  If we have pegged in a spike for 5 seconds we should alert the user.
+                #        Use CallbackType.INCOHERENT
 
     # Private OrderedDict magic/dunder methods overwrite section.
     #
@@ -444,7 +470,7 @@ class Cache( OrderedDict ):
             key: Any,
             tsm: int        | None = None,
             queue_out: bool | None = True ) -> None:
-        """Dict __delitem__ dunder overwrite.
+        """Dict __delitem__() dunder overwrite.
         Check for ttl evict then call the parent method and then do some house keeping.
 
         SEE:    dict.__delitem__()
@@ -476,7 +502,7 @@ class Cache( OrderedDict ):
 
     def __getitem__(self,
             key: Any ) -> Any:
-        """Dict __getitem__ dunder overwrite.
+        """Dict __getitem__() dunder overwrite.
         Check for ttl evict then call the parent method and then do some house keeping.
 
         SEE:    dict.__getitem__()
@@ -491,14 +517,18 @@ class Cache( OrderedDict ):
                 _ = self._evict_ttl_items()
             finally:
                 Cache.CACHE_LOCK.release()
+        try:
+            val = super().__getitem__( key )
+        except:
+            self.misses += 1
+            raise
 
-        val = super().__getitem__( key )
         self.lookups += 1
         self._post_get( key )
         return val
 
     def __iter__(self) -> Iterable:
-        """Dict __iter__ dunder overwrite.
+        """Dict __iter__() dunder overwrite.
         Check for ttl evict then call the parent method.
 
         SEE:    dict.__iter__()
@@ -517,7 +547,7 @@ class Cache( OrderedDict ):
             value: Any,
             tsm: int        | None = None,
             queue_out: bool | None = True ) -> None:
-        """Dict __setitem__ dunder overwrite.
+        """Dict __setitem__() dunder overwrite.
         Check for ttl evict then call the parent method and then do some house keeping.
 
         SEE:    dict.__setitem__()
