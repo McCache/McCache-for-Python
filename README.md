@@ -90,7 +90,7 @@ The following are environment variables you can tune to fit your production envi
 <tbody>
   <tr>
     <td><sub>MCCACHE_CACHE_TTL</sub></td>
-    <td>900</td>
+    <td>3600</td>
     <td>Maximum number of seconds a cached entry can live before eviction.  Update operations shall reset the timer.</td>
   </tr>
   <tr>
@@ -128,9 +128,14 @@ The following are environment variables you can tune to fit your production envi
     <td>The maxinum network hop. 1 is just within the local subnet. [1-9]</td>
   </tr>
   <tr>
-    <td><sub>MCCACHE_DEAMON_SLEEP</sub></td>
-    <td>1.0</td>
-    <td>The snooze duration for the deamon housekeeper before waking up to check the state of the cache.</td>
+    <td><sub>MCCACHE_DAEMON_SLEEP</sub></td>
+    <td>0.8</td>
+    <td>The snooze duration for the daemon housekeeper before waking up to check the state of the cache.</td>
+  </tr>
+  <tr>
+    <td><sub>MCCACHE_CALLBACK_WIN</sub></td>
+    <td>3</td>
+    <td>The window, in seconds, where the last lookup and the current change falls in to trigger a callback to a function provided by you. </td>
   </tr>
   <tr>
     <td><sub>MCCACHE_DEBUG_LOGFILE</sub></td>
@@ -151,19 +156,10 @@ The following are environment variables you can tune to fit your production envi
     <td>The random seed for each different node in the test cluster.</td>
   </tr>
   <tr>
-    <td><sub>TEST_SLEEP_SPAN</sub></td>
-    <td>100</td>
-    <td>The range span where a randomly generated to pause in between cache test operation.
-      The range of random number is between 1 and 100.<br>
-      The smaller the number, the tighter/rapid the operation applied to the cache.
-      Tune this number down to add stress to the test.</td>
-  </tr>
-  <tr>
-    <td><sub>TEST_SLEEP_UNIT</sub></td>
-    <td>100</td>
-    <td>The factoring scale to apply to the above <b>TEST_SLEEP_SPAN</b>.<br>
-        1000 = 0.001 sec ,100 = 0.01 sec ,10 = 0.1 sec ,1 = 1 sec<br>
-        The larger the number, the tighter/rapid the operation applied to the cache.
+    <td><sub>TEST_RUN_DURATION</sub></td>
+    <td>5</td>
+    <td>The duration in minutes of the testing run. <br>
+        The larger the number, the longer the test run/duration.
         Tune this number up to add stress to the test.</td>
   </tr>
   <tr>
@@ -174,11 +170,9 @@ The following are environment variables you can tune to fit your production envi
         Tune this number down to add stress to the test.</td>
   </tr>
   <tr>
-    <td><sub>TEST_RUN_DURATION</sub></td>
-    <td>5</td>
-    <td>The duration in minutes of the testing run. <br>
-        The larger the number, the longer the test run/duration.
-        Tune this number up to add stress to the test.</td>
+    <td><sub>TEST_TEST_APERTURE</sub></td>
+    <td>0.01</td>
+    <td>The time scale to keep the randomly generated value to snooze within.  If you supply `0.01`, which is `10`ms, the snooze value will be randomly generated within the range between 0.01s and 0.1s or between 10ms and 100ms.</td>
   </tr>
   <tr>
     <td><sub>TEST_MONKEY_TANTRUM</sub></td>
@@ -209,14 +203,14 @@ TBD
 TBD
 
 ## Design
-`McCache` overwrite both the `__setitem__()` and `__delitem__()` dunder methods of `OrderedDict` to shim in the communication sub-layer to sync-up the other members in the cluster.  All changes to the cache dictonary are captured and queued up to be multicasted out.
+`McCache` overwrite both the `__setitem__()` and `__delitem__()` dunder methods of `OrderedDict` to shim in the communication sub-layer to sync-up the other members in the cluster.  All changes to the cache dictionary are captured and queued up to be multicast out.  The cache is all nodes will eventually be consistent under normal condition.
 
-Three deamon threads are started when this package is initialized.  They are:
+Three DAEMON threads are started when this package is initialized.  They are:
 1. **Multicaster**. &nbsp;Whose job is to dequeue change operation messages and multicast them out into the cluster.
-2. **Listener**. &nbsp;Whose job is to listen for change operation messages multicasted by other members in the cluster.
-3. **Housekeeper**. &nbsp;Whose job is manage the acknowledgement of multicasted messages.
+2. **Listener**. &nbsp;Whose job is to listen for change operation messages multicast by other members in the cluster.
+3. **Housekeeper**. &nbsp;Whose job is manage the acknowledgement of multicast messages.
 
-**UPD** is unreliable.  We have to implement a guaranteed message transfer protocol over it in `McCache`.  We did consider TCP but will have to implement management of peer-to-peer connection manager.  Multi-casting is implmented on top of UDP and we selected it.  Furthermore, the nature of `McCache` is to broadcast out changes and this align well with multicasting.  `McCache` prioritize operation that mutates the cache and only acknowledged these operations.  In the future as our knowledge expand, we can return to re-evaluate this decision.
+**UPD** is unreliable.  We have to implement a guaranteed message transfer protocol over it in `McCache`.  We did consider TCP but will have to implement management of peer-to-peer connection manager.  Multi-casting is implemented on top of UDP and we selected it.  Furthermore, the nature of `McCache` is to broadcast out changes and this align well with multicasting.  `McCache` prioritize operation that mutates the cache and only acknowledged these operations.  In the future as our knowledge expand, we can return to re-evaluate this decision.
 
 A message may be larger than the UDP payload size.  Regardless, we always chunk up the message into fragments plus a header that fully fit into the UPD payload.  Each UDP payload is made up of a fixed length header follow by a variable length message fragment.  The message is further broken up into the key and fragment section as depicted below:
 
@@ -226,7 +220,7 @@ The multicasting member will keep track of all the send fragments to all the mem
 
 Collision happens when two or more nodes make a change to a same key at the same time.  The timestamp that is attached to the update is not granular enough to serialize the operation.  In this case, a warning is log and multi-cast out the eviction of this key to prevent the cache from becoming in-coherent.
 
-There are **no** locks.  Synchronization is implemented using a **monotonic** timestamp that is tagged to every cache entry.  This helps serialized the update operation on every node in the cluster.  An arrived change operation has a timestamp which will be compared to the timestamp of the local cahe entry.  Only remote operation with the timestamp that is more recent shall be applied to local cache.
+There are **no** remote locks.  Synchronization is implemented using a **monotonic** timestamp that is tagged to every cache entry.  This helps serialized the update operation on every node in the cluster.  An arrived change operation has a timestamp which will be compared to the timestamp of the local cache entry.  Only remote operation with the timestamp that is more recent shall be applied to local cache.
 
 ## Limitation
 * Even though the latency is low, it will **eventually** be consistent.  There is a very micro chance that an event can slip in just after the cache is read with the old value.  You have the option to pass in callback function to `McCache` for it to invoke if a change to the value of your cached object have changed within one second ago.  The other possibility is to perform a manual check.  The following is a code snippet that illustrate both approaches:
@@ -252,7 +246,7 @@ if 'k' in c.metadata:
         print('Cache got change since you previously read it.')
 ```
 
-* The clocks in a distributed environment is never as accurate (due to clock drift) as we want it to be in a high update environment.  On a Local Area Network, the accuracy could go down to 1ms but 10ms is a safer assumption.  SEE: [NTP](https://timetoolsltd.com/ntp/ntp-timing-accuracy/)
+* The clocks in a distributed environment is never as accurate (due to clock drift) as we want it to be in a high update environment.  On a Local Area Network, the accuracy could go down to 1ms but 10ms is a safer assumption.  SEE: [NTP](https://timetoolsltd.com/ntp/ntp-timing-accuracy/) and [PTP](https://en.wikipedia.org/wiki/Precision_Time_Protocol)
 
 * The maximum size of your message shall be **255** multiple by the `packet_mtu` size set in the configuration.
 
@@ -264,7 +258,7 @@ if 'k' in c.metadata:
 Different cloud provider uses different size.
 
 ## Background Story
-This project started as a forum for a diverse bunch of experience colleagues to learn `Python`.  Very soon we decided that we need a more challenging and real project to implement.  We wanted to learn network and threading programming.  We seach for sample code and ended up with some mutli-casting chat server example as our starting point.  We also talked about all the external services used in some application architecture and wonder if they could be removed to reduce complexity and cost.
+This project started as a forum for a diverse bunch of experience colleagues to learn `Python`.  Very soon we decided that we need a more challenging and real project to implement.  We wanted to learn network and threading programming.  We search for sample code and ended up with some mutli-casting chat server example as our starting point.  We also talked about all the external services used in some application architecture and wonder if they could be removed to reduce complexity and cost.
 
 Finally, we decided on implementing a distributed cache that do **not** introduce any new ways but keep the same `Python` dictionary usage experience.
 
@@ -277,7 +271,7 @@ Very soon, we realized that it is a fun academic learning but not functional eno
 Other non-functional technical requirements are:
 * Handle large message
 * Small code base
-* Not "complex" beyond our skillset and understanding
+* Not "complex" beyond our skill set and understanding
 
 Building a simple distributed system is more challenging than we originally thought.  You may question some design decision but we arrive here from a collection of wrong and right turns on a long learning journey but we agreed to delivering a good enough working software is the most important compromise.  In the future if we still feel strongly for a re-factoring or a re-design, this option is always available to us.  We are still on this journey of learning and hopefully contribute something of value back into the community.  (circa Oct-2023)
 
@@ -285,7 +279,7 @@ Building a simple distributed system is more challenging than we originally thou
 We welcome your contribution.  Please read [contributing](https://github.com/McCache/McCache-for-Python/blob/main/CONTRIBUTING.md) to learn how to contribute to this project.
 
 Issues and feature request can be posted [here](https://github.com/McCache/McCache-for-Python/issues). Help us port this library to other languages.  The repos are setup under the [GitHub `McCache` organization](https://github.com/mccache).
-You can reach our adminstrator at `elau1004@netscape.net`.
+You can reach our administrator at `elau1004@netscape.net`.
 
 ## Releases
 Releases are recorded [here](https://github.com/McCache/McCache-for-Python/issues).

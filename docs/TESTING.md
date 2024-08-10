@@ -58,7 +58,7 @@ The above have been manully formatted for readability.  For stress testing purpo
 | cputimes   | Return system CPU times as a named tuple.<br>Every attribute represents the seconds the CPU has spent in the given mode. |
 | meminfo    | Return memory information about the process as a named tuple. |
 | netioinfo  | Return system-wide network I/O statistics as a named tuple. |
-| `mccache`  ||
+|**`mccache`**||
 | count      | The number of cache entries when the metrics was taken. |
 | lookups    | The number of cache lookups. |
 | inserts    | The number of cache inserts. |
@@ -70,7 +70,7 @@ The above have been manully formatted for readability.  For stress testing purpo
 |spikeInt| The average interval between two (`UPD/DEL`) operation that are within 5 seconds sliding window.<br>This is a spike gauge on how rapid the cache is materially changing.  The smaller the number the more rapid the cache is changing.<br>The example above, it is an average `0.0573` seconds apart. |
 
 ### Stress Testing
-The test script run for a certain duration pausing a faction of a second in each iteration in a loop.  Based on the sleep aperture, a snooze value is calculated to keep the value within the aperture precision up to ten times the aperture value.  e.g. If the aperture value is `0.01`, the snooze value shall be between `0.01` and `0.1`.
+This stress test is intended to find the breaking point for `McCache` on a given class of machine.  The test script run for a certain duration pausing a faction of a second in each iteration in a loop.  Based on the sleep aperture, a snooze value is calculated to keep the value within the aperture precision up to ten times the aperture value.  e.g. If the aperture value is `0.01`, the snooze value shall be between `0.01` and `0.1`.
 Next, a random operation, lookup, insert, update and delete, to be applied to the cache.  Currently, the distributions are:
 * 55% are lookups.
 * 05% are deletes.
@@ -79,7 +79,7 @@ Next, a random operation, lookup, insert, update and delete, to be applied to th
 
 Cache in-coherence is when at least two nodes have different values for the same key.  To stress `McCache`, the following is some guidelines to keep it realistic:
 * Keep the number of docker/podman containers to total number of cores on your machine minus one.
-    * Our official stress test ran in **9** docker/podman containers cluster.
+    * Our official stress test ran in **9** docker/podman containers cluster for **10** minutes.
 * Missing cache entries is **not** bad.  The node that do not have the entry will need to re-process the work and insert it into its local cache.  This will trigger a multicast out to the other members in the cluster.
 * Entries that are different must be validated against test done timestamp.  If the test done timestamp is older, this is **not** bad.
 
@@ -94,19 +94,19 @@ Windows Command Prompt:
 $ tests\run_test  -c 9 -d 10 -k 100 -p 0.01 -s 1 -l 0
 ```
 The CLI parameters are:
-|Flag  |Description         |Default|Unit    |Comment|
-|------|--------------------|------:|--------|-------|
-|-c #  |Cluster size.       |      3|Nodes   |Max is 9.|
-|-d #  |Run duration.       |      5|Minute  |Decrease duration, decreases coverage.|
-|-k #  |Max entries.        |    200|Key     |Decrease count, increases contention.|
-|-l #  |Debug level.        |      0|Level   |0=Off ,1=Basic ,3=Extra ,5=Superfluous|
-|-a #  |Sleep aperture.     |   0.01|Fraction|Decrease aperture, increase contention. 0.01=10ms ,0.001=1ms ,0.0001=0.1ms/100us|
-|-y #  |Monkey tantrum.     |      0|Percent |0=Disabled. Artificially introduce some packet lost. e.g. `3 is 3% packet lost`.|
-|-w #  |Callback window sec.|      0|Second  |0=Disabled. Callback window, in seconds, for changes in the cache since last looked up.|
+|Flag  |Description     |Default|Unit    |Comment|
+|------|----------------|------:|--------|-------|
+|-c #  |Cluster size.   |      3|Nodes   |Max is 9.|
+|-d #  |Run duration.   |      5|Minute  |Decrease duration, decreases coverage.|
+|-k #  |Max entries.    |    200|Key     |Decrease count, increases contention.|
+|-l #  |Debug level.    |      0|Level   |0=Off ,1=Basic ,3=Extra ,5=Superfluous|
+|-p #  |Sleep aperture. |   0.01|Fraction|Decrease aperture, increase contention. 0.01=10ms ,0.001=1ms ,0.0001=0.1ms/100us|
+|-y #  |Monkey tantrum. |      0|Percent |0=Disabled. Artificially introduce some packet lost. e.g. `3 is 3% packet lost`.|
+|-w #  |Callback window.|      0|Second  |0=Disabled. Callback window, in seconds, for changes in the cache since last looked up.|
 * The test script that is used to pound the cache can be viewed [here](https://github.com/McCache/McCache-for-Python/blob/main/tests/unit/start_mccache.py).
 
 ### Results
-|<br>Run|-c #<br>Nodes|-k #<br>Keys|-d #<br>Duration|-a #<br>Aperture|<br>Status|Avg<br>Snooze|Avg<br>SpikeHits|Avg<br>SpikeInt|Avg<br>LookUps|Avg<br>Inserts|Avg<br>Updates|Avg<br>Deletes|<br>Comment|
+|<br>Run|-c #<br>Nodes|-k #<br>Keys|-d #<br>Duration|-p #<br>Aperture|<br>Status|Avg<br>Snooze|Avg<br>SpikeHits|Avg<br>SpikeInt|Avg<br>LookUps|Avg<br>Inserts|Avg<br>Updates|Avg<br>Deletes|<br>Comment|
 |:------|---:|---:|------:|-------:|:--:|-----:|-----:|-----:|----:|----:|----:|----:|:-|
 |1.1    | 3  | 200|      5|  `0.01`|    |0.0550|  3392|0.0887| 2757|  584| 2382|  426|Basic test with **3** nodes using **200** unique key/value pairs running for **5** minutes with **10**ms snooze aperture.|
 |1.2    | 3  | 100|      5|  `0.01`|    |0.0558|  3343|0.0899| 2868|  537| 2356|  450|Decrease key/value pairs down to **100** from 200.|
@@ -149,10 +149,14 @@ The CLI parameters are:
 |9.5.1  | 9  | 500|     10| `0.002`|Fail|0.0118| 43218|0.0139|26516| 5618|32098| 5502|Increase unique key/value pairs up to **500**.|
 |9.5.2  | 9  |1000|     10| `0.002`|Fail|0.0118| 44909|0.0134|26350| 5810|33538| 5212|Increase unique key/value pairs up to **1000**.|
 |       |    |    |       |        |    |      |      |      |     |     |     |     |  |
-|10.1   | 9  | 100|     60|  `0.01`|Fail|0.0279| 19153|0.0314|11021| 2356|14546| 2251|Extreme test with **9** nodes using **100** unique key/value pairs running for **60** minutes with **10**ms snooze aperture.<br>**Some containers hung and didn't exit.**|
-|10.2   | 9  | 100|     30|  `0.01`|Fail|      |      |      |     |     |     |     |Reduce run duration to **30** minutes.<br>**Some containers hung and didn't exit.**|
-|10.3   | 9  | 100|     20|  `0.01`|Fail|      |      |      |     |     |     |     |Reduce run duration to **20** minutes.|
 |       |    |    |       |        |    |      |      |      |     |     |     |     |  |
+|10.1   | 9  | 100|     60|  `0.01`|Fail|      |      |      |     |     |     |     |Extreme test with **9** nodes using **100** unique key/value pairs running for **60** minutes with **10**ms snooze aperture.<br>**Some containers hung and didn't exit.**|
+|10.2   | 9  | 100|     30|  `0.01`|Fail|      |      |      |     |     |     |     |Reduce run duration to **30** minutes.<br>**Some containers hung and didn't exit.**|
+|10.3   | 9  | 100|     20|  `0.01`|Fail|      |      |      |     |     |     |     |Reduce run duration to **20** minutes.<br>**Some containers hung and didn't exit.**|
+|10.4   | 9  | 100|     15|  `0.01`|Fail|      |      |      |     |     |     |     |Reduce run duration to **15** minutes.|
+|10.5   | 9  |5000|     15|  `0.01`|    |0.0557|  6943|0.1296| 8462| 3096|  752|  402|Increase unique key/value pairs up to **5000**.|
+|10.6   | 9  |5000|     20|  `0.01`|    |      |      |      |     |     |     |     |Increase run duration to **20** minutes.|
+|10.4   | 9  | 500|     20|   `0.1`|    |      |      |      |     |     |     |     |Increase unique key/value pairs up to **500**.  Increase aperture up to **100**ms.|
 |       |    |    |       |        |    |      |      |      |     |     |     |     |  |
 * Result header caption:
     * Avg Snooze      - The average pause plus processing per loop iteration in the test script.
@@ -171,7 +175,7 @@ The CLI parameters are:
 
 ### Observations
 * The laptop is a freshly rebooted and is entirely dedicated to this stress test.  No other task were running on it.
-  Maybe trying testing it in the cloud instead local on my laptop.
+* Some of my containers hang after running more than **15** minutes under load.
 * Anecdotally, it does **not** look like `time.sleep( 0.0001 )` can yield accurate precision.
 * We feel that `McCache` can handle very heavy update/delete against it.  `McCache` is **not** for you if you have a use case that pound the cache harder than `40000` changes within `0.01` second apart for `10` minutes.
 

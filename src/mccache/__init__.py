@@ -183,6 +183,7 @@ class OpCode(StrEnum):
 
 @dataclass
 class McCacheConfig:
+    alert_email:str     = None          # Email address to send alert messages.
     cache_ttl: int      = 3600          # Total Time to Live in seconds for a cached entry.  Default is 60 minutes.
                                         # SEE: https://dev.acquia.com/blog/how-choose-right-cache-expiry-lifetime
     cache_max: int      = 256           # Max entries threshold for triggering entries eviction.
@@ -201,8 +202,8 @@ class McCacheConfig:
     monkey_tantrum: int = 0             # Chaos monkey tantrum % level (0 - 99).
     daemon_sleep: float = SEASON_TIME   # House keeping snooze seconds (0.33 - 3.0).
     random_seed: int    = int(str(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]).split(".")[3])
-    debug_level: int    = 0             # Debug tracing is default to off/false. 0=off ,1=basic ,3=extra ,5=superfluous
     log_format: str     = f"%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d.%(thread)05d)[%(levelname)s {__app__}@%(lineno)d] %(message)s"
+    debug_level: int    = 0             # Debug tracing is default to off/false. 0=off ,1=basic ,3=extra ,5=superfluous
     debug_opcode: str   = None          # To enable logging all message pertaining to this Opcode.
     debug_logfile: str  = 'log/debug.log'
 

@@ -103,8 +103,8 @@ class Cache( OrderedDict ):
         """
         # Private instance control.
         self.__name     :str    = 'default'
-        self.__maxlen   :int    = 256       # Max entries threshold for triggering entries eviction.
-        self.__maxsize  :int    = 256*1024  # Max size in bytes threshold for triggering entries eviction. Default= 256K.
+        self.__maxlen   :int    = 512       # Max entries threshold for triggering entries eviction.
+        self.__maxsize  :int    = 512*1024  # Max size in bytes threshold for triggering entries eviction. Default= 256K.
         self.__ttl      :int    = 0         # Time to live in minutes.
         self.__msgbdy   :str    = 'L#{lno:>4}\tIm:{iam}\tOp:{opc}\tTs:{tsm:<18}\tNm:{nms}\tKy:{key}\tCk:{crc}\tMg:{msg}'
         self.__logger   :logging.Logger = None
@@ -207,6 +207,7 @@ class Cache( OrderedDict ):
     def _reset_metrics(self):
         """Reset the internal metrics.
         """
+        self.__meta   :dict = {}
         self.evicts   :int  = 0   # Total number of evicts  since initialization.
         self.deletes  :int  = 0   # Total number of deletes since initialization.
         self.misses   :int  = 0   # Total number of misses  since initialization.
