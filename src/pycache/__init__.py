@@ -13,7 +13,7 @@ from collections import OrderedDict
 from collections.abc import Iterable
 from enum import Flag ,IntEnum
 from inspect import getframeinfo, stack
-from threading import RLock #,Lock
+from threading import Thread ,RLock #,Lock
 from types import FunctionType
 from typing import Any
 
@@ -202,6 +202,10 @@ class Cache( OrderedDict ):
     def queue(self) -> queue.Queue:
         return  self.__queue
 
+    @property
+    def callback(self) -> FunctionType:
+        return  self.__callback
+
     # This class's private method section.
     #
     def _reset_metrics(self):
@@ -383,11 +387,11 @@ class Cache( OrderedDict ):
 
         # Callback to notify a change in the cache.
         if  self.__callback and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
-            # Type: 1=Deletion ,2=Update ,3=Incoherence
+            # Type: 1=Deletion ,2=Update ,3=Incoherent
             # The key/value got changed since last read.
-            # We are still in a locked state so the callee method MUST NOT block!
-            # TODO: Spin it off on a different thread?
-            self.__callback({'typ': CallbackType.DELETION ,'nms': self.__name ,'key': key ,'lkp': lkp ,'tsm': tsm ,'elp': elp ,'prvcrc': crc ,'newcrc': crc})
+            arg = {'typ': CallbackType.DELETION ,'nms': self.__name ,'key': key ,'lkp': lkp ,'tsm': tsm ,'elp': elp ,'prvcrc': crc ,'newcrc': crc}
+            t1 = Thread( target=self.__callback ,args=[arg] ,name='PyCache' )
+            t1.start()
 
     def _post_get(self,
             key: Any    ) -> None:

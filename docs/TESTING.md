@@ -87,89 +87,50 @@ Cache in-coherence is when at least two nodes have different values for the same
 #### Command used
 Bash shell:
 ```bash
-$ tests/run_test  -c 9 -d 10 -k 100 -p 0.01 -s 1 -l 0
+$ tests/run_test  -c 9 -k 100 -p 3 -s 0.01 -d 10 -l 0
 ```
 Windows Command Prompt:
 ```cmd
-$ tests\run_test  -c 9 -d 10 -k 100 -p 0.01 -s 1 -l 0
+$ tests\run_test  -c 9 -k 100 -p 3 -s 0.01 -d 10 -l 0
 ```
 The CLI parameters are:
 |Flag  |Description     |Default|Unit    |Comment|
 |------|----------------|------:|--------|-------|
 |-c #  |Cluster size.   |      3|Nodes   |Max is 9.|
-|-d #  |Run duration.   |      5|Minute  |Decrease duration, decreases coverage.|
-|-k #  |Max entries.    |    200|Key     |Decrease count, increases contention.|
+|-d #  |Run duration.   |      5|Minute  |Decrease run duration, decreases coverage.|
+|-k #  |Max entries.    |    200|Key     |Decrease K/V entries, increases contention.|
 |-l #  |Debug level.    |      0|Level   |0=Off ,1=Basic ,3=Extra ,5=Superfluous|
-|-p #  |Sleep aperture. |   0.01|Fraction|Decrease aperture, increase contention. 0.01=10ms ,0.001=1ms ,0.0001=0.1ms/100us|
+|-p #  |Sync pulse.     |      5|Minute  |Decrease pulse value, increases synchronization.|
+|-s #  |Snooze aperture.|   0.01|Fraction|Decrease snooze aperture, increase contention. 0.01=10ms ,0.001=1ms ,0.0001=0.1ms/100us|
 |-y #  |Monkey tantrum. |      0|Percent |0=Disabled. Artificially introduce some packet lost. e.g. `3 is 3% packet lost`.|
 |-w #  |Callback window.|      0|Second  |0=Disabled. Callback window, in seconds, for changes in the cache since last looked up.|
 * The test script that is used to pound the cache can be viewed [here](https://github.com/McCache/McCache-for-Python/blob/main/tests/unit/start_mccache.py).
 
-### Results
-|<br>Run|-c #<br>Nodes|-k #<br>Keys|-d #<br>Duration|-p #<br>Aperture|<br>Status|Avg<br>Snooze|Avg<br>SpikeHits|Avg<br>SpikeInt|Avg<br>LookUps|Avg<br>Inserts|Avg<br>Updates|Avg<br>Deletes|<br>Comment|
-|:------|---:|---:|------:|-------:|:--:|-----:|-----:|-----:|----:|----:|----:|----:|:-|
-|1.1    | 3  | 200|      5|  `0.01`|    |0.0550|  3392|0.0887| 2757|  584| 2382|  426|Basic test with **3** nodes using **200** unique key/value pairs running for **5** minutes with **10**ms snooze aperture.|
-|1.2    | 3  | 100|      5|  `0.01`|    |0.0558|  3343|0.0899| 2868|  537| 2356|  450|Decrease key/value pairs down to **100** from 200.|
-|       |    |    |       |        |    |      |      |      |     |     |     |     |  |
-|2.1    | 3  | 100|      5| `0.001`|    |0.0059| 32640|0.0092|26373| 4538|23708| 4394|Decrease aperture down to **1**ms from 10ms.|
-|2.2    | 3  | 100|      5|`0.0008`|    |0.0048| 40050|0.0075|31982| 5531|29112| 5407|Decrease aperture down to **0.8**ms from 1ms.|
-|2.3    | 3  | 100|      5|`0.0006`|    |0.0032| 58308|0.0051|48056| 8416|41621| 8271|Decrease aperture down to **0.6**ms from 1ms.|
-|2.4    | 3  | 100|      5|`0.0005`|Fail|0.0032| 58984|0.0051|47903| 8427|42251| 8306|Decrease aperture down to **0.5**ms from 1ms.|
-|2.4.1  | 3  | 500|      5|`0.0005`|Fail|0.0035| 50143|0.0060|44549| 9319|31759| 8009|Increase unique key/value pairs up to **500**.|
-|2.4.2  | 3  |1000|      5|`0.0005`|    |0.0036| 33640|0.0089|42509|14996| 3649| 1180|Increase unique key/value pairs up to **1000**.<br>**Some cache incoherences evictions**.|
-|       |    |    |       |        |    |      |      |      |     |     |     |     |  |
-|3.1    | 3  | 100|     10| `0.001`|    |0.0062| 46061|0.0130|50337| 6974|32249| 6838|Increase run duration to **10** minutes starting with **1**ms snooze aperture.|
-|3.2    | 3  | 100|     10|`0.0008`|    |0.0051| 56293|0.0107|61341| 8475|39487| 8331|Decrease aperture down to **0.8**ms from 1ms.|
-|3.3    | 3  | 100|     10|`0.0006`|    |0.0034| 82159|0.0073|89312|12516|57280|12363|Decrease aperture down to **0.6**ms from 1ms.<br>**Some cache incoherences evictions**.|
-|3.4    | 3  | 100|     10|`0.0005`|    |0.0035| 82098|0.0073|88885|12338|57564|12196|Decrease aperture down to **0.5**ms from 1ms.|
-|3.5    | 3  | 100|     10|`0.0001`|    |0.0010|      |      |     |     |     |     |Decrease aperture down to **0.1**ms from 1ms.<br>**Reached saturation. Metrics not output.**|
-|       |    |    |       |        |    |      |      |      |     |     |     |     |  |
-|5.1    | 5  | 100|     10|  `0.01`|    |0.0554|  6750|0.0890| 5638| 1016| 4831|  903|Increase to **5** nodes using **100** unique key/value pairs running for **5** minutes with **10**ms snooze aperture.|
-|5.2    | 5  | 100|     10| `0.001`|    |0.0062| 62579|0.0096|50682| 8705|45288| 8586|Decrease aperture down to **1**ms.|
-|5.3    | 5  | 100|     10|`0.0008`|    |0.0051| 74492|0.0081|60398|10537|53540|10415|Decrease aperture down to **0.8**ms.|
-|5.4    | 5  | 100|     10|`0.0007`|    |0.0046| 82029|0.0073|67678|11985|58193|11851|Decrease aperture down to **0.7**ms.|
-|5.5    | 5  | 100|     10|`0.0006`|Fail|0.0036|102973|0.0058|87202|15489|72115|15369|Decrease aperture down to **0.6**ms.|
-|5.5.1  | 5  | 500|     10|`0.0006`|    |0.0036| 78822|0.0076|85545|25854|27115| 5670|Increase unique key/value pairs up to **500**.<br>**Lots of cache incoherences evictions**.|
-|5.5.2  | 5  |1000|     10|`0.0006`|    |0.0038| 63063|0.0095|82462|29006| 5052| 2161|Increase unique key/value pairs up to **1000**.<br>**Lots of cache incoherences evictions**.|
-|5.6    | 5  | 100|     10|`0.0005`|Fail|0.0035|103872|0.0058|87793|15619|72754|15499|Decrease aperture down to **0.5**ms.<br>**Reached saturation.  Not much difference from the run 5.5**.|
-|       |    |    |       |        |    |      |      |      |     |     |     |     |  |
-|7.1    | 7  | 100|     10|  `0.01`|    |0.0554|  8322|0.0722| 5638| 1125| 6173| 1024|Increase to **7** nodes using **100** unique key/value pairs running for **10** minutes with **10**ms snooze aperture.|
-|7.2    | 7  | 100|     10| `0.008`|    |0.0445| 10559|0.0569| 7014| 1394| 7882| 1283|Decrease aperture down to **8**ms.|
-|7.3    | 7  | 100|     10| `0.005`|    |0.0278| 17102|0.0351|11255| 2194|12825| 2083|Decrease aperture down to **5**ms.|
-|7.4    | 7  | 100|     10| `0.002`|    |0.0117| 40385|0.0149|26959| 5232|30057| 5096|Decrease aperture down to **2**ms.<br>**Some cache incoherences evictions**.|
-|7.5    | 7  | 100|     10| `0.001`|Fail|0.0063| 69338|0.0087|49150| 9721|50009| 9608|Decrease aperture down to **1**ms.|
-|7.5.1  | 7  | 500|     10| `0.001`|Fail|0.0064| 70389|0.0085|48822|10093|50444| 8814|Increase unique key/value pairs up to **500**.|
-|7.5.2  | 7  |1000|     10| `0.001`|    |0.0064| 46548|0.0129|48225|14954|16641| 8574|Increase unique key/value pairs up to **1000**.<br>**Lots of cache incoherences evictions**.|
-|       |    |    |       |        |    |      |      |      |     |     |     |     |  |
-|9.1    | 9  | 100|     10|  `0.01`|    |0.0553|  9641|0.0623| 5676| 1236| 7270| 1135|Increase to **9** nodes using **100** unique key/value pairs running for **10** minutes with **10**ms snooze aperture.|
-|9.2    | 9  | 100|     10| `0.008`|    |0.0442| 11915|0.0504| 7100| 1486| 9054| 1375|Decrease aperture down to **8**ms.|
-|9.3    | 9  | 100|     10| `0.005`|    |0.0279| 19153|0.0314|11021| 2356|14546| 2251|Decrease aperture down to **5**ms.|
-|9.4    | 9  | 100|     10| `0.004`|    |0.0229| 23430|0.0257|13570| 2866|17827| 2737|Decrease aperture down to **4**ms.|
-|9.5    | 9  | 100|     10| `0.003`|    |0.0175| 30269|0.0198|17863| 3805|22780| 3684|Decrease aperture down to **3**ms.|
-|9.5.1  | 9  | 500|     10| `0.002`|Fail|0.0118| 43218|0.0139|26516| 5618|32098| 5502|Increase unique key/value pairs up to **500**.|
-|9.5.2  | 9  |1000|     10| `0.002`|Fail|0.0118| 44909|0.0134|26350| 5810|33538| 5212|Increase unique key/value pairs up to **1000**.|
-|       |    |    |       |        |    |      |      |      |     |     |     |     |  |
-|       |    |    |       |        |    |      |      |      |     |     |     |     |  |
-|10.1   | 9  | 100|     60|  `0.01`|Fail|      |      |      |     |     |     |     |Extreme test with **9** nodes using **100** unique key/value pairs running for **60** minutes with **10**ms snooze aperture.<br>**Some containers hung and didn't exit.**|
-|10.2   | 9  | 100|     30|  `0.01`|Fail|      |      |      |     |     |     |     |Reduce run duration to **30** minutes.<br>**Some containers hung and didn't exit.**|
-|10.3   | 9  | 100|     20|  `0.01`|Fail|      |      |      |     |     |     |     |Reduce run duration to **20** minutes.<br>**Some containers hung and didn't exit.**|
-|10.4   | 9  | 100|     15|  `0.01`|Fail|      |      |      |     |     |     |     |Reduce run duration to **15** minutes.|
-|10.5   | 9  |5000|     15|  `0.01`|    |0.0557|  6943|0.1296| 8462| 3096|  752|  402|Increase unique key/value pairs up to **5000**.|
-|10.6   | 9  |5000|     20|  `0.01`|    |      |      |      |     |     |     |     |Increase run duration to **20** minutes.|
-|10.4   | 9  | 500|     20|   `0.1`|    |      |      |      |     |     |     |     |Increase unique key/value pairs up to **500**.  Increase aperture up to **100**ms.|
-|       |    |    |       |        |    |      |      |      |     |     |     |     |  |
-* Result header caption:
-    * Avg Snooze      - The average pause plus processing per loop iteration in the test script.
-    * Avg SpikeHits   - The average number of inserts, updates, and deletes that are called with less than **3** seconds apart.
-    * Avg SpikeInt    - The average interval in seconds between insert, update, and delete operation.
-    * Avg LookUps     - The average lookups performed in the test.
-    * Avg Inserts     - The average inserts performed in the test.
-    * Avg Updates     - The average updates performed in the test.
-    * Avg Deletes     - The average deletes performed in the test.
+### Results of basic stress test
+Result header caption:
+* Avg Snooze    - The average pause plus processing time per loop iteration in the test script.
+* Avg SpikeHits - The average number of inserts, updates, and deletes that are called with less than **3** seconds spike window..
+* Avg SpikeInt  - The average interval in seconds between insert, update, and delete operation.
+* Avg Misses    - The average lookups performed in the test.
+* Avg LookUps   - The average lookups performed in the test.
+* Avg Inserts   - The average inserts performed in the test.
+* Avg Updates   - The average updates performed in the test.
+* Avg Deletes   - The average deletes performed in the test.
+
+
+|<br>Run|-c #<br>Nodes|-k #<br>Keys|-p #<br>Pulse|-s #<br>Aperture|-d #<br>Duration|<br>Result|<br>Hung|Fail<br>Test|Avg<br>Snooze|Avg<br>SpikeHits|Avg<br>SpikeInt|Avg<br>Misses|Avg<br>LookUps|Avg<br>Inserts|Avg<br>Updates|Avg<br>Deletes|<br>Comment|
+|:------|---:|---:|--:|---:|---:|:----------------------------:|:-:|:-:|-----:|-----:|-----:|-----:|-----:|-----:|----:|-----:|:-|
+|3.1    |   3| 100|  3| 0.1|  10|<font color="cyan">Pass</font>|   |   |0.5459|   325|1.1222|     0|   674|   106|  233|    38|Basic test with **3** nodes using **100** key/value pairs, sync every **5** minutes, running with **100**ms snooze aperture for **10** minutes.|
+|3.1.1  |   3| 100|  3| 0.1|  15|<font color="cyan">Pass</font>|   |   |0.5423|   614|1.0357|     0|  1022|   161|  435|    82|Increase duration up to **15** minutes.|
+|3.1.2  |   3| 100|  3| 0.1|  20|<font color="red" >Fail</font>|Yes|   |      |      |      |      |      |      |     |      |Increase duration up to **20** minutes.|
+|3.1.2.1|   3| 100|  3| 0.5|  20|<font color="red" >Fail</font>|Yes|   |      |      |      |      |      |      |     |      |Increase aperture up to **0.5** second.|
+|3.1.2.2|   3| 100|  3| 0.8|  20|<font color="red" >Fail</font>|   |   |      |      |      |      |      |      |     |      |Increase aperture up to **0.8** second.|
+|3.1.2.3|   3| 100|  3| 2.0|  20|<font color="red" >Fail</font>|   |   |      |      |      |      |      |      |     |      |Increase aperture up to **2.0** second.|
+|       |    |    |   |    |    |                              |   |   |      |      |      |      |      |      |     |      |   |
 
 * The following may have influence over the above results:
     * Number of running containers.  CPU may throttle down when it is too hot.
-    * Python version.  The lastest version is mich faster than two versions ago.
+    * Python version.  The latest version is mich faster than two versions ago.
     * Python `random.randrange()` and `time.sleep()` implementation.
     * The O/S scheduler.
 

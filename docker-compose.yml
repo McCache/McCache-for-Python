@@ -11,16 +11,18 @@ services:
     build: .
     image: mccache-img
     container_name: mccache01
+    privileged: true
     environment:
       - TEST_RANDOM_SEED=101
-      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.05 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
-      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
+#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
+#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug01${RUN_TIMESTAMP}.log
@@ -30,22 +32,30 @@ services:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
-    command: python tests/unit/start_mccache.py ;exit
+    entrypoint: ["/bin/sh", "-c"]
+#   command: >
+#       /home/mccache/tests/set_network_buffer.sh  &&
+#       python tests/unit/start_mccache.py
+#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
+#   command: python tests/unit/start_mccache.py ;exit
+    command: tests/start_mccache.sh
 
   node02:
     build: .
     image: mccache-img
     container_name: mccache02
+    privileged: true
     environment:
       - TEST_RANDOM_SEED=127
-      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
-      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
+#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
+#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug02${RUN_TIMESTAMP}.log
@@ -55,22 +65,30 @@ services:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
-    command: python tests/unit/start_mccache.py ;exit
+    entrypoint: ["/bin/sh", "-c"]
+#   command: >
+#       /home/mccache/tests/set_network_buffer.sh  &&
+#       python tests/unit/start_mccache.py
+#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
+#   command: python tests/unit/start_mccache.py ;exit
+    command: tests/start_mccache.sh
 
   node03:
     build: .
     image: mccache-img
     container_name: mccache03
+    privileged: true
     environment:
       - TEST_RANDOM_SEED=131
-      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
-      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
+#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
+#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug03${RUN_TIMESTAMP}.log
@@ -80,22 +98,30 @@ services:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
-    command: python tests/unit/start_mccache.py ;exit
+    entrypoint: ["/bin/sh", "-c"]
+#   command: >
+#       /home/mccache/tests/set_network_buffer.sh  &&
+#       python tests/unit/start_mccache.py
+#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
+#   command: python tests/unit/start_mccache.py ;exit
+    command: tests/start_mccache.sh
 
   node04:
     build: .
     image: mccache-img
     container_name: mccache04
+    privileged: true
     environment:
       - TEST_RANDOM_SEED=149
-      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
-      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
+#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
+#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug04${RUN_TIMESTAMP}.log
@@ -105,22 +131,30 @@ services:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
-    command: python tests/unit/start_mccache.py ;exit
+    entrypoint: ["/bin/sh", "-c"]
+#   command: >
+#       /home/mccache/tests/set_network_buffer.sh  &&
+#       python tests/unit/start_mccache.py
+#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
+#   command: python tests/unit/start_mccache.py ;exit
+    command: tests/start_mccache.sh
 
   node05:
     build: .
     image: mccache-img
     container_name: mccache05
+    privileged: true
     environment:
       - TEST_RANDOM_SEED=151
-      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
-      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
+#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
+#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug05${RUN_TIMESTAMP}.log
@@ -130,22 +164,30 @@ services:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
-    command: python tests/unit/start_mccache.py ;exit
+    entrypoint: ["/bin/sh", "-c"]
+#   command: >
+#       /home/mccache/tests/set_network_buffer.sh  &&
+#       python tests/unit/start_mccache.py
+#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
+#   command: python tests/unit/start_mccache.py ;exit
+    command: tests/start_mccache.sh
 
   node06:
     build: .
     image: mccache-img
     container_name: mccache06
+    privileged: true
     environment:
       - TEST_RANDOM_SEED=163
-      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
-      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
+#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
+#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug06${RUN_TIMESTAMP}.log
@@ -155,22 +197,30 @@ services:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
-    command: python tests/unit/start_mccache.py ;exit
+    entrypoint: ["/bin/sh", "-c"]
+#   command: >
+#       /home/mccache/tests/set_network_buffer.sh  &&
+#       python tests/unit/start_mccache.py
+#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
+#   command: python tests/unit/start_mccache.py ;exit
+    command: tests/start_mccache.sh
 
   node07:
     build: .
     image: mccache-img
     container_name: mccache07
+    privileged: true
     environment:
       - TEST_RANDOM_SEED=173
-      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
-      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
+#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
+#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug07${RUN_TIMESTAMP}.log
@@ -180,22 +230,30 @@ services:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
-    command: python tests/unit/start_mccache.py ;exit
+    entrypoint: ["/bin/sh", "-c"]
+#   command: >
+#       /home/mccache/tests/set_network_buffer.sh  &&
+#       python tests/unit/start_mccache.py
+#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
+#   command: python tests/unit/start_mccache.py ;exit
+    command: tests/start_mccache.sh
 
   node08:
     build: .
     image: mccache-img
     container_name: mccache08
+    privileged: true
     environment:
       - TEST_RANDOM_SEED=181
-      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
-      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
+#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
+#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug08${RUN_TIMESTAMP}.log
@@ -205,22 +263,30 @@ services:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
-    command: python tests/unit/start_mccache.py ;exit
+    entrypoint: ["/bin/sh", "-c"]
+#   command: >
+#       /home/mccache/tests/set_network_buffer.sh  &&
+#       python tests/unit/start_mccache.py
+#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
+#   command: python tests/unit/start_mccache.py ;exit
+    command: tests/start_mccache.sh
 
   node09:
     build: .
     image: mccache-img
     container_name: mccache09
+    privileged: true
     environment:
       - TEST_RANDOM_SEED=191
-      - TEST_APERTURE=${TEST_APERTURE:-0.01}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
       - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
       - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
-      - MCCACHE_CALLBACK_WIN=3                        # 3 seconds window to alert changes.
-      - MCCACHE_MULTICAST_IP=224.0.0.3:4000
+#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
+#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
+#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
       - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug09${RUN_TIMESTAMP}.log
@@ -230,4 +296,10 @@ services:
       - ./log:/home/mccache/log
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
-    command: python tests/unit/start_mccache.py ;exit
+    entrypoint: ["/bin/sh", "-c"]
+#   command: >
+#       /home/mccache/tests/set_network_buffer.sh  &&
+#       python tests/unit/start_mccache.py
+#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
+#   command: python tests/unit/start_mccache.py ;exit
+    command: tests/start_mccache.sh

@@ -90,12 +90,12 @@ The following are environment variables you can tune to fit your production envi
 <tbody>
   <tr>
     <td><sub>MCCACHE_CACHE_TTL</sub></td>
-    <td>3600</td>
+    <td>3600 sec</td>
     <td>Maximum number of seconds a cached entry can live before eviction.  Update operations shall reset the timer.</td>
   </tr>
   <tr>
     <td><sub>MCCACHE_CACHE_SIZE</sub></td>
-    <td>512</td>
+    <td>512 entries</td>
     <td>The maximum entries per cache.</td>
   </tr>
   <tr>
@@ -104,13 +104,18 @@ The following are environment variables you can tune to fit your production envi
     <td>The degree of keeping the cache coherent in the cluster.<br><b>FULL</b>: All member cache shall be kept fully coherent and synchronized.<br><b>PART</b>: Only members that has the same key in their cache shall be updated.</td>
   </tr>
   <tr>
+    <td><sub>MCCACHE_SYNC_PULSE</sub></td>
+    <td>300 sec</td>
+    <td>The interval to send out a synchronization pulse operation to the other members in the cluster.</td>
+  </tr>
+  <tr>
     <td><sub>MCCACHE_PACKET_MTU</sub></td>
-    <td>1472</td>
+    <td>1472 bytes</td>
     <td>The size of the smallest transfer unit of the network packet between all the network interfaces.</td>
   </tr>
   <tr>
     <td><sub>MCCACHE_MULTICAST_IP</sub></td>
-    <td>224.0.0.3 [:4000]</td>
+    <td>224.0.0.3 [ :4000 ]</td>
     <td>The multicast IP address and the optional port number for your group to multicast within.
     <br><b>SEE</b>: https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml</td>
   </tr>
@@ -124,17 +129,17 @@ The following are environment variables you can tune to fit your production envi
   -->
   <tr>
     <td><sub>MCCACHE_MULTICAST_HOPS</sub></td>
-    <td>1</td>
+    <td>1 hop</td>
     <td>The maxinum network hop. 1 is just within the local subnet. [1-9]</td>
   </tr>
   <tr>
     <td><sub>MCCACHE_DAEMON_SLEEP</sub></td>
-    <td>0.8</td>
+    <td>0.8 sec</td>
     <td>The snooze duration for the daemon housekeeper before waking up to check the state of the cache.</td>
   </tr>
   <tr>
     <td><sub>MCCACHE_CALLBACK_WIN</sub></td>
-    <td>3</td>
+    <td>3 sec</td>
     <td>The window, in seconds, where the last lookup and the current change falls in to trigger a callback to a function provided by you. </td>
   </tr>
   <tr>
@@ -157,21 +162,21 @@ The following are environment variables you can tune to fit your production envi
   </tr>
   <tr>
     <td><sub>TEST_RUN_DURATION</sub></td>
-    <td>5</td>
+    <td>5 min</td>
     <td>The duration in minutes of the testing run. <br>
         The larger the number, the longer the test run/duration.
         Tune this number up to add stress to the test.</td>
   </tr>
   <tr>
     <td><sub>TEST_MAX_ENTRIES</sub></td>
-    <td>100</td>
+    <td>200 key/values</td>
     <td>The maximum of randomly generated keys.<br>
         The smaller the number, the higher the chance of cache collision.
         Tune this number down to add stress to the test.</td>
   </tr>
   <tr>
     <td><sub>TEST_TEST_APERTURE</sub></td>
-    <td>0.01</td>
+    <td>0.01 sec</td>
     <td>The time scale to keep the randomly generated value to snooze within.  If you supply `0.01`, which is `10`ms, the snooze value will be randomly generated within the range between 0.01s and 0.1s or between 10ms and 100ms.</td>
   </tr>
   <tr>
@@ -197,10 +202,13 @@ export MCCACHE_MTU=1472
 ```
 
 ## Architecture Diagram
-### The other implementation
-TBD
-### This implementation
-TBD
+### Centralized implementation
+![Centralized Architecture](docs/Centralize%20Architecture.png)
+* This diagram is generated at https://www.eraser.io/diagramgpt.  I am in need of some help in the art department.
+
+### McCache implementation
+![McCache Architecture](docs/McCache%20Architecture.png)
+* This diagram is generated at https://www.eraser.io/diagramgpt.  I am in need of some help in the art department.
 
 ## Design
 `McCache` overwrite both the `__setitem__()` and `__delitem__()` dunder methods of `OrderedDict` to shim in the communication sub-layer to sync-up the other members in the cluster.  All changes to the cache dictionary are captured and queued up to be multicast out.  The cache is all nodes will eventually be consistent under normal condition.
@@ -221,6 +229,17 @@ The multicasting member will keep track of all the send fragments to all the mem
 Collision happens when two or more nodes make a change to a same key at the same time.  The timestamp that is attached to the update is not granular enough to serialize the operation.  In this case, a warning is log and multi-cast out the eviction of this key to prevent the cache from becoming in-coherent.
 
 There are **no** remote locks.  Synchronization is implemented using a **monotonic** timestamp that is tagged to every cache entry.  This helps serialized the update operation on every node in the cluster.  An arrived change operation has a timestamp which will be compared to the timestamp of the local cache entry.  Only remote operation with the timestamp that is more recent shall be applied to local cache.
+
+## Concern
+* Multicast could saturate the network.  We don't think this is a big issue, with a future outlook, for the following reasons:
+  1. Modern network do **not** run in a bus topology.  Bus topology is exposed to more packet collisions that requires backoff and retransmit.  Modern network uses a star topology implemented with high speed switches.  This hardware reduces packet collision and are virtually point-to-point connection between nodes in the cluster.
+  2. Modern network can signal at a rate of **100** Gb, which is use for uplink aggregation.  Normal NIC rate is **10** Gb.  According to [this article](https://www.fmad.io/blog/what-is-10g-line-rate), the maximum theoretical limit to saturate a **10** Gb wire with **1500** byte packets is **820,209**.  If we reach this edge case in a spike, it will only for a very brief moment before the traffic volume ebbs away.
+
+* Eventual consistent.  This is a tradeoff we made for a remote lockless implementation.  We address this issue as follows:
+  1. With less network protocol overhead, messages arrive sooner to keep the cache fresh.
+  2. Have inconsistency detection to evict the key/value from all caches.
+  3. Cache **time-to-live** expiration will eventually flush the entire cache down to empty is an inactive environment.
+  4. Sync heart beat to check for cache consistency.  In an edge case, a race condition could result in a new inconsistent just after a sync up but the latest entry should have been multicast out tho the members in cluster.
 
 ## Limitation
 * Even though the latency is low, it will **eventually** be consistent.  There is a very micro chance that an event can slip in just after the cache is read with the old value.  You have the option to pass in callback function to `McCache` for it to invoke if a change to the value of your cached object have changed within one second ago.  The other possibility is to perform a manual check.  The following is a code snippet that illustrate both approaches:
@@ -275,18 +294,20 @@ Other non-functional technical requirements are:
 
 Building a simple distributed system is more challenging than we originally thought.  You may question some design decision but we arrive here from a collection of wrong and right turns on a long learning journey but we agreed to delivering a good enough working software is the most important compromise.  In the future if we still feel strongly for a re-factoring or a re-design, this option is always available to us.  We are still on this journey of learning and hopefully contribute something of value back into the community.  (circa Oct-2023)
 
-## Contribute
-We welcome your contribution.  Please read [contributing](https://github.com/McCache/McCache-for-Python/blob/main/CONTRIBUTING.md) to learn how to contribute to this project.
-
-Issues and feature request can be posted [here](https://github.com/McCache/McCache-for-Python/issues). Help us port this library to other languages.  The repos are setup under the [GitHub `McCache` organization](https://github.com/mccache).
-You can reach our administrator at `elau1004@netscape.net`.
-
 ## Releases
 Releases are recorded [here](https://github.com/McCache/McCache-for-Python/issues).
 
 ## License
 `McCache` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
 
+## Contribute
+We welcome your contribution.  Please read [contributing](https://github.com/McCache/McCache-for-Python/blob/main/CONTRIBUTING.md) to learn how to contribute to this project.
+
+Issues and feature request can be posted [here](https://github.com/McCache/McCache-for-Python/issues). Help us port this library to other languages.  The repos are setup under the [GitHub `McCache` organization](https://github.com/mccache).
+You can reach our administrator at `elau1004@netscape.net`.
+
+## Support
+For any inquiries, bug reports, or feature requests, please open an issue in the [GitHub repository](https://github.com/McCache/McCache-for-Python/issues). See the McCache contributor guide for guidelines on filing good bugs.
 
 # Rewrite or remove everthing below ...
 ## Installation
