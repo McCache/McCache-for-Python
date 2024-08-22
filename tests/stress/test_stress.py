@@ -120,7 +120,7 @@ class   TestClass:
                                         #   The time difference between the previous and current entries.
                                         dff = psc - csc
 
-                                        msg =   f"Key: {k} ,Nodes: {prv[0]} & {cur[0]} ,Var: {dff:0.4f} PrvTsm: {prv[1]['data'][ k ]['tsm']} CurEnd: {cur[1]['endtsm']} ,CRC: {prv[1]['data'][ k ]['crc']} != {cur[1]['data'][ k ]['crc']}"
+                                        msg =   f"Key: {k} ,Nodes: {prv[0]} & {cur[0]} ,Var: {dff:0.4f} PrvTsm: {prv[1]['data'][ k ]['tsm']} CurTsm: {cur[1]['data'][ k ]['tsm']} ,PrvEnd: {prv[1]['endtsm']} CurEnd: {cur[1]['endtsm']} ,PrvCRC: {prv[1]['data'][ k ]['crc']} CurCRC: {cur[1]['data'][ k ]['crc']}"
                                         assert  prv[1]['data'][ k ]['tsm'] ==  cur[1]['data'][ k ]['tsm'] ,msg
 
                                     ##   If the previous key tsm is before the current  node exit time than assert it.
@@ -154,7 +154,7 @@ class   TestClass:
                                         #   The time difference between the previous and current entries.
                                         dff = csc - psc
 
-                                        msg =   f"Key: {k} ,Nodes: {cur[0]} & {prv[0]} ,Var: {dff:0.4f} ,CurTsm: {cur[1]['data'][ k ]['tsm']} PrvEnd: {prv[1]['endtsm']} ,CRC: {cur[1]['data'][ k ]['crc']} != {prv[1]['data'][ k ]['crc']}"
+                                        msg =   f"Key: {k} ,Nodes: {cur[0]} & {prv[0]} ,Var: {dff:0.4f} ,CurTsm: {cur[1]['data'][ k ]['tsm']} PrvTsm: {prv[1]['data'][ k ]['tsm']} ,CurEnd: {cur[1]['endtsm']} PrvEnd: {prv[1]['endtsm']} ,CurCRC: {cur[1]['data'][ k ]['crc']} PrvCRC: {prv[1]['data'][ k ]['crc']}"
                                         assert  cur[1]['data'][ k ]['tsm'] ==  prv[1]['data'][ k ]['tsm'] ,msg
 
                                     ##   If the current  key tsm is before the previous node exit time than assert it.

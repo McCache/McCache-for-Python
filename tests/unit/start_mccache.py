@@ -60,10 +60,11 @@ random.seed( rndseed )
 # The artificial pauses in between cache operation.  Targeting between 10 to 30 ms.
 # SEE: https://www.centurylink.com/home/help/internet/how-to-improve-gaming-latency.html
 #
-aperture:float=0.01 if 'TEST_APERTURE'      not in os.environ else float(os.environ['TEST_APERTURE']  )
+aperture:float=0.01 if 'TEST_APERTURE'      not in os.environ else float(os.environ['TEST_APERTURE'])
 entries:int   = 200 if 'TEST_MAX_ENTRIES'   not in os.environ else int(  os.environ['TEST_MAX_ENTRIES'])
 duration:int  = 5   if 'TEST_RUN_DURATION'  not in os.environ else int(  os.environ['TEST_RUN_DURATION'])
 cluster:int   = 3   if 'TEST_CLUSTER_SIZE'  not in os.environ else int(  os.environ['TEST_CLUSTER_SIZE'])
+syncpulse:int = mc._mcConfig.cache_sync_pulse
 
 if  mc._mcConfig.callback_win < 0.1:    # Only this tight in testing.
     cache = mc.get_cache( callback=test_callback )
@@ -77,7 +78,7 @@ frg = '{'+'frg:0{l}'.format( l=len(str( entries )))+'}'
 
 # Random test section.
 #
-mc.logger.info(f"{mc.SRC_IP_ADD} Config: Seed={rndseed:3}  ,CBck={mc._mcConfig.callback_win:2} sec ,Duration={duration:2} min ,Keys={entries:3} ,Aptr={aperture}")
+mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=f"Config: Seed={rndseed:3}  ,Cluster={cluster} ,Entries={entries} ,Pulse={syncpulse}m ,Aperture={aperture}s ,Duration={duration}m" )
 
 itg = 0 # Integral, the digits to the left of the decimal.
 scl = 1 # The number of digits to the right of the decimal.
@@ -218,15 +219,12 @@ while (end - bgn) < (duration*60):  # Seconds.
 
 # Done stress testing.
 #
+mc._log_ops_msg( logging.INFO   ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=f"Done testing with {slp:0.4f} sec/ops with {ctr} ops.  Querying final cache checksum." )
 
 # All incoming updates after the the following "Done." cutoff should be discarded.
 #
 # Wait for some straggler to trickle in before to dump out the cache.
-time.sleep( cluster / 3 )   # NOTE: 1/3 the number of nodes in the cluster.
-
-# Lock to take a snapshot.
-mc._lock.acquire()
-mc._log_ops_msg( logging.INFO   ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=f"Done testing with {slp:0.4f} sec/ops with {ctr} ops.  Querying final cache checksum." )
+time.sleep( 2 ^ mc._mcConfig.multicast_hops )
 
 # Query the local cache and metrics and exit.
 #
@@ -234,4 +232,3 @@ mc.get_cache_checksum( name=cache.name ,node=mc.SRC_IP_ADD )
 mc.get_cluster_metrics( node=mc.SRC_IP_ADD )
 
 mc._log_ops_msg( logging.INFO   ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=f"Exiting test." )
-mc._lock.release()

@@ -52,7 +52,7 @@ SET TEST_MAX_ENTRIES=200
 SET TEST_APERTURE=0.05
 
 :: Setup the variable TEST_DEBUG_LEVEL to be passed into the container composer.
-SET TEST_DEBUG_LEVEL=1
+SET TEST_DEBUG_LEVEL=0
 
 :: Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
 SET TEST_MONKEY_TANTRUM=0
@@ -82,7 +82,7 @@ IF  "%~1"==""    GOTO :EOF_CLI
 
 :HELP_SCREEN
 ECHO Invalid parameter %~1 value.  Try the following:
-ECHO %SCRIPT_NAME%  [-D ] [ -P] [-c #] [-d #] [-k #] [-l #] [-p #] [-s #] [-y ##] [-w #]
+ECHO %SCRIPT_NAME%  [-D ] [ -P] [-c #] [-d #] [-k #] [-l #] [-p #] [-s #] [-y #] [-w #]
 ECHO -D    Use Docker container.
 ECHO -P    Use Podman container.
 ECHO -c #  Cluster size.          Default 3.  Max is 9.
@@ -90,7 +90,7 @@ ECHO -d #  Run duration.          Default 5 minutes.
 ECHO -k #  Max entries.           Default 200.
 ECHO -l #  Debug level.           Default 0.  0=Off ,1=Basic ,3=Extra ,5=Superfluous
 ECHO -p #  Sync pulse.            Default 5 minutes.
-ECHO -s #  Sleep aperture.        Default 0.05. 0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
+ECHO -s #  Sleep aperture.        Default 0.05.  1=1s ,0.1=100ms ,0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
 ECHO -y #  Monkey tantrum.        Default 0.
 ECHO -w #  Callback window sec.   Default 0.
 GOTO :EOF_SCRIPT
@@ -223,13 +223,14 @@ cat log/debug0*.log |grep -E "	INQ	|	MET	|Done|Exiting" |grep -Ev "Fr:|Out going
 pytest  tests\stress\test_stress.py
 
 :: Sort the logs in chronological order.
-sort    log/debug0*.log >log/chronological.txt
+sort    log/debug0*.log     >log/chronological.txt
 
 :: Detail details.
-grep -iE  "after lookup|in the background"  log/debug0*.log >log/detail_expire.log
-grep -iE  "sending local|requesting sender" log/debug0*.log >log/detail_synchronization.log
-grep -iE  "cache incoherent"                log/debug0*.log >log/detail_incoherent.log
-grep -iE  "monkey is angry"                 log/debug0*.log >log/detail_drop_packets.log
+grep -iE  "after lookup|in the background"      log/debug0*.log >log/detail_expire.log
+grep -iE  "internal message queue|done testing" log/debug0*.log >log/detail_queue_pressure.log
+grep -iE  "sending local|requesting sender"     log/debug0*.log >log/detail_synchronization.log
+grep -iE  "cache incoherent"                    log/debug0*.log >log/detail_incoherent.log
+grep -iE  "monkey is angry"                     log/debug0*.log >log/detail_drop_packets.log
 
 :EOF_SCRIPT
 POPD

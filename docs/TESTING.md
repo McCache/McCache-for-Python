@@ -99,46 +99,100 @@ The CLI parameters are:
 |-c #  |Cluster size.   |      3|Nodes   |Max is 9.|
 |-d #  |Run duration.   |      5|Minute  |Decrease run duration, decreases coverage.|
 |-k #  |Max entries.    |    200|Key     |Decrease K/V entries, increases contention.|
-|-l #  |Debug level.    |      0|Level   |0=Off ,1=Basic ,3=Extra ,5=Superfluous|
+|-l #  |Debug level.    |      1|Level   |0=Off ,1=Basic ,3=Extra ,5=Superfluous|
 |-p #  |Sync pulse.     |      5|Minute  |Decrease pulse value, increases synchronization.|
 |-s #  |Snooze aperture.|   0.01|Fraction|Decrease snooze aperture, increase contention. 0.01=10ms ,0.001=1ms ,0.0001=0.1ms/100us|
 |-y #  |Monkey tantrum. |      0|Percent |0=Disabled. Artificially introduce some packet lost. e.g. `3 is 3% packet lost`.|
 |-w #  |Callback window.|      0|Second  |0=Disabled. Callback window, in seconds, for changes in the cache since last looked up.|
 * The test script that is used to pound the cache can be viewed [here](https://github.com/McCache/McCache-for-Python/blob/main/tests/unit/start_mccache.py).
 
-### Results of basic stress test
-Result header caption:
-* Avg Snooze    - The average pause plus processing time per loop iteration in the test script.
-* Avg SpikeHits - The average number of inserts, updates, and deletes that are called with less than **3** seconds spike window..
-* Avg SpikeInt  - The average interval in seconds between insert, update, and delete operation.
-* Avg Misses    - The average lookups performed in the test.
-* Avg LookUps   - The average lookups performed in the test.
-* Avg Inserts   - The average inserts performed in the test.
-* Avg Updates   - The average updates performed in the test.
-* Avg Deletes   - The average deletes performed in the test.
+#### Results of basic stress test
+|Result<br>Caption|<br>Description|
+|-|-|
+|Avg Snooze     |The average pause plus processing time per loop iteration in the test script.|
+|Avg SpikeHits  |The average number of inserts, updates, and deletes that are called with less than **3** seconds spike window..|
+|Avg SpikeInt   |The average interval in seconds between insert, update, and delete operation.|
+|Avg SpikeQue   |The average messages in the internal in-bound message queue that is above **1000** messages spike.|
+|Avg SpikeEvts  |The average evictions due to cache detected cache incoherence in the cluster.
+|Avg LookUps    |The average lookups performed in the test.|
+|Avg Inserts    |The average inserts performed in the test.|
+|Avg Updates    |The average updates performed in the test.|
+|Avg Deletes    |The average deletes performed in the test.|
+
+### Frequency Stress Test Result
+|<br>Run|-c #<br>Nodes|-k #<br>Keys|-p #<br>Pulse|-s #<br>Aperture|-d #<br>Duration|<br>Result|Avg<br>Snooze|Avg<br>SpikeHits|Avg<br>SpikeInt|Avg<br>SpikeQue|Avg<br>SpikeEvts|Avg<br>LookUps|Avg<br>Inserts|Avg<br>Updates|Avg<br>Deletes|<br>Comment|
+|:------|---:|---:|--:|-----:|---:|:----------------------------:|-----:|-----:|-----:|-----:| ----:|-----:|-----:|-----:|-----:|:-|
+|3.1    |   3| 100|  3|   0.1|  10|<font color="cyan">Pass</font>|0.5459|   325|1.1222|      |      |   674|   106|   233|    38|Basic test with **3** nodes using **100** key/value pairs, sync every **5** minutes, running with **100**ms snooze aperture for **10** minutes.|
+|3.2    |   3| 100|  3|  0.05|  10|<font color="cyan">Pass</font>|0.2750|   777|0.4024|      |      |  1238|   197|   635|   123|Decrease test run duration down to **10** minutes.|
+|3.2    |   3| 100|  3|  0.01|  10|<font color="cyan">Pass</font>|0.0552|  4937|0.1215|      |      |  5907|   856|  3346|   735|Decrease snooze aperture down to **0.01** second.|
+|3.4    |   3| 100|  3| 0.005|  10|<font color="cyan">Pass</font>|0.0277| 10155|0.0591|     0|     4| 11239|  1606|  7080|  1469|Decrease snooze aperture down to **0.005** second.|
+|3.5    |   3| 100|  3| 0.001|  10|<font color="cyan">Pass</font>|0.0062| 46061|0.0130|   101|    85| 50266|  6993| 32198|  6848|Decrease snooze aperture down to **0.001** second.|
+|3.5.1  |   3| 100|  3|0.0005|  10|<font color="cyan">Pass</font>|0.0037| 47259|0.0128|   448|   527| 82944| 17215| 12917| 17127|Decrease snooze aperture down to **0.0005** second.|
+|3.5.2  |   3| 100|  3|0.0001|  10|<font color="cyan">Pass</font>|0.0015|172779|0.0035| 30877| 54420|217931| 42692| 87511| 42578|Decrease snooze aperture down to **0.0001** second.|
+|       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |   |
+|5.1    |   5| 100|  3|   0.1|  10|<font color="cyan">Pass</font>|0.5363|   519|1.0306|      |      |   664|   114|   358|    57|Increase cluster size to **5**.|
+|5.2    |   5| 100|  3|  0.05|  10|<font color="cyan">Pass</font>|0.2754|  1355|0.4429|      |      |  1229|   241|   939|   175|Decrease snooze aperture down to **0.05** second.|
+|5.3    |   5| 100|  3|  0.01|  10|<font color="cyan">Pass</font>|0.0552|  7362|0.0815|      |      |  5806|  1099|  5293|   970|Decrease snooze aperture down to **0.01** second.|
+|5.4    |   5| 100|  3| 0.005|  10|<font color="cyan">Pass</font>|0.0281| 13673|0.0439|     0|    12| 11309|  1997|  9801|  1875|Decrease snooze aperture down to **0.005** second.|
+|5.5    |   5| 100|  3| 0.001|  10|<font color="cyan">Pass</font>|0.0064| 30765|0.0196|   104|   715| 48831| 13142|  4571| 13052|Decrease snooze aperture down to **0.001** second.|
+|5.6    |   5| 100|  3|0.0005|  10|<font color="cyan">Pass</font>|0.0036| 51547|0.0117|   412|  9518| 85916| 20593| 10445| 20510|Decrease snooze aperture down to **0.0005** second.|
+|5.7    |   5| 100|  3|0.0001|  10|<font color="cyan">Pass</font>|0.0017|146044|0.0041|112288| 94543|183693| 44623| 67638| 44542|Decrease snooze aperture down to **0.0001** second.|
+|       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |   |
+|7.1    |   7| 100|  3|   0.1|  10|<font color="cyan">Pass</font>|0.5362|   659|0.8528|      |      |   656|   120|   474|    70|Increase cluster size to **7**.|
+|7.2    |   7| 100|  3|  0.05|  10|<font color="cyan">Pass</font>|0.2747|  1586|0.3783|      |      |  1293|   247|  1162|   179|Decrease snooze aperture down to **0.05** second.|
+|7.3    |   7| 100|  3|  0.01|  10|<font color="cyan">Pass</font>|0.0554|  8791|0.0683|     0|    11|  5787|  1231|  6442|  1118|Decrease snooze aperture down to **0.01** second.|
+|7.4    |   7| 100|  3| 0.005|  10|<font color="cyan">Pass</font>|0.0278| 15914|0.0378|    16|    25| 11514|  2257| 11523|  2134|Decrease snooze aperture down to **0.005** second.|
+|7.5    |   7| 100|  3| 0.001|  10|<font color="cyan">Pass</font>|0.0066| 29807|0.0202|   483|  5104| 47055| 12914|  4060| 12833|Decrease snooze aperture down to **0.001** second.|
+|7.6    |   7| 100|  3|0.0005|  10|<font color="cyan">Pass</font>|0.0039| 48349|0.0125|  1193| 24343| 79999| 19323|  9785| 19241|Decrease snooze aperture down to **0.0005** second.|
+|7.7    |   7| 100|  3|0.0001|  10|<font color="cyan">Pass</font>|0.0023|101683|0.0059|141098| 45527|135183| 37688| 26391| 37605|Decrease snooze aperture down to **0.0001** second.|
+|       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |   |
+|9.1    |   9| 100|  3|   0.1|  10|<font color="cyan">Pass</font>|0.5362|   864|0.6747|      |      |   683|   142|   632|    93|Increase cluster size to **9**.|
+|9.2    |   9| 100|  3|  0.05|  10|<font color="cyan">Pass</font>|0.2753|  1862|0.3224|      |      |  1257|   275|  1374|   213|Decrease snooze aperture down to **0.05** second.|
+|9.3    |   9| 100|  3|  0.01|  10|<font color="cyan">Pass</font>|0.0550|  9002|0.0667|     0|     5|  5744|  1248|  6620|  1134|Decrease snooze aperture down to **0.01** second.|
+|9.4    |   9| 100|  3| 0.005|  10|<font color="cyan">Pass</font>|0.0283| 12338|0.0488|  1283|    78| 10633|  2733|  6937|  2668|Decrease snooze aperture down to **0.005** second.|
+|9.5    |   9| 100|  3| 0.001|  10|<font color="cyan">Pass</font>|0.0072| 57628|0.0104|   719| 19994| 43410| 10724| 36278| 10626|Decrease snooze aperture down to **0.001** second.|
+|9.6    |   9| 100|  3|0.0005|  10|<font color="cyan">Pass</font>|0.0050| 66906|0.0090|  4518| 55600| 62784| 16763| 33464| 16679|Decrease snooze aperture down to **0.0005** second.|
+|9.7    |   9| 100|  3|0.0001|  10|<font color="cyan">Fail</font>|0.0025|104601|0.0063|104601|178973|122601| 34959| 25089| 34881|Decrease snooze aperture down to **0.0001** second.|
+|       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |   |
+
+### Duration Stress Test Result
+|<br>Run|-c #<br>Nodes|-k #<br>Keys|-p #<br>Pulse|-s #<br>Aperture|-d #<br>Duration|<br>Result|Avg<br>Snooze|Avg<br>SpikeHits|Avg<br>SpikeInt|Avg<br>SpikeQue|Avg<br>SpikeEvts|Avg<br>LookUps|Avg<br>Inserts|Avg<br>Updates|Avg<br>Deletes|<br>Comment|
+|:------|---:|---:|--:|-----:|---:|:----------------------------:|-----:|-----:|-----:|-----:| ----:|-----:|-----:|-----:|-----:|:-|
+|3.1.1  |   3| 100|  3|   0.1|  20|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|3.1.2  |   3| 100|  3|   0.1|  40|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|3.1.3  |   3| 100|  3|   0.1|  60|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |  |
+|5.1.1  |   3| 100|  3|   0.1|  20|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|5.1.2  |   3| 100|  3|   0.1|  40|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|5.1.3  |   3| 100|  3|   0.1|  60|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |  |
+|7.1.1  |   3| 100|  3|   0.1|  20|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|7.1.2  |   3| 100|  3|   0.1|  40|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|7.1.3  |   3| 100|  3|   0.1|  60|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |  |
+|9.1.1  |   3| 100|  3|   0.1|  20|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|9.1.2  |   3| 100|  3|   0.1|  40|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|9.1.3  |   3| 100|  3|   0.1|  60|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |  |
+|       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |  |
 
 
-|<br>Run|-c #<br>Nodes|-k #<br>Keys|-p #<br>Pulse|-s #<br>Aperture|-d #<br>Duration|<br>Result|<br>Hung|Fail<br>Test|Avg<br>Snooze|Avg<br>SpikeHits|Avg<br>SpikeInt|Avg<br>Misses|Avg<br>LookUps|Avg<br>Inserts|Avg<br>Updates|Avg<br>Deletes|<br>Comment|
-|:------|---:|---:|--:|---:|---:|:----------------------------:|:-:|:-:|-----:|-----:|-----:|-----:|-----:|-----:|----:|-----:|:-|
-|3.1    |   3| 100|  3| 0.1|  10|<font color="cyan">Pass</font>|   |   |0.5459|   325|1.1222|     0|   674|   106|  233|    38|Basic test with **3** nodes using **100** key/value pairs, sync every **5** minutes, running with **100**ms snooze aperture for **10** minutes.|
-|3.1.1  |   3| 100|  3| 0.1|  15|<font color="cyan">Pass</font>|   |   |0.5423|   614|1.0357|     0|  1022|   161|  435|    82|Increase duration up to **15** minutes.|
-|3.1.2  |   3| 100|  3| 0.1|  20|<font color="red" >Fail</font>|Yes|   |      |      |      |      |      |      |     |      |Increase duration up to **20** minutes.|
-|3.1.2.1|   3| 100|  3| 0.5|  20|<font color="red" >Fail</font>|Yes|   |      |      |      |      |      |      |     |      |Increase aperture up to **0.5** second.|
-|3.1.2.2|   3| 100|  3| 0.8|  20|<font color="red" >Fail</font>|   |   |      |      |      |      |      |      |     |      |Increase aperture up to **0.8** second.|
-|3.1.2.3|   3| 100|  3| 2.0|  20|<font color="red" >Fail</font>|   |   |      |      |      |      |      |      |     |      |Increase aperture up to **2.0** second.|
-|       |    |    |   |    |    |                              |   |   |      |      |      |      |      |      |     |      |   |
+### Footnotes
+<sup>1</sup> Occurred at the last seconds of the test.  Member did not receive update and sender exited test before able to retry.  This is intermittent failure among passes.<br>
+<sup>2</sup> Logs was cut off.
 
-* The following may have influence over the above results:
-    * Number of running containers.  CPU may throttle down when it is too hot.
-    * Python version.  The latest version is mich faster than two versions ago.
-    * Python `random.randrange()` and `time.sleep()` implementation.
-    * The O/S scheduler.
+The following may have influence over the above results:
+* Number of running containers.  CPU may throttle down when it is too hot.
+* Python version.  The latest version is mich faster than two versions ago.
+* Python `random.randrange()` and `time.sleep()` implementation.
+* The O/S scheduler.
 
 ### Observations
-* The laptop is a freshly rebooted and is entirely dedicated to this stress test.  No other task were running on it.
+* Debugging level.  More logging will be slower and do fail the tests.  I disable logging with the `-l 0` CLI option.
+* The more nodes the longer it takes to for the other nodes to receive message.  **5** nodes have about **8** seconds latency.
 * Some of my containers hang after running more than **15** minutes under load.
 * Anecdotally, it does **not** look like `time.sleep( 0.0001 )` can yield accurate precision.
-* We feel that `McCache` can handle very heavy update/delete against it.  `McCache` is **not** for you if you have a use case that pound the cache harder than `40000` changes within `0.01` second apart for `10` minutes.
+* We feel that `McCache` can handle very heavy update/delete against it.
 
 
 ### Cloud VM

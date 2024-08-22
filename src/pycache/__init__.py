@@ -66,14 +66,32 @@ class Cache( OrderedDict ):
     ONE_NS_MIN  = 60 * ONE_NS_SEC   # One minute in nano seconds.
     TSM_VERSION = time.monotonic_ns if sys.platform == 'darwin' else time.time_ns
     # NOTE: time.monotonic_ns() behave differently on different OS.  Different precision is returned.
+    #       time.monotonic_ns()
     #       Win11:  13446437000000
     #       WSL:    11881976237028
+    #       Mac:
     #
     #       time.time_ns()
     #       Win11:  1707278030313783400
     #       WSL:    1707276577346395597
+    #       Mac:
     #
     IP4_ADDRESS = sorted(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET ))[0][4][0]
+
+    @classmethod
+    def tsmverstr(clz ,ver: int | None = None ) -> str:
+        """
+        Conversion the timestamp version from integer to displayable string.  If none is input, anew timestamp version is generated.
+
+        Args:
+            ver     Timestamp version in nano seconds.
+        Return:
+            String version of the timestamp.
+        """
+        if  not ver:
+            ver = Cache.TSM_VERSION()
+        tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime( (ver // Cache.ONE_NS_SEC) ))}.{ver % Cache.ONE_NS_SEC:0<9}"
+        return  tsm
 
     def __init__(self ,other=() ,/ ,**kwargs) -> None:  # NOTE: The / as an argument marks the end of arguments that are positional.
         """Cache constructor.
@@ -247,6 +265,7 @@ class Cache( OrderedDict ):
         """Standardize the output format with this object specifics.
         """
         txt = self.__msgbdy
+        now = Cache.tsmverstr()
         lno = getframeinfo(stack()[1][0]).lineno
         iam = Cache.IP4_ADDRESS if 'Im:' in txt else f'Im:{Cache.IP4_ADDRESS}'
         md5 = crc
@@ -256,7 +275,7 @@ class Cache( OrderedDict ):
         if  tsm is None:
             tsm =  f"T={' '*16}"    #   04:13:56.108051950
         else:
-            tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime(tsm // Cache.ONE_NS_SEC))}.{tsm % Cache.ONE_NS_SEC:0<8}"
+            tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime(tsm // Cache.ONE_NS_SEC))}.{tsm % Cache.ONE_NS_SEC:0<9}"
         if  nms is None:
             nms =  f"N={' '* 5}"
         if  key is None:
@@ -270,7 +289,7 @@ class Cache( OrderedDict ):
             crc =  \
             md5 =  base64.b64encode( crc ).decode()[:-2]    # NOTE: Without '==' padding.
 
-        txt =  txt.format( lno=lno ,iam=iam ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,md5=md5 ,msg=msg )
+        txt =  txt.format( now=now ,lno=lno ,iam=iam ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,md5=md5 ,msg=msg )
         self.__logger.debug( txt )
 
     def _evict_ttl_items(self) -> int:
@@ -364,17 +383,27 @@ class Cache( OrderedDict ):
         """
         if  tsm is None:
             tsm =  Cache.TSM_VERSION()
+
         try:
             crc = self.__meta[ key ]['crc'] # Old crc value.
             lkp = self.__meta[ key ]['lkp'] # Last looked up.
             elp = tsm - lkp                 # Elapsed nano seconds.
             del self.__meta[ key ]
             #
+
             if  self.__queue and queue_out:
                 opc = 'EVT' if eviction else 'DEL'
                 self.__queue.put((opc ,tsm ,self.__name ,key ,crc ,None ,None))
                 if  self.__debug:
                     self._log_ops_msg( opc=opc ,tsm=tsm ,nms=self.__name ,key=key ,crc=crc ,msg='Queued.')
+
+            # Callback to notify a change in the cache.
+            if  self.__callback and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
+                # Type: 1=Deletion ,2=Update ,3=Incoherent
+                # The key/value got changed since last read.
+                arg = {'typ': CallbackType.DELETE ,'nms': self.__name ,'key': key ,'lkp': lkp ,'tsm': tsm ,'elp': elp ,'prvcrc': crc ,'newcrc': crc}
+                t1 = Thread( target=self.__callback ,args=[arg] ,name='PyCache' )
+                t1.start()  # NOTE: Launch and forget.
 
             # Increment metrics.
             if  eviction:
@@ -384,14 +413,6 @@ class Cache( OrderedDict ):
             self._set_spike()
         except  KeyError:
             pass    # NOTE: Deleted from another thread.
-
-        # Callback to notify a change in the cache.
-        if  self.__callback and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
-            # Type: 1=Deletion ,2=Update ,3=Incoherent
-            # The key/value got changed since last read.
-            arg = {'typ': CallbackType.DELETION ,'nms': self.__name ,'key': key ,'lkp': lkp ,'tsm': tsm ,'elp': elp ,'prvcrc': crc ,'newcrc': crc}
-            t1 = Thread( target=self.__callback ,args=[arg] ,name='PyCache' )
-            t1.start()
 
     def _post_get(self,
             key: Any    ) -> None:
