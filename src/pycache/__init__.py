@@ -14,8 +14,8 @@ from collections.abc import Iterable
 from enum import Flag ,IntEnum
 from inspect import getframeinfo, stack
 from threading import Thread ,RLock #,Lock
-from types import FunctionType
-from typing import Any
+from types import ModuleType, FunctionType
+from typing import Any ,Callable
 
 # If you are using VS Code, make sure your "cwd" and "PYTHONPATH" is set correctly in `launch.json`:
 #   "cwd": "${workspaceFolder}",
@@ -104,7 +104,7 @@ class Cache( OrderedDict ):
             msgbdy  :str        Custom log message format to log out.
             logger  :Logger     Custom logger to use internally.
             queue   :Queue      Output queue to broadcast internal changes out.
-            callback:FunctionType   Your function to call if a value got updated just after you have read it.
+            callback:Callable   Your function to call if a value got updated just after you have read it.
                                 The input parameter shall be a context dictionary of:
                                     {'key': key ,'lkp': lkp ,'tsm': tsm ,'prvcrc': old ,'newcrc': new}
                                         key:    The unique key for your object.
@@ -127,7 +127,7 @@ class Cache( OrderedDict ):
         self.__msgbdy   :str    = 'L#{lno:>4}\tIm:{iam}\tOp:{opc}\tTs:{tsm:<18}\tNm:{nms}\tKy:{key}\tCk:{crc}\tMg:{msg}'
         self.__logger   :logging.Logger = None
         self.__queue    :queue.Queue    = None
-        self.__callback :FunctionType   = None
+        self.__callback :Callable       = None
         self.__cbwindow :int    = 3         # Callback window, in seconds, for changes in the cache since last looked up.
         self.__debug    :bool   = False     # Internal debug is disabled.
         self.__oldest   :int    = Cache.TSM_VERSION()  # Oldest entry in the cache.
@@ -160,8 +160,8 @@ class Cache( OrderedDict ):
                             raise TypeError('An instance of "queue.Queue" is required as a queue!')
                         self.__queue = val     # The queue object.
                     case 'callback':
-                        if  not isinstance( val ,FunctionType ):
-                            raise TypeError('An instance of "type.FunctionType" is required as a callback function!')
+                        if  not isinstance( val ,Callable ):
+                            raise TypeError('An instance of "type.Callable" is required as a callback function!')
                         self.__callback = val   # The callback function.
                     case 'cbwindow':
                         if 'callback' not in kwargs:
@@ -221,7 +221,7 @@ class Cache( OrderedDict ):
         return  self.__queue
 
     @property
-    def callback(self) -> FunctionType:
+    def callback(self) -> Callable:
         return  self.__callback
 
     # This class's private method section.
@@ -273,7 +273,7 @@ class Cache( OrderedDict ):
         if  opc is None:
             opc =  f"O={' '* 4}"
         if  tsm is None:
-            tsm =  f"T={' '*16}"    #   04:13:56.108051950
+            tsm =  f"T={' '*16}"
         else:
             tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime(tsm // Cache.ONE_NS_SEC))}.{tsm % Cache.ONE_NS_SEC:0<9}"
         if  nms is None:
@@ -329,33 +329,31 @@ class Cache( OrderedDict ):
     def _get_size(self ,obj: object ,seen: set | None = None) -> int:
         """Recursively finds size of nested objects.
 
-        Credit goes to:
-        https://goshippo.com/blog/measure-real-size-any-python-object
-
         Args:
             obj     Object, optionally with nested objects.
             seen    Set of seen objects as we recurse into the nesting.
         Return:
             size    Total size of the input object.
         """
-        size = sys.getsizeof( obj ) # Size of the object with any additional overhead.
-        if  seen is None:
-            seen =  set()
+        if seen is None:
+            seen = set()
+
         obj_id = id( obj )
         if  obj_id in seen:
             return 0
-        # Important mark as seen *before* entering recursion to gracefully handle
-        # self-referential objects
-        seen.add( obj_id )
-        if  isinstance( obj ,dict ):
-            size += sum([self._get_size( v ,seen ) for v in obj.values()])
-            size += sum([self._get_size( k ,seen ) for k in obj.keys()])
-        elif hasattr( obj ,'__dict__' ):
-            size += self._get_size( obj.__dict__ ,seen )
-        elif hasattr( obj ,'__iter__' ) and not isinstance( obj ,str | bytes | bytearray ):
-            size += sum([self._get_size( o ,seen ) for o in obj])
-        return size
 
+        # Important mark as seen *before* entering recursion to gracefully handle self-referential objects.
+        seen.add( obj_id )
+        size = sys.getsizeof( obj )
+
+        if isinstance( obj ,dict ):
+            size += sum( self._get_size( k ,seen ) + self._get_size( v ,seen ) for k, v in obj.items())
+        elif isinstance( obj ,(list ,tuple ,set ,frozenset)):
+            size += sum( self._get_size( i ,seen ) for i in obj)
+        elif isinstance( obj ,(ModuleType ,FunctionType)):
+            pass  # Ignore modules and functions
+
+        return size
 
     def _evict_cap_items(self) -> int:
         """Evict cache capacity based items.
@@ -411,7 +409,9 @@ class Cache( OrderedDict ):
                 self.deletes += 1
             self._set_spike()
         except  KeyError:
-            pass    # NOTE: Deleted from another thread.
+            # NOTE: Deleted from another thread.
+            if  self.__debug:
+                self.__logger.warning( f"Key '{key}' not found in cache '{self.__name}'.")
 
         # Callback to notify a change in the cache.
         if  self.__callback and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
@@ -428,7 +428,9 @@ class Cache( OrderedDict ):
         try:
             self.__meta[ key ]['lkp'] = Cache.TSM_VERSION() # Timestamp for the just lookup operation.
         except  KeyError:
-            pass    # NOTE: Deleted from another thread.
+            # NOTE: Deleted from another thread.
+            if  self.__debug:
+                self.__logger.warning( f"Key '{key}' not found in cache '{self.__name}'.")
 
     def _post_set(self,
             key: Any,
@@ -475,7 +477,9 @@ class Cache( OrderedDict ):
                 self.inserts += 1
             self._set_spike()
         except  KeyError:
-            pass    # NOTE: Deleted from another thread.
+            # NOTE: Deleted from another thread.
+            if  self.__debug:
+                self.__logger.warning( f"Key '{key}' not found in cache '{self.__name}'.")
 
         # Callback to notify a change in the cache.
         if  self.__callback and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
@@ -538,6 +542,7 @@ class Cache( OrderedDict ):
         if  self.__debug:
             crc = self.__meta[ key ]['crc'] if key in self.__meta else None
             self._log_ops_msg( opc='DEL' ,tsm=tsm ,nms=self.__name ,key=key ,crc=crc ,msg='Deleted via __delitem__()')
+
         self._post_del( key=key ,tsm=tsm ,eviction=False ,queue_out=queue_out )
 
     def __getitem__(self,
@@ -614,6 +619,7 @@ class Cache( OrderedDict ):
             msg = f"{'Updated' if updmode else 'Inserted'} via __setitem__()."
             crc = self.__meta[ key ]['crc'] if key in self.__meta else None
             self._log_ops_msg( opc=opc ,tsm=tsm ,nms=self.__name ,key=key ,crc=crc ,msg=msg)
+
         self._post_set( key=key ,value=value ,tsm=tsm ,update=updmode ,queue_out=queue_out )
 
     # Public dictionary methods section.
@@ -639,7 +645,8 @@ class Cache( OrderedDict ):
         if  self.__ttl > 0:
             _ = self._evict_ttl_items()
 
-        return super().copy()
+        with Cache.CACHE_LOCK:
+            return super().copy()
 
 #   @classmethod
 #   def fromkeys(cls, iterable, value=None):
@@ -660,7 +667,8 @@ class Cache( OrderedDict ):
         if  self.__ttl > 0:
             _ = self._evict_ttl_items()
 
-        val = super().get( key ,default )
+        with Cache.CACHE_LOCK:
+            val = super().get( key ,default )
         self.lookups += 1
         return val
 
@@ -673,7 +681,8 @@ class Cache( OrderedDict ):
         if  self.__ttl > 0:
             _ = self._evict_ttl_items()
 
-        return super().items()
+        with Cache.CACHE_LOCK:
+            return super().items()
 
     def keys(self) -> dict:
         """Return a set-like object providing a view on cache's keys.
@@ -683,7 +692,8 @@ class Cache( OrderedDict ):
         if  self.__ttl > 0:
             _ = self._evict_ttl_items()
 
-        return super().keys()
+        with Cache.CACHE_LOCK:
+            return super().keys()
 
     def pop(self,
             key: Any,
@@ -759,7 +769,8 @@ class Cache( OrderedDict ):
             crc = self.__meta[ key ]['crc'] if key in self.__meta and 'crc' in self.__meta[ key ] else None
             self._log_ops_msg( opc='SETD' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In setdefault()')
 
-        return super().setdefault( key ,default )
+        with Cache.CACHE_LOCK:
+            return super().setdefault( key ,default )
 
     def update(self,
             iterable: Iterable ) -> None:
@@ -797,7 +808,8 @@ class Cache( OrderedDict ):
         if  self.__ttl > 0:
             _ = self._evict_ttl_items()
 
-        return super().values()
+        with Cache.CACHE_LOCK:
+            return super().values()
 
 
 # The MIT License (MIT)
