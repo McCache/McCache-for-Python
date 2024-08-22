@@ -18,6 +18,8 @@ The goals of this package are:
 3. Performant
    1. Need to handle updates that are 0.01sec (10 ms) apart.
 
+`McCache` is **not** a replacement for your persistent or search data.  It is intended to be used to cache your most expensive work.  You can consider the 80/20 rule, which states that caching the most frequently accessed 20% of data can improve performance for most requests.
+
 ## Installation
 ```console
 pip install mccache
@@ -99,9 +101,11 @@ The following are environment variables you can tune to fit your production envi
     <td>The maximum entries per cache.</td>
   </tr>
   <tr>
-    <td><sub>MCCACHE_CACHE_SYNC</sub></td>
-    <td>FULL</td>
-    <td>The degree of keeping the cache coherent in the cluster.<br><b>FULL</b>: All member cache shall be kept fully coherent and synchronized.<br><b>PART</b>: Only members that has the same key in their cache shall be updated.</td>
+    <td><sub>MCCACHE_CACHE_MODE</sub></td>
+    <td>1</td>
+    <td>The degree of keeping the cache coherent in the cluster.<br>
+    <b>0</b>: Only members that has the same key in their cache shall be updated.<br>
+    <b>1</b>: All member cache shall be kept fully coherent and synchronized.<br></td>
   </tr>
   <tr>
     <td><sub>MCCACHE_SYNC_PULSE</sub></td>
