@@ -229,7 +229,7 @@ class Cache( OrderedDict ):
     def _reset_metrics(self):
         """Reset the internal metrics.
         """
-        self.__meta   :dict = {}
+        self.__meta.clear()
         self.evicts   :int  = 0   # Total number of evicts  since initialization.
         self.deletes  :int  = 0   # Total number of deletes since initialization.
         self.misses   :int  = 0   # Total number of misses  since initialization.
@@ -620,7 +620,6 @@ class Cache( OrderedDict ):
         Call the parent method and then do some house keeping.
         """
         super().clear()
-        self.__meta.clear()
         self.__oldest = Cache.TSM_VERSION()
         self.__latest = Cache.TSM_VERSION()
         self._reset_metrics()
@@ -714,7 +713,7 @@ class Cache( OrderedDict ):
                 _ = self._evict_ttl_items()
 
             if  self.__debug:
-                crc = self.__meta['crc'] if 'crc' in self.__meta else None
+                crc = self.__meta[ key ]['crc'] if  key in self.__meta  and 'crc' in self.__meta[ key ] else None
                 self._log_ops_msg( opc='POP' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In pop()')
 
             val = super().pop( key ,default )
@@ -741,7 +740,7 @@ class Cache( OrderedDict ):
 
             key ,val = super().popitem( last )
             if  self.__debug:
-                crc = self.__meta['crc'] if 'crc' in self.__meta else None
+                crc = self.__meta[ key ]['crc'] if  key in self.__meta  and 'crc' in self.__meta else None
                 self._log_ops_msg( opc='POPI' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In popitem()')
 
             self._post_del( key=key ,eviction=False ,queue_out=True )
@@ -769,7 +768,7 @@ class Cache( OrderedDict ):
                 Cache.CACHE_LOCK.release()
 
         if  self.__debug:
-            crc = self.__meta['crc'] if 'crc' in self.__meta else None
+            crc = self.__meta[ key ]['crc'] if key in self.__meta and 'crc' in self.__meta[ key ] else None
             self._log_ops_msg( opc='SETD' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In setdefault()')
 
         return super().setdefault( key ,default )
@@ -791,9 +790,9 @@ class Cache( OrderedDict ):
             updates = {}
             for key ,val in iterable.items():
                 updates[ key ] = {'val': val ,'upd': self.__contains__( key )}    # If exist we are in UPD mode ,else INS mode.
-            if  self.__debug:
-                crc = self.__meta['crc'] if 'crc' in self.__meta else None
-                self._log_ops_msg( opc='UPDT' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In update()')
+                if  self.__debug:
+                    crc = self.__meta[ key ]['crc'] if  key in self.__meta  and 'crc' in self.__meta[ key ] else None
+                    self._log_ops_msg( opc='UPDT' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In update()')
 
             super().update( iterable )
             for key ,val in updates.items():
