@@ -113,14 +113,14 @@ The CLI parameters are:
 |Avg SpikeHits  |The average number of inserts, updates, and deletes that are called with less than **3** seconds spike window..|
 |Avg SpikeInt   |The average interval in seconds between insert, update, and delete operation.|
 |Avg SpikeQue   |The average messages in the internal in-bound message queue that is above **1000** messages spike.|
-|Avg SpikeEvts  |The average evictions due to cache detected cache incoherence in the cluster.
+|Avg SpikeEvcs  |The average evictions due to cache detected cache incoherence in the cluster.
 |Avg LookUps    |The average lookups performed in the test.|
 |Avg Inserts    |The average inserts performed in the test.|
 |Avg Updates    |The average updates performed in the test.|
 |Avg Deletes    |The average deletes performed in the test.|
 
 ### Frequency Stress Test Result
-|<br>Run|-c #<br>Nodes|-k #<br>Keys|-p #<br>Pulse|-s #<br>Aperture|-d #<br>Duration|<br>Result|Avg<br>Snooze|Avg<br>SpikeHits|Avg<br>SpikeInt|Avg<br>SpikeQue|Avg<br>SpikeEvts|Avg<br>LookUps|Avg<br>Inserts|Avg<br>Updates|Avg<br>Deletes|<br>Comment|
+|<br>Run|-c #<br>Nodes|-k #<br>Keys|-p #<br>Pulse|-s #<br>Aperture|-d #<br>Duration|<br>Result|Avg<br>Snooze|Avg<br>SpikeHits|Avg<br>SpikeInt|Avg<br>SpikeQue|Avg<br>SpikeEvcs|Avg<br>LookUps|Avg<br>Inserts|Avg<br>Updates|Avg<br>Deletes|<br>Comment|
 |:------|---:|---:|--:|-----:|---:|:----------------------------:|-----:|-----:|-----:|-----:| ----:|-----:|-----:|-----:|-----:|:-|
 |3.1    |   3| 100|  3|   0.1|  10|<font color="cyan">Pass</font>|0.5459|   325|1.1222|      |      |   674|   106|   233|    38|Basic test with **3** nodes using **100** key/value pairs, sync every **5** minutes, running with **100**ms snooze aperture for **10** minutes.|
 |3.2    |   3| 100|  3|  0.05|  10|<font color="cyan">Pass</font>|0.2750|   777|0.4024|      |      |  1238|   197|   635|   123|Decrease test run duration down to **10** minutes.|
@@ -152,34 +152,31 @@ The CLI parameters are:
 |9.4    |   9| 100|  3| 0.005|  10|<font color="cyan">Pass</font>|0.0283| 12338|0.0488|  1283|    78| 10633|  2733|  6937|  2668|Decrease snooze aperture down to **0.005** second.|
 |9.5    |   9| 100|  3| 0.001|  10|<font color="cyan">Pass</font>|0.0072| 57628|0.0104|   719| 19994| 43410| 10724| 36278| 10626|Decrease snooze aperture down to **0.001** second.|
 |9.6    |   9| 100|  3|0.0005|  10|<font color="cyan">Pass</font>|0.0050| 66906|0.0090|  4518| 55600| 62784| 16763| 33464| 16679|Decrease snooze aperture down to **0.0005** second.|
-|9.7    |   9| 100|  3|0.0001|  10|<font color="cyan">Fail</font>|0.0025|104601|0.0063|104601|178973|122601| 34959| 25089| 34881|Decrease snooze aperture down to **0.0001** second.|
+|9.7    |   9| 100|  3|0.0001|  10|<font color="pink">Fail</font>|0.0026| 85840|0.0070| 32104| 117686| 18570| 33675| 18570| 33595|Decrease snooze aperture down to **0.0001** second.|
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |   |
 
 ### Duration Stress Test Result
-|<br>Run|-c #<br>Nodes|-k #<br>Keys|-p #<br>Pulse|-s #<br>Aperture|-d #<br>Duration|<br>Result|Avg<br>Snooze|Avg<br>SpikeHits|Avg<br>SpikeInt|Avg<br>SpikeQue|Avg<br>SpikeEvts|Avg<br>LookUps|Avg<br>Inserts|Avg<br>Updates|Avg<br>Deletes|<br>Comment|
+|<br>Run|-c #<br>Nodes|-k #<br>Keys|-p #<br>Pulse|-s #<br>Aperture|-d #<br>Duration|<br>Result|Avg<br>Snooze|Avg<br>SpikeHits|Avg<br>SpikeInt|Avg<br>SpikeQue|Avg<br>SpikeEvcs|Avg<br>LookUps|Avg<br>Inserts|Avg<br>Updates|Avg<br>Deletes|<br>Comment|
 |:------|---:|---:|--:|-----:|---:|:----------------------------:|-----:|-----:|-----:|-----:| ----:|-----:|-----:|-----:|-----:|:-|
-|3.1.1  |   3| 100|  3|   0.1|  20|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
-|3.1.2  |   3| 100|  3|   0.1|  40|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
-|3.1.3  |   3| 100|  3|   0.1|  60|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|3.1.1  |   3| 100|  3|  0.01|  20|<font color="cyan">Pass</font>|0.0550| 10242|0.1172|     0|     2| 11852|  1660|  7056|  1515|  |
+|3.1.2  |   3| 100|  3|  0.01|  40|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|3.1.3  |   3| 100|  3|  0.01|  60|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |  |
-|5.1.1  |   3| 100|  3|   0.1|  20|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
-|5.1.2  |   3| 100|  3|   0.1|  40|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
-|5.1.3  |   3| 100|  3|   0.1|  60|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|5.1.1  |   5| 100|  3|  0.01|  20|<font color="cyan">Pass</font>|0.0557| 14261|0.0841|     0|    44| 12628|  2045| 10297|  1907|  |
+|5.1.2  |   5| 100|  3|  0.01|  40|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|5.1.3  |   5| 100|  3|  0.01|  60|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |  |
-|7.1.1  |   3| 100|  3|   0.1|  20|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
-|7.1.2  |   3| 100|  3|   0.1|  40|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
-|7.1.3  |   3| 100|  3|   0.1|  60|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|7.1.1  |   7| 100|  3|  0.01|  20|<font color="cyan">Pass</font>|0.0554| 16674|0.0720|     0|   114| 13388|  2252| 12287|  2126|  |
+|7.1.2  |   7| 100|  3|  0.01|  40|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|7.1.3  |   7| 100|  3|  0.01|  60|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |  |
-|9.1.1  |   3| 100|  3|   0.1|  20|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
-|9.1.2  |   3| 100|  3|   0.1|  40|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
-|9.1.3  |   3| 100|  3|   0.1|  60|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|9.1.1  |   9| 100|  3|  0.01|  20|<font color="cyan">Pass</font>|0.0559| 18970|0.0633|     0|   598| 13863|  2407| 14280|  2272|  |
+|9.1.1.1|   9| 100|  3|  0.05|  20|<font color="cyan">Pass</font>|0.2768|  3773|0.3180|     0|    26|  4321|   500|  2831|   438|  |
+|9.1.2  |   9| 100|  3|  0.01|  40|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
+|9.1.3  |   9| 100|  3|  0.05|  60|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |  |
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |  |
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |  |
 
-
-### Footnotes
-<sup>1</sup> Occurred at the last seconds of the test.  Member did not receive update and sender exited test before able to retry.  This is intermittent failure among passes.<br>
-<sup>2</sup> Logs was cut off.
 
 The following may have influence over the above results:
 * Number of running containers.  CPU may throttle down when it is too hot.
