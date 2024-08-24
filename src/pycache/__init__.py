@@ -44,7 +44,6 @@ class CallbackType( IntEnum ):
     def __str__(self):
         return str( self.value )
 
-# TODO: Reduce the locks in area that are NOT critical.
 class Cache( OrderedDict ):
     """Cache based of the ordered dict object.
        ... "who says inheritance is bad" ...
@@ -64,22 +63,27 @@ class Cache( OrderedDict ):
     CACHE_LOCK  = RLock()           # Lock for serializing access to shared data.
     ONE_NS_SEC  = 1_000_000_000     # One second in nano seconds.
     ONE_NS_MIN  = 60 * ONE_NS_SEC   # One minute in nano seconds.
-    TSM_VERSION = time.monotonic_ns if sys.platform == 'darwin' else time.time_ns
+    TSM_VERSION = time.time_ns
     # NOTE: time.monotonic_ns() behave differently on different OS.  Different precision is returned.
     #       time.monotonic_ns()
-    #       Win11:  13446437000000
-    #       WSL:    11881976237028
-    #       Mac:
+    #       Win11:  828250000000
+    #       WSL:    870533920929
+    #       Mac:    526814061067827
     #
     #       time.time_ns()
-    #       Win11:  1707278030313783400
-    #       WSL:    1707276577346395597
-    #       Mac:
+    #       Win11:  1724447991929990900
+    #       WSL:    1724448075183642631
+    #       Mac:    1724447622073806000
     #
     IP4_ADDRESS = sorted(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET ))[0][4][0]
 
+    # TODO: Refactor to use the following method instead of TSM_VERSION().
     @classmethod
-    def tsmverstr(clz ,ver: int | None = None ) -> str:
+    def get_tsm_ver( clz ) -> int:
+        return  time.time_ns()
+
+    @classmethod
+    def tsm_ver_str( clz ,ver: int | None = None ) -> str:
         """
         Conversion the timestamp version from integer to displayable string.  If none is input, anew timestamp version is generated.
 
@@ -265,7 +269,7 @@ class Cache( OrderedDict ):
         """Standardize the output format with this object specifics.
         """
         txt = self.__msgbdy
-        now = Cache.tsmverstr()
+        now = Cache.tsm_ver_str()
         lno = getframeinfo(stack()[1][0]).lineno
         iam = Cache.IP4_ADDRESS if 'Im:' in txt else f'Im:{Cache.IP4_ADDRESS}'
         md5 = crc
@@ -279,7 +283,7 @@ class Cache( OrderedDict ):
         if  nms is None:
             nms =  f"N={' '* 5}"
         if  key is None:
-            key =  f"K={' '* 5}"
+            key =  f"K={' '* 6}"
         if  msg is None:
             msg =  ""
         if  crc is None:
@@ -292,7 +296,7 @@ class Cache( OrderedDict ):
         txt =  txt.format( now=now ,lno=lno ,iam=iam ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,md5=md5 ,msg=msg )
         self.__logger.debug( txt )
 
-    def _evict_ttl_items(self) -> int:
+    def _evict_items_by_ttl(self) -> int:
         """Evict cache time-to-live (ttl) based items.
 
         Return:
@@ -309,8 +313,7 @@ class Cache( OrderedDict ):
             self._log_ops_msg( opc='EVT' ,tsm=now ,nms=self.__name ,key=None ,crc=None ,msg='Checking for eviction candidates.')
 
         oldest: int = Cache.TSM_VERSION()
-        try:
-            Cache.CACHE_LOCK.acquire()      # TODO: Remove for the caller is already locking a block of code.
+        with  Cache.CACHE_LOCK:
             for key in self.__meta.copy():  # Make a shallow copy of the keys.
                 val = self.__meta[ key ]
                 if  ttl < now - val['tsm']:
@@ -319,11 +322,7 @@ class Cache( OrderedDict ):
                     self._post_del( key=key ,tsm=now ,eviction=True ,queue_out=True )
                 elif val['tsm'] < oldest:
                     oldest = val['tsm']
-        finally:
             self.__oldest = oldest
-            Cache.CACHE_LOCK.release()
-
-        self.__oldest = oldest
         return  evt
 
     def _get_size(self ,obj: object ,seen: set | None = None) -> int:
@@ -355,7 +354,7 @@ class Cache( OrderedDict ):
 
         return size
 
-    def _evict_cap_items(self) -> int:
+    def _evict_items_by_capacity(self) -> int:
         """Evict cache capacity based items.
         To be called when we add an item to the cache.
 
@@ -363,13 +362,9 @@ class Cache( OrderedDict ):
             Number of evictions.
         """
         now = Cache.TSM_VERSION()
-        try:
-            Cache.CACHE_LOCK.acquire()
+        with  Cache.CACHE_LOCK:
             key ,_ = super().popitem( last=False )  # FIFO
             self._post_del(  key=key ,tsm=now ,eviction=True ,queue_out=True )
-        finally:
-            Cache.CACHE_LOCK.release()
-
         return  1
 
     def _post_del(self,
@@ -471,7 +466,8 @@ class Cache( OrderedDict ):
 
             # Increment metrics.
             if  update:
-                self.move_to_end( key ,last=True )    # FIFO
+                with  Cache.CACHE_LOCK:
+                    self.move_to_end( key ,last=True )    # FIFO
                 self.updates += 1
             else:
                 self.inserts += 1
@@ -506,8 +502,6 @@ class Cache( OrderedDict ):
             if  span <= (self.__cbwindow * Cache.ONE_NS_SEC):
                 self.spikeInt = ((self.spikeInt * self.spikes) + span) / (self.spikes + 1)
                 self.spikes  += 1
-                # TODO:  If we have pegged in a spike for 5 seconds we should alert the user.
-                #        Use CallbackType.INCOHERENT
 
     # Private OrderedDict magic/dunder methods overwrite section.
     #
@@ -529,20 +523,17 @@ class Cache( OrderedDict ):
         if  tsm is None:
             tsm =  Cache.TSM_VERSION()
         if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
-        try:
-            Cache.CACHE_LOCK.acquire()
-            if  self.__contains__( key ):
-                size = self._get_size(super().__getitem__( key ))
-                super().__delitem__( key )
-                self.ttlSize -= size
-        finally:
-            Cache.CACHE_LOCK.release()
+            _ = self._evict_items_by_ttl()
 
         if  self.__debug:
             crc = self.__meta[ key ]['crc'] if key in self.__meta else None
             self._log_ops_msg( opc='DEL' ,tsm=tsm ,nms=self.__name ,key=key ,crc=crc ,msg='Deleted via __delitem__()')
 
+        with  Cache.CACHE_LOCK:
+            if  self.__contains__( key ):
+                size = self._get_size(super().__getitem__( key ))
+                super().__delitem__( key )
+                self.ttlSize -= size
         self._post_del( key=key ,tsm=tsm ,eviction=False ,queue_out=queue_out )
 
     def __getitem__(self,
@@ -557,7 +548,7 @@ class Cache( OrderedDict ):
             KeyError
         """
         if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
+            _ = self._evict_items_by_ttl()
         try:
             val = super().__getitem__( key )
         except:
@@ -575,7 +566,7 @@ class Cache( OrderedDict ):
         SEE:    dict.__iter__()
         """
         if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
+            _ = self._evict_items_by_ttl()
 
         return super().__iter__()
 
@@ -597,22 +588,19 @@ class Cache( OrderedDict ):
         if  tsm is None:
             tsm =  Cache.TSM_VERSION()
         if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
-        try:
-            Cache.CACHE_LOCK.acquire()
+            _ = self._evict_items_by_ttl()
 
+        with  Cache.CACHE_LOCK:
             # NOTE: Very coarse way to check for eviction.  Not meant to be precise.
             while super().__len__()     > 0 and \
                 ((super().__len__() + 1 > self.__maxlen) or (self.ttlSize + sys.getsizeof( value ) > self.__maxsize)):
-                    _ = self._evict_cap_items()
+                    _ = self._evict_items_by_capacity()
 
             updmode: bool = self.__contains__( key )   # If exist we are in UPD mode ,else INS mode.
             if  updmode:
                 self.ttlSize -= self._get_size( super().__getitem__( key )) # Decrement the previous object size.
             super().__setitem__( key ,value )
             self.ttlSize += self._get_size( super().__getitem__( key ))     # Increment the current  object size.
-        finally:
-            Cache.CACHE_LOCK.release()
 
         if  self.__debug:
             opc = f"{'UPD' if updmode else 'INS'}"
@@ -643,7 +631,7 @@ class Cache( OrderedDict ):
         SEE:    OrderedDict.copy()
         """
         if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
+            _ = self._evict_items_by_ttl()
 
         with Cache.CACHE_LOCK:
             return super().copy()
@@ -665,7 +653,7 @@ class Cache( OrderedDict ):
             default     Default value to return if the key doesn't exist in the cache.
         """
         if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
+            _ = self._evict_items_by_ttl()
 
         with Cache.CACHE_LOCK:
             val = super().get( key ,default )
@@ -679,7 +667,7 @@ class Cache( OrderedDict ):
         SEE:    OrderedDict.items()
         """
         if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
+            _ = self._evict_items_by_ttl()
 
         with Cache.CACHE_LOCK:
             return super().items()
@@ -690,7 +678,7 @@ class Cache( OrderedDict ):
         SEE:    OrderedDict.keys()
         """
         if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
+            _ = self._evict_items_by_ttl()
 
         with Cache.CACHE_LOCK:
             return super().keys()
@@ -708,17 +696,14 @@ class Cache( OrderedDict ):
             default     Default value to return if the key doesn't exist in the cache.
         """
         if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
-        try:
-            Cache.CACHE_LOCK.acquire()
+            _ = self._evict_items_by_ttl()
 
-            if  self.__debug:
-                crc = self.__meta[ key ]['crc'] if  key in self.__meta  and 'crc' in self.__meta[ key ] else None
-                self._log_ops_msg( opc='POP' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In pop()')
+        if  self.__debug:
+            crc = self.__meta[ key ]['crc'] if  key in self.__meta  and 'crc' in self.__meta[ key ] else None
+            self._log_ops_msg( opc='POP' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In pop()')
 
+        with  Cache.CACHE_LOCK:
             val = super().pop( key ,default )
-        finally:
-            Cache.CACHE_LOCK.release()
 
         self._post_del( key=key ,eviction=False ,queue_out=True )
         return val
@@ -735,17 +720,14 @@ class Cache( OrderedDict ):
             default     Default value to return if the key doesn't exist in the cache.
         """
         if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
-        try:
-            Cache.CACHE_LOCK.acquire()
+            _ = self._evict_items_by_ttl()
 
-            if  self.__debug:
-                crc = self.__meta[ key ]['crc'] if  key in self.__meta  and 'crc' in self.__meta[ key ] else None
-                self._log_ops_msg( opc='POPI' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In popitem()')
+        if  self.__debug:
+            crc = self.__meta[ key ]['crc'] if  key in self.__meta  and 'crc' in self.__meta[ key ] else None
+            self._log_ops_msg( opc='POPI' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In popitem()')
 
+        with  Cache.CACHE_LOCK:
             key ,val = super().popitem( last )
-        finally:
-            Cache.CACHE_LOCK.release()
 
         self._post_del( key=key ,eviction=False ,queue_out=True )
         return (key ,val)
@@ -763,7 +745,7 @@ class Cache( OrderedDict ):
             default     Default value to return if the key doesn't exist in the cache.
         """
         if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
+            _ = self._evict_items_by_ttl()
 
         if  self.__debug:
             crc = self.__meta[ key ]['crc'] if key in self.__meta and 'crc' in self.__meta[ key ] else None
@@ -782,10 +764,9 @@ class Cache( OrderedDict ):
             iterable    A list of key/value pairs to update the cache with.
         """
         if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
-        try:
-            Cache.CACHE_LOCK.acquire()
+            _ = self._evict_items_by_ttl()
 
+        with  Cache.CACHE_LOCK:
             updates = {}
             for key ,val in iterable.items():
                 updates[ key ] = {'val': val ,'upd': self.__contains__( key )}    # If exist we are in UPD mode ,else INS mode.
@@ -796,8 +777,6 @@ class Cache( OrderedDict ):
             super().update( iterable )
             for key ,val in updates.items():
                 self._post_set( key ,val['val'] ,update=val['upd'] ,queue_out=True )
-        finally:
-            Cache.CACHE_LOCK.release()
 
     def values(self) -> dict:
         """Return an object providing a view on cache's values.
@@ -806,7 +785,7 @@ class Cache( OrderedDict ):
         SEE:    OrderedDict.values()
         """
         if  self.__ttl > 0:
-            _ = self._evict_ttl_items()
+            _ = self._evict_items_by_ttl()
 
         with Cache.CACHE_LOCK:
             return super().values()

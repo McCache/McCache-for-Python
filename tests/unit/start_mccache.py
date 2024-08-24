@@ -224,7 +224,10 @@ mc._log_ops_msg( logging.INFO   ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms
 # All incoming updates after the the following "Done." cutoff should be discarded.
 #
 # Wait for some straggler to trickle in before to dump out the cache.
-time.sleep( 2 ^ mc._mcConfig.multicast_hops )
+while not mc._mcIBQueue.empty():
+    # NOTE: During high stress testing the queue can back up beyond 40K of entries and can take more than 6 minutes to process all the entries.
+    mc._log_ops_msg( logging.INFO   ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=f"Inbound queue still has {mc._mcIBQueue.qsize()} pending entries." )
+    time.sleep( 2 ^ mc._mcConfig.multicast_hops )
 
 # Query the local cache and metrics and exit.
 #
