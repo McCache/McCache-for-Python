@@ -1,4 +1,4 @@
-version: '3'
+#version: '3'
   # Set the following environment variable externally from the CLI, shell or from .env file:
   #   TEST_APERTURE
   #   TEST_MAX_ENTRIES
@@ -20,13 +20,14 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
+      - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
 #     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
 #     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
 #     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug01${RUN_TIMESTAMP}.log
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug01${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -54,13 +55,14 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
+      - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
 #     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
 #     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
 #     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug02${RUN_TIMESTAMP}.log
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug02${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -88,13 +90,14 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
+      - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
 #     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
 #     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
 #     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug03${RUN_TIMESTAMP}.log
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug03${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -122,13 +125,14 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
+      - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
 #     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
 #     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
 #     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug04${RUN_TIMESTAMP}.log
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug04${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -156,13 +160,14 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
+      - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
 #     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
 #     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
 #     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug05${RUN_TIMESTAMP}.log
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug05${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -190,13 +195,14 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
+      - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
 #     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
 #     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
 #     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug06${RUN_TIMESTAMP}.log
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug06${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -224,13 +230,14 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
+      - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
 #     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
 #     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
 #     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug07${RUN_TIMESTAMP}.log
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug07${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -258,13 +265,14 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
+      - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
 #     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
 #     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
 #     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug08${RUN_TIMESTAMP}.log
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug08${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -292,6 +300,7 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       #
+      - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
 #     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
 #     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
 #     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
@@ -299,7 +308,7 @@ services:
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/debug09${RUN_TIMESTAMP}.log
+      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug09${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:

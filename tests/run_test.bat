@@ -57,6 +57,9 @@ SET TEST_DEBUG_LEVEL=0
 :: Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
 SET TEST_MONKEY_TANTRUM=0
 
+:: Setup the variable MCCACHE-CONGESTION to be passed into the container composer.
+SET MCCACHE_CONGESTION=20000
+
 :: Setup the variable MCCACHE_SYNC_PULSE to be passed into the container composer.
 SET MCCACHE_SYNC_PULSE=5
 
@@ -217,20 +220,20 @@ ECHO Run test using the output log from the cluster.
 
 :: Extract out and clean up the INQ result from each of the debug log files into a result file.
 :: NOTE: There is a embedded TAB character in the search string.
-cat log/debug0*.log |grep -E "	INQ	|	MET	|Done|Exiting" |grep -Ev "Fr:|Out going|Delete" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "s/},/}\n/g" |sed "s/}}/}\n/"   > log/result.txt
+cat log/mccache_debug0*.log |grep -E "	INQ	|	MET	|Done|Exiting" |grep -Ev "Fr:|Out going|Delete" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "s/},/}\n/g" |sed "s/}}/}\n/"   > log/result.txt
 
 :: Validate the stress test rsults.
 pytest  tests\stress\test_stress.py
 
 :: Sort the logs in chronological order.
-sort    log/debug0*.log     >log/chronological.txt
+sort    log/mccache_debug0*.log     >log/chronological.txt
 
 :: Detail details.
-grep -iE  "after lookup|in the background"      log/debug0*.log >log/detail_expire.log
-grep -iE  "internal message queue|done testing" log/debug0*.log >log/detail_queue_pressure.log
-grep -iE  "sending local|requesting sender"     log/debug0*.log >log/detail_synchronization.log
-grep -iE  "cache incoherent"                    log/debug0*.log >log/detail_incoherent.log
-grep -iE  "monkey is angry"                     log/debug0*.log >log/detail_drop_packets.log
+grep -iE  "after lookup|in the background"          log/chronological.txt   >log/detail_expire.log
+grep -iE  "internal message queue|done testing"     log/chronological.txt   >log/detail_queue_pressure.log
+grep -iE  "sending local|requesting sender"         log/chronological.txt   >log/detail_synchronization.log
+grep -iE  "cache incoherent"                        log/chronological.txt   >log/detail_incoherent.log
+grep -iE  "monkey is angry"                         log/chronological.txt   >log/detail_drop_packets.log
 
 :EOF_SCRIPT
 POPD
