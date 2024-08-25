@@ -3,15 +3,21 @@
 :: Change the following to ECHO ON to trace the execution.
 @ECHO OFF
 ::@ECHO ON
+SET SCRIPT_NAME=%0
 
 :: All variables set in this script shall be local variables.
 SETLOCAL
 
 :: Check if either podman or docker is installed.
 ::
+WHERE podman.exe           2> NUL
+IF %ERRORLEVEL% GTR 0 GOTO :DOCKER_COMPOSE_CHK
+
+:PODMAN_COMPOSE_CHK
 WHERE podman-compose.exe   2> NUL
 IF %ERRORLEVEL% EQU 0 GOTO :EOF_PODMAN_CHK
 
+:DOCKER_COMPOSE_CHK
 WHERE docker-compose.exe   2> NUL
 IF %ERRORLEVEL% EQU 0 GOTO :EOF_DOCKER_CHK
 
@@ -33,57 +39,91 @@ SET CONTAINER_EXE=docker-compose
 ::
 FOR /f "tokens=*" %%v IN ('powershell get-date -format "{_yyyyMMdd_HHmm}"') DO SET RUN_TIMESTAMP=%%v
 
-:: Parse the command line parameters with the following format:
-:: run_test.bat [ key1 val1 [key2 val2 [key3 val3 [...]]]]
-:: where the case insensitive keys:
-::  TEST_MAX_ENTRIES    The maximum unique keys to use.
-::  TEST_RUN_DURATION   The maximum duration, in minutes, for this test run.
-::  TEST_SLEEP_SPAN     The maximum range for the random duration to sleep.
-::  TEST_SLEEP_UNIT     The unit for the sleep duration. 1 = 1s ,10 = 0.1s ,100 = 0.01s ,1000 = 0.001s
-::  TEST_MONKEY_TANTRUM The maximum percentage of simulated drop packets. 0-20
-
-:: Setup the variable TEST_MAX_ENTRIES to be passed into the container composer.
-SET TEST_MAX_ENTRIES=100
+:: Setup the variable TEST_CLUSTER_SIZE to be passed into the container composer.
+SET TEST_CLUSTER_SIZE=3
 
 :: Setup the variable TEST_RUN_DURATION to be passed into the container composer.
 SET TEST_RUN_DURATION=5
 
-:: Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
-SET TEST_SLEEP_SPAN=100
+:: Setup the variable TEST_MAX_ENTRIES to be passed into the container composer.
+SET TEST_MAX_ENTRIES=200
 
-:: Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
-SET TEST_SLEEP_UNIT=100
+:: Setup the variable TEST_APERTURE to be passed into the container composer.
+SET TEST_APERTURE=0.05
+
+:: Setup the variable TEST_DEBUG_LEVEL to be passed into the container composer.
+SET TEST_DEBUG_LEVEL=0
+
+:: Setup the variable TEST_DATA_MIX_TYPE to be passed into the container composer.
+SET TEST_DATA_SIZE_MIX=1
 
 :: Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
 SET TEST_MONKEY_TANTRUM=0
 
-:: Setup the variable TEST_CLUSTER_SIZE to be passed into the container composer.
-SET TEST_CLUSTER_SIZE=3
+:: Setup the variable MCCACHE_CONGESTION to be passed into the container composer.
+SET MCCACHE_CONGESTION=5
 
-:: Setup the variable TEST_DEBUG_LEVEL to be passed into the container composer.
-SET TEST_DEBUG_LEVEL=3
+:: Setup the variable MCCACHE_SYNC_PULSE to be passed into the container composer.
+SET MCCACHE_SYNC_PULSE=5
+
+:: Setup the variable MCCACHE_CALLBACK_WIN to be passed into the container composer.
+SET MCCACHE_CALLBACK_WIN=0
 
 :: Start of CLI.
+:: Parse the command line parameters with the following format:
+:: run_test.bat [ key1 val1 [key2 val2 [key3 val3 [...]]]]
+:: where the case insensitive keys:
 :SOF_CLI
-IF  /I "%~1"=="-c"  GOTO :SET_TEST_CLUSTER_SIZE
-IF  /I "%~1"=="-d"  GOTO :SET_TEST_RUN_DURATION
-IF  /I "%~1"=="-k"  GOTO :SET_TEST_MAX_ENTRIES
-IF  /I "%~1"=="-l"  GOTO :SET_TEST_DEBUG_LEVEL
-IF  /I "%~1"=="-m"  GOTO :SET_TEST_MONKEY_TANTRUM
-IF  /I "%~1"=="-s"  GOTO :SET_TEST_SLEEP_SPAN
-IF  /I "%~1"=="-u"  GOTO :SET_TEST_SLEEP_UNIT
-IF  /I "%~1"==""    GOTO :EOF_CLI
+IF  "%~1"=="-D"  GOTO :SET_DOCKER_CONTAINER
+IF  "%~1"=="-P"  GOTO :SET_PODMAN_CONTAINER
+IF  "%~1"=="-c"  GOTO :SET_TEST_CLUSTER_SIZE
+IF  "%~1"=="-d"  GOTO :SET_TEST_RUN_DURATION
+IF  "%~1"=="-k"  GOTO :SET_TEST_MAX_ENTRIES
+IF  "%~1"=="-l"  GOTO :SET_TEST_DEBUG_LEVEL
+IF  "%~1"=="-m"  GOTO :SET_TEST_DATA_SIZE_MIX
+IF  "%~1"=="-s"  GOTO :SET_TEST_APERTURE
+IF  "%~1"=="-y"  GOTO :SET_TEST_MONKEY_TANTRUM
+IF  "%~1"=="-g"  GOTO :SET_MCCACHE_CONGESTION
+IF  "%~1"=="-p"  GOTO :SET_MCCACHE_SYNC_PULSE
+IF  "%~1"=="-w"  GOTO :SET_MCCACHE_CALLBACK_WIN
+IF  "%~1"==""    GOTO :EOF_CLI
 
-ECHO Invalid parameter value.  Try the following:
-ECHO %0  [-c ##] [-d ##] [-k ##] [-l ##] [-m ##] [-s ##] [-u ##]
-ECHO -c ###  Cluster size.   Default 3.  Max is 9.
-ECHO -d ###  Run duration.   Default 5 minutes.
-ECHO -k ###  Max entries.    Default 100.
-ECHO -l ###  Debug level.    Default 3.  0=Off ,1=Basic ,3=Extra ,5=Superfluos
-ECHO -m ###  Monkey tantrum. Default 0.
-ECHO -s ###  Sleep span.     Default 100.
-ECHO -u ###  Sleep unit.     Default 100.
+:HELP_SCREEN
+ECHO Invalid parameter %~1 value.  Try the following:
+ECHO %SCRIPT_NAME%  [-D ] [ -P] [-c #] [-d #] [-k #] [-l #] [-p #] [-s #] [-y #] [-w #]
+ECHO -D    Use Docker container.
+ECHO -P    Use Podman container.
+ECHO -c #  Cluster size.          Default %TEST_CLUSTER_SIZE%.  Max is 9.
+ECHO -d #  Run duration.          Default %TEST_RUN_DURATION% minutes.
+ECHO -g #  Congestion trigger.    Default %MCCACHE_CONGESTION%.
+ECHO -k #  Max entries.           Default %TEST_MAX_ENTRIES%.
+ECHO -l #  Debug level.           Default %TEST_DEBUG_LEVEL%.  0=Off ,1=Basic ,3=Extra ,5=Superfluous
+ECHO -m #  Data size mix.         Default %TEST_DATA_SIZE_MIX%.  1=Small ,2=Large ,3=Mixed.
+ECHO -p #  Sync pulse.            Default %MCCACHE_SYNC_PULSE% minutes.
+ECHO -s #  Sleep aperture.        Default %TEST_APERTURE% second.  1=1s ,0.1=100ms ,0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
+ECHO -y #  Monkey tantrum.        Default %TEST_MONKEY_TANTRUM%.
+ECHO -w #  Callback window sec.   Default %MCCACHE_CALLBACK_WIN%.
 GOTO :EOF_SCRIPT
+
+:SET_DOCKER_CONTAINER
+SET CONTAINER_EXE=podman-compose
+WHERE docker.exe    2> NUL
+IF %ERRORLEVEL% EQU 0 GOTO :EOF_SET_DOCKER_CONTAINER
+ECHO docker executable NOT found!
+GOTO :HELP_SCREEN
+:EOF_SET_DOCKER_CONTAINER
+SHIFT
+GOTO :SOF_CLI
+
+:SET_PODMAN_CONTAINER
+SET CONTAINER_EXE=podman-compose
+WHERE podman.exe    2> NUL
+IF %ERRORLEVEL% EQU 0 GOTO :EOF_SET_PODMAN_CONTAINER
+ECHO podman executable NOT found!
+GOTO :HELP_SCREEN
+:EOF_SET_PODMAN_CONTAINER
+SHIFT
+GOTO :SOF_CLI
 
 :SET_TEST_CLUSTER_SIZE
 SET  TEST_CLUSTER_SIZE=%2
@@ -103,8 +143,20 @@ SHIFT
 SHIFT
 GOTO :SOF_CLI
 
+:SET_TEST_APERTURE
+SET  TEST_APERTURE=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
 :SET_TEST_DEBUG_LEVEL
 SET  TEST_DEBUG_LEVEL=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+:SET_TEST_DATA_SIZE_MIX
+SET  TEST_DATA_SIZE_MIX=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
@@ -115,14 +167,20 @@ SHIFT
 SHIFT
 GOTO :SOF_CLI
 
-:SET_TEST_SLEEP_SPAN
-SET  TEST_SLEEP_SPAN=%2
+:SET_MCCACHE_CONGESTION
+SET  MCCACHE_CONGESTION=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
 
-:SET_TEST_SLEEP_UNIT
-SET  TEST_SLEEP_UNIT=%2
+:SET_MCCACHE_SYNC_PULSE
+SET  MCCACHE_SYNC_PULSE=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+:SET_MCCACHE_CALLBACK_WIN
+SET  MCCACHE_CALLBACK_WIN=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
@@ -132,14 +190,17 @@ GOTO :SOF_CLI
 
 
 ECHO Running McCache test with envar:
-ECHO    RUN_TIMESTAMP:      %RUN_TIMESTAMP%
-ECHO    TEST_CLUSTER_SIZE:  %TEST_CLUSTER_SIZE%
-ECHO    TEST_MAX_ENTRIES:   %TEST_MAX_ENTRIES%
-ECHO    TEST_RUN_DURATION:  %TEST_RUN_DURATION%
-ECHO    TEST_SLEEP_SPAN:    %TEST_SLEEP_SPAN%
-ECHO    TEST_SLEEP_UNIT:    %TEST_SLEEP_UNIT%
-ECHO    TEST_MONKEY_TANTRUM:%TEST_MONKEY_TANTRUM%
-ECHO    TEST_DEBUG_LEVEL:   %TEST_DEBUG_LEVEL%
+ECHO    RUN_TIMESTAMP:          %RUN_TIMESTAMP%
+ECHO    TEST_DEBUG_LEVEL:       %TEST_DEBUG_LEVEL%
+ECHO    TEST_CLUSTER_SIZE:      %TEST_CLUSTER_SIZE%
+ECHO    TEST_DATA_SIZE_MIX:     %TEST_DATA_SIZE_MIX%
+ECHO    TEST_RUN_DURATION:      %TEST_RUN_DURATION%
+ECHO    TEST_MAX_ENTRIES:       %TEST_MAX_ENTRIES%
+ECHO    TEST_APERTURE:          %TEST_APERTURE%
+ECHO    TEST_MONKEY_TANTRUM:    %TEST_MONKEY_TANTRUM%
+ECHO    MCCACHE_CONGESTION:     %MCCACHE_CONGESTION%
+ECHO    MCCACHE_SYNC_PULSE:     %MCCACHE_SYNC_PULSE%
+ECHO    MCCACHE_CALLBACK_WIN:   %MCCACHE_CALLBACK_WIN%
 ECHO:
 
 :: The following are CLI input parameter you can use to parse out the script name information.
@@ -179,14 +240,21 @@ ECHO Starting the test cluster with %TEST_CLUSTER_SIZE% nodes.
 ECHO Run test using the output log from the cluster.
 
 :: Extract out and clean up the INQ result from each of the debug log files into a result file.
-tail -n 200 log/debug0*.log |grep -E "INQ|Done|Exiting" |grep -Ev "Fr:|Out going" |sed "s/}}//" |sed "s/{/\n  /" |sed "/Exiting/a}" |tr "}" "\n"  > log/result.txt
+:: NOTE: There is a embedded TAB character in the search string.
+cat     log/*debug0*.log |grep -E "	INQ	|	MET	|Done|Exiting" |grep -Ev "Fr:|Out going|Delete" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "s/},/}\n/g" |sed "s/}}/}\n/"   > log/result.txt
 
-:: Summarize
-::grep -i "after lookup|sec in the background"    >log/sum_spikes.log
-::grep -i "monkey is angry"                       >log/sum_drop_packets.log`
+:: Validate the stress test rsults.
+pytest  tests\stress\test_stress.py log/result.txt
 
+:: Sort the logs in chronological order.
+sort    log/*debug0*.log    >log/chronological.txt
 
-:: pipenv run  pytest -q .
+:: Detail details.
+grep -iE  "after lookup|in the background"          log/chronological.txt   >log/detail_expire.log
+grep -iE  "internal message queue|done testing"     log/chronological.txt   >log/detail_queue_pressure.log
+grep -iE  "sending local|requesting sender"         log/chronological.txt   >log/detail_synchronization.log
+grep -iE  "cache incoherent"                        log/chronological.txt   >log/detail_incoherent.log
+grep -iE  "monkey is angry"                         log/chronological.txt   >log/detail_drop_packets.log
 
 :EOF_SCRIPT
 POPD

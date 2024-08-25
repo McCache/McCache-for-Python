@@ -19,38 +19,41 @@ fi
 # Setup the variable RUN_TIMESTAMP to be passed into the container composer.
 export RUN_TIMESTAMP=$(date +'_%Y%m%d_%H%M')
 
-# Parse the command line parameters with the following format:
-# run_test  -k ###  -m ###
-# where the case insensitive keys:
-#   -k :    The maximum unique keys to use.
-#   -m :    The maximum duration, in minutes, for this test run.
-#   -s :    The maximum range for the random duration to sleep.
-#   -u :    The unit for the sleep duration. 1 = 1s ,10 = 0.1s ,100 = 0.01s ,1000 = 0.001s
-#   -t :    The maximum percentage of simulated drop packets.
-
-# Setup the variable TEST_MAX_ENTRIES to be passed into the container composer.
-TEST_MAX_ENTRIES=100
+# Setup the variable TEST_CLUSTER_SIZE to be passed into the container composer.
+TEST_CLUSTER_SIZE=3
 
 # Setup the variable TEST_RUN_DURATION  to be passed into the container composer.
 TEST_RUN_DURATION=5
 
-# Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
-TEST_SLEEP_SPAN=100
+# Setup the variable TEST_APERTURE to be passed into the container composer.
+TEST_MAX_ENTRIES=100
 
 # Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
-TEST_SLEEP_UNIT=100
+TEST_APERTURE=0.01
+
+# Setup the variable TEST_DEBUG_LEVEL to be passed into the container composer.
+TEST_DEBUG_LEVEL=0
+
+# Setup the variable TEST_DATA_MIX_TYPE to be passed into the container composer.
+TEST_DATA_SIZE_MIX=1
 
 # Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
 TEST_MONKEY_TANTRUM=0
 
-# Setup the variable TEST_CLUSTER_SIZE to be passed into the container composer.
-TEST_CLUSTER_SIZE=3
+# Setup the variable MCCACHE_CONGESTION to be passed into the container composer.
+MCCACHE_CONGESTION=5
 
-# Setup the variable TEST_DEBUG_LEVEL to be passed into the container composer.
-TEST_DEBUG_LEVEL=3
+# Setup the variable MCCACHE_SYNC_PULSE to be passed into the container composer.
+MCCACHE_SYNC_PULSE=5
+
+# Setup the variable MCCACHE_CALLBACK_WIN to be passed into the container composer.
+MCCACHE_CALLBACK_WIN=0
 
 # Start of CLI.
-while getopts "c:d:k:l:m:s:u:" opt; do
+# Parse the command line parameters with the following format:
+# run_test  -k #  -m #
+# where the case insensitive keys:
+while getopts "c:d:g:k:l:p:y:w" opt; do
     case  $opt  in
         c)  if  [[ $OPTARG =~ ^[2-9]$ ]]
             then
@@ -64,7 +67,15 @@ while getopts "c:d:k:l:m:s:u:" opt; do
             then
                 TEST_RUN_DURATION=${OPTARG}
             else
-                echo "Option for -m MUST be a positive integer."
+                echo "Option for -d MUST be a positive integer."
+                exit  1
+            fi
+            ;;
+        g)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+            then
+                MCCACHE_CONGESTION=${OPTARG}
+            else
+                echo "Option for -g MUST be a positive integer."
                 exit  1
             fi
             ;;
@@ -76,15 +87,39 @@ while getopts "c:d:k:l:m:s:u:" opt; do
                 exit  1
             fi
             ;;
-        l)  if  [[ $OPTARG =~ ^[2-5]$ ]]
+        l)  if  [[ $OPTARG =~ ^[0-5]$ ]]
             then
                 TEST_DEBUG_LEVEL=${OPTARG}
             else
-                echo "Option for -g MUST be a positive integer. 0-5"
+                echo "Option for -l MUST be a positive integer. 0=diable ,1=basic ,3=extra ,5=superfluous"
                 exit  1
             fi
             ;;
-        m)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+        m)  if  [[ $OPTARG =~ ^[123]$ ]]
+            then
+                TEST_DATA_SIZE_MIX=${OPTARG}
+            else
+                echo "Option for -m MUST be either 1=small ,2=large ,3=mixed."
+                exit  1
+            fi
+            ;;
+        p)  if  [[ $OPTARG =~ ^0.[0-9]$ ]]
+            then
+                MCCACHE_SYNC_PULSE=${OPTARG}
+            else
+                echo "Option for -p MUST be a positive integer."
+                exit  1
+            fi
+            ;;
+        s)  if  [[ $OPTARG =~ ^0.[0-9]$ ]]
+            then
+                TEST_APERTURE=${OPTARG}
+            else
+                echo "Option for -s MUST be a positive float. 0.1 - 0.0001"
+                exit  1
+            fi
+            ;;
+        y)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
             then
                 TEST_MONKEY_TANTRUM=${OPTARG}
             else
@@ -92,31 +127,26 @@ while getopts "c:d:k:l:m:s:u:" opt; do
                 exit  1
             fi
             ;;
-        s)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+        w)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
             then
-                TEST_SLEEP_SPAN=${OPTARG}
+                MCCACHE_CALLBACK_WIN=${OPTARG}
             else
-                echo "Option for -s MUST be a positive integer."
-                exit  1
-            fi
-            ;;
-        u)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
-            then
-                TEST_SLEEP_UNIT=${OPTARG}
-            else
-                echo "Option for -u MUST be a positive integer. 1 = 1s ,10 = 0.1s ,100 = 0.01s ,1000 = 0.001s = 1ms"
+                echo "Option for -o MUST be a positive integer. 0-9999"
                 exit  1
             fi
             ;;
         *)  echo  Invalid parameter value.  Try the following:
-            echo  $0  '[-c ##] [-d ##] [-k ##] [-l ##] [-m ##] [-s ##] [-u ##]'
-            echo  ' -c ###  Cluster size.   Default 3.  Max is 9.'
-            echo  ' -d ###  Run duration.   Default 5 minutes.'
-            echo  ' -k ###  Max entries.    Default 100.'
-            echo  ' -l ###  Debug level.    Default 3.  0=Off ,1=Basic ,3=Extra ,5=Superfluos'
-            echo  ' -m ###  Monkey tantrum. Default 0.'
-            echo  ' -s ###  Sleep span.     Default 100.'
-            echo  ' -u ###  Sleep unit.     Default 100.'
+            echo  $0  '[-c #] [-d #] [-g #] [-k #] [-l #] [-m #] [-p #] [-s #] [-y ##] [-w #]'
+            echo "-c #  Cluster size.          Default ${TEST_CLUSTER_SIZE}.  Max is 9."
+            echo "-d #  Run duration.          Default ${TEST_RUN_DURATION} minutes."
+            echo "-g #  Congestion trigger.    Default ${MCCACHE_CONGESTION}."
+            echo "-k #  Max entries.           Default ${TEST_MAX_ENTRIES}."
+            echo "-l #  Debug level.           Default ${TEST_DEBUG_LEVEL}.  0=Off ,1=Basic ,3=Extra ,5=Superfluous"
+            echo "-m #  Data size mix.         Default ${TEST_DATA_SIZE_MIX}.  1=Small ,2=Large ,3=Mixed."
+            echo "-p #  Sync pulse.            Default ${MCCACHE_SYNC_PULSE} minutes."
+            echo "-s #  Sleep aperture.        Default ${TEST_APERTURE} second.  1=1s ,0.1=100ms ,0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us"
+            echo "-y #  Monkey tantrum.        Default ${TEST_MONKEY_TANTRUM}."
+            echo "-w #  Callback window sec.   Default ${MCCACHE_CALLBACK_WIN}."
             exit  1
             ;;
     esac
@@ -125,14 +155,17 @@ echo ${TEST_MAX_ENTRIES} ${TEST_RUN_DURATION}
 # End of CLI.
 
 echo Running McCache test with envar:
-echo    RUN_TIMESTAMP:      ${RUN_TIMESTAMP}
-echo    TEST_CLUSTER_SIZE:  ${TEST_CLUSTER_SIZE}
-echo    TEST_MAX_ENTRIES:   ${TEST_MAX_ENTRIES}
-echo    TEST_RUN_DURATION:  ${TEST_RUN_DURATION}
-echo    TEST_SLEEP_SPAN:    ${TEST_SLEEP_SPAN}
-echo    TEST_SLEEP_UNIT:    ${TEST_SLEEP_UNIT}
-echo    TEST_MONKEY_TANTRUM:${TEST_MONKEY_TANTRUM}
-echo    TEST_DEBUG_LEVEL:   ${TEST_DEBUG_LEVEL}
+echo    RUN_TIMESTAMP:          ${RUN_TIMESTAMP}
+echo    TEST_DEBUG_LEVEL:       ${TEST_DEBUG_LEVEL}
+echo    TEST_CLUSTER_SIZE:      ${TEST_CLUSTER_SIZE}
+echo    TEST_DATA_SIZE_MIX:     ${TEST_DATA_SIZE_MIX}
+echo    TEST_RUN_DURATION:      ${TEST_RUN_DURATION}
+echo    TEST_MAX_ENTRIES:       ${TEST_MAX_ENTRIES}
+echo    TEST_APERTURE:          ${TEST_APERTURE}
+echo    TEST_MONKEY_TANTRUM:    ${TEST_MONKEY_TANTRUM}
+echo    MCCACHE_CONGESTION:     ${MCCACHE_CONGESTION}
+echo    MCCACHE_SYNC_PULSE:     ${MCCACHE_SYNC_PULSE}
+echo    MCCACHE_CALLBACK_WIN:   ${MCCACHE_CALLBACK_WIN}
 echo
 
 # The following are CLI input parameter you can use to parse out the script name information.
@@ -166,8 +199,20 @@ ${CONTAINER_EXE} up  ${NODE01} ${NODE02} ${NODE03} ${NODE04} ${NODE05} ${NODE06}
 echo Run test using the output log from the cluster.
 
 # Extract out and clean up the INQ result from each of the debug log files into a result file.
-tail -n 200 log/debug0*.log |grep -E "INQ|Done|Exiting" |grep -Ev "Fr:|Out going" |sed "s/}}//" |sed "s/{/\n  /" |sed "/Exiting/a}" |tr "}" "\n"  > log/result.txt
+# NOTE: There is a embedded TAB character in the search string.
+cat     log/*debug0*.log |grep -E "	INQ	|	MET	|Done|Exiting" |grep -Ev "Fr:|Out going|Delete" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "s/},/}\n/g" |sed "s/}}/}\n/"   > log/result.txt
 
-pipenv run  pytest -q .
+# Validate the stress test rsults.
+pytest  tests/stress/test_stress.py log/result.txt
+
+# Sort the logs in chronological order.
+sort    log/*debug0*.log    >log/chronological.txt
+
+# Extract details.
+grep -iE  "after lookup|in the background"          log/chronological.txt   >log/detail_expire.log
+grep -iE  "internal message queue|done testing"     log/chronological.txt   >log/detail_queue_pressure.log
+grep -iE  "sending local|requesting sender"         log/chronological.txt   >log/detail_synchronization.log
+grep -iE  "cache incoherent"                        log/chronological.txt   >log/detail_incoherent.log
+grep -iE  "monkey is angry"                         log/chronological.txt   >log/detail_drop_packets.log
 
 popd

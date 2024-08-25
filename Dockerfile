@@ -1,10 +1,13 @@
 #   Steps to build and run this container.  You can either use podman or docker.
 #
+#S  podman  machine init --disk-size 48         # deafult: 16.5Gb
 #$  podman  build   -t          mccache-img     .
+#S  podman  system  df
 #$  podman  run  -d --rm --name mccache-test    mccache-img
 #$  podman  ps
 #$  podman  exec    -it         mccache-test    bash
 #$  podman  stop                mccache-test
+#$  podman  system  prune
 #
 #$  pipenv  install --dev       podman-compose
 #$  podman-compose    up  -d
@@ -13,22 +16,23 @@
 #   SEE: https://dzone.com/articles/podman-compose-vs-docker-compose
 #
 
-#RG         IMAGE_VERSION=3.8.18
-#RG         IMAGE_VERSION=3.9.18
-#RG         IMAGE_VERSION=3.10.13
-#RG         IMAGE_VERSION=3.11.6
-ARG         IMAGE_VERSION=3.11.7
-#RG         IMAGE_VERSION=3.12.0
+#RG         IMAGE_VERSION=3.8.19
+#RG         IMAGE_VERSION=3.9.19
+#RG         IMAGE_VERSION=3.10.14
+#RG         IMAGE_VERSION=3.11.9
+ARG         IMAGE_VERSION=3.12.5
 #RG         IMAGE_VERSION=latest
 #RG         IMAGE_VERSION=slim
-FROM        python:${IMAGE_VERSION}
+#FROM        python:${IMAGE_VERSION}    # Podman
+FROM        python:3.12.5
 
 ENV         USRGRP=mccache
-ENV         LANG    C.UTF-8
+ENV         LANG=C.UTF-8
 
-# Dont need the following if you are using the lastest image.
+# Dont need the following if you are using the latest image.
 #
 RUN         apt-get update
+RUN         apt-get install -y  sudo
 RUN         apt-get install -y  vim
 
 # NOTE: If you get the following error, you don't have internet connection:
@@ -37,8 +41,12 @@ RUN         pip     install -U  pip
 
 # Setup mccache user workspace.
 #
-RUN         useradd -U -md                      /home/${USRGRP} ${USRGRP}
+RUN         useradd -U -md      /home/${USRGRP} ${USRGRP}
 WORKDIR     /home/${USRGRP}
+
+# Grant `sudo` priviledge so that on startup can execute "sysctl"
+RUN         usermod -aG sudo    ${USRGRP}
+
 # NOTE: Must copy all pertinent files.  If not "pip install -e ." will break.
 #       There is a `.dockerignore` file that is used to filter out files of no interest to us.
 COPY    .   /home/${USRGRP}
@@ -50,7 +58,7 @@ RUN         mkdir   -p  /home/${USRGRP}/log \
 
 # Get Python project dependencies ready.
 #
-USER        ${USRGRP}
+#SER        ${USRGRP}
 
 # Install runtime dependencies.
 #
@@ -60,6 +68,6 @@ RUN         pip     install -r  requirements.txt
 #
 ENV         PYTHONPATH=/home/${USRGRP}/src
 
-# Start the test run.
+# Run the following comman on container start.
 #
 #MD         ["sleep" ,"5m"]

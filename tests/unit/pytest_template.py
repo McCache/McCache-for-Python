@@ -5,7 +5,6 @@
 
 import pytest
 import unittest.mock    as  mock
-import socket
 #mport MyClassToTest
 
 #   Fixture are global external resource for all your tests.

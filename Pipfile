@@ -15,40 +15,40 @@ psutil = ">=5.9.5"
 # Install using:  pipenv install [package] --catgeories "cloud_logger cloud_secret"
 #
 # DON'T install multiple vendors.  Install ONLY one.
-
 [cloud_logger]
 #infisical = ">=1.2"
 #google-cloud-logging = ">=3.5"
 #boto3 = ">=1.26"
-#oci = ">=2.104"
+oci = ">=2.104"
 
 [cloud_secret]
 #google-cloud-secret-manager = ">=2.16"
 #boto3 = ">=1.26"
-#oci = ">=2.104"
+oci = ">=2.104"
 
 # Developement tools.
 # Install using:  pipenv install [package] --dev
 
 [dev-packages]                  # As of 2023-09-04.
-cachetools = ">=5.3.0"          # McCache is build from this library.
+#cachetools = ">=5.3.0"         # McCache is build from this library.
 pre-commit = ">=3.4.0"          # Git pre-commit hook.
 podman-compose = ">=1.0.6"      # Use podman to launch 'docker-compose.yml' file.
+bandit = ">=1.7.5"              # Security issues scanner.
 #pyupgrade = ">=3.10.1"         # Upgrade to modern Python syntax.
 #darglint = ">=1.8.1"           # Docstring linter expect docstring formatted suing Google Python Style Guide.
-bandit = ">=1.7.5"              # Security issues scanner.
-mypy = ">=1.5.1"                # Static type checker for Python.
+#mypy = ">=1.5.1"               # Static type checker for Python.
 ruff = ">=0.0.287"              # Extremely fast Python linter.  Use this as the default.
 vulture = ">=2.9.1"             # Dead code scanner.
+faker = ">=25.0.1"              # Test data faker.
 pytest = ">=7.4.3"              # Unit testing framework.
 pytest-bdd = ">=7.0.1"          # Subset of Gherkin language for Behavioral Driven Development.
 pytest-docker = ">=2.0.1"       # Docker based image testing.
+py-spy = ">=0.3.14"             # Sampling profiler for Python programs.
 coverage = ">=7.3.1"            # Measure code coverage.
 hatch = ">=1.7.0"               # The build tool.
-faker = ">=20.0.3"              # Test data faker.
 
 [requires]
-python_version = ">=3.11.0"     # McCache uses Structured Pattern Matching.
+python_version = ">=3.12.5"     # McCache uses Structured Pattern Matching.
 
 [scripts]
 helloworld = "python -c \"print('Hello World. Ran from: pipenv run helloworld')\""
