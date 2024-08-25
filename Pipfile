@@ -39,7 +39,7 @@ bandit = ">=1.7.5"              # Security issues scanner.
 #mypy = ">=1.5.1"               # Static type checker for Python.
 ruff = ">=0.0.287"              # Extremely fast Python linter.  Use this as the default.
 vulture = ">=2.9.1"             # Dead code scanner.
-faker = ">=20.0.3"              # Test data faker.
+faker = ">=25.0.1"              # Test data faker.
 pytest = ">=7.4.3"              # Unit testing framework.
 pytest-bdd = ">=7.0.1"          # Subset of Gherkin language for Behavioral Driven Development.
 pytest-docker = ">=2.0.1"       # Docker based image testing.
