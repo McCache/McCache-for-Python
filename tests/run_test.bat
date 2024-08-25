@@ -54,11 +54,14 @@ SET TEST_APERTURE=0.05
 :: Setup the variable TEST_DEBUG_LEVEL to be passed into the container composer.
 SET TEST_DEBUG_LEVEL=0
 
+:: Setup the variable TEST_DATA_MIX_TYPE to be passed into the container composer.
+SET TEST_DATA_SIZE_MIX=1
+
 :: Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
 SET TEST_MONKEY_TANTRUM=0
 
-:: Setup the variable MCCACHE-CONGESTION to be passed into the container composer.
-SET MCCACHE_CONGESTION=20000
+:: Setup the variable MCCACHE_CONGESTION to be passed into the container composer.
+SET MCCACHE_CONGESTION=5
 
 :: Setup the variable MCCACHE_SYNC_PULSE to be passed into the container composer.
 SET MCCACHE_SYNC_PULSE=5
@@ -77,8 +80,10 @@ IF  "%~1"=="-c"  GOTO :SET_TEST_CLUSTER_SIZE
 IF  "%~1"=="-d"  GOTO :SET_TEST_RUN_DURATION
 IF  "%~1"=="-k"  GOTO :SET_TEST_MAX_ENTRIES
 IF  "%~1"=="-l"  GOTO :SET_TEST_DEBUG_LEVEL
+IF  "%~1"=="-m"  GOTO :SET_TEST_DATA_SIZE_MIX
 IF  "%~1"=="-s"  GOTO :SET_TEST_APERTURE
 IF  "%~1"=="-y"  GOTO :SET_TEST_MONKEY_TANTRUM
+IF  "%~1"=="-g"  GOTO :SET_MCCACHE_CONGESTION
 IF  "%~1"=="-p"  GOTO :SET_MCCACHE_SYNC_PULSE
 IF  "%~1"=="-w"  GOTO :SET_MCCACHE_CALLBACK_WIN
 IF  "%~1"==""    GOTO :EOF_CLI
@@ -88,14 +93,16 @@ ECHO Invalid parameter %~1 value.  Try the following:
 ECHO %SCRIPT_NAME%  [-D ] [ -P] [-c #] [-d #] [-k #] [-l #] [-p #] [-s #] [-y #] [-w #]
 ECHO -D    Use Docker container.
 ECHO -P    Use Podman container.
-ECHO -c #  Cluster size.          Default 3.  Max is 9.
-ECHO -d #  Run duration.          Default 5 minutes.
-ECHO -k #  Max entries.           Default 200.
-ECHO -l #  Debug level.           Default 0.  0=Off ,1=Basic ,3=Extra ,5=Superfluous
-ECHO -p #  Sync pulse.            Default 5 minutes.
-ECHO -s #  Sleep aperture.        Default 0.05.  1=1s ,0.1=100ms ,0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
-ECHO -y #  Monkey tantrum.        Default 0.
-ECHO -w #  Callback window sec.   Default 0.
+ECHO -c #  Cluster size.          Default %TEST_CLUSTER_SIZE%.  Max is 9.
+ECHO -d #  Run duration.          Default %TEST_RUN_DURATION% minutes.
+ECHO -g #  Congestion trigger.    Default %MCCACHE_CONGESTION%.
+ECHO -k #  Max entries.           Default %TEST_MAX_ENTRIES%.
+ECHO -l #  Debug level.           Default %TEST_DEBUG_LEVEL%.  0=Off ,1=Basic ,3=Extra ,5=Superfluous
+ECHO -m #  Data size mix.         Default %TEST_DATA_SIZE_MIX%.  1=Small ,2=Large ,3=Mixed.
+ECHO -p #  Sync pulse.            Default %MCCACHE_SYNC_PULSE% minutes.
+ECHO -s #  Sleep aperture.        Default %TEST_APERTURE% second.  1=1s ,0.1=100ms ,0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
+ECHO -y #  Monkey tantrum.        Default %TEST_MONKEY_TANTRUM%.
+ECHO -w #  Callback window sec.   Default %MCCACHE_CALLBACK_WIN%.
 GOTO :EOF_SCRIPT
 
 :SET_DOCKER_CONTAINER
@@ -148,8 +155,20 @@ SHIFT
 SHIFT
 GOTO :SOF_CLI
 
+:SET_TEST_DATA_SIZE_MIX
+SET  TEST_DATA_SIZE_MIX=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
 :SET_TEST_MONKEY_TANTRUM
 SET  TEST_MONKEY_TANTRUM=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+:SET_MCCACHE_CONGESTION
+SET  MCCACHE_CONGESTION=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
@@ -174,10 +193,12 @@ ECHO Running McCache test with envar:
 ECHO    RUN_TIMESTAMP:          %RUN_TIMESTAMP%
 ECHO    TEST_DEBUG_LEVEL:       %TEST_DEBUG_LEVEL%
 ECHO    TEST_CLUSTER_SIZE:      %TEST_CLUSTER_SIZE%
+ECHO    TEST_DATA_SIZE_MIX:     %TEST_DATA_SIZE_MIX%
 ECHO    TEST_RUN_DURATION:      %TEST_RUN_DURATION%
 ECHO    TEST_MAX_ENTRIES:       %TEST_MAX_ENTRIES%
 ECHO    TEST_APERTURE:          %TEST_APERTURE%
 ECHO    TEST_MONKEY_TANTRUM:    %TEST_MONKEY_TANTRUM%
+ECHO    MCCACHE_CONGESTION:     %MCCACHE_CONGESTION%
 ECHO    MCCACHE_SYNC_PULSE:     %MCCACHE_SYNC_PULSE%
 ECHO    MCCACHE_CALLBACK_WIN:   %MCCACHE_CALLBACK_WIN%
 ECHO:
@@ -220,13 +241,13 @@ ECHO Run test using the output log from the cluster.
 
 :: Extract out and clean up the INQ result from each of the debug log files into a result file.
 :: NOTE: There is a embedded TAB character in the search string.
-cat log/mccache_debug0*.log |grep -E "	INQ	|	MET	|Done|Exiting" |grep -Ev "Fr:|Out going|Delete" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "s/},/}\n/g" |sed "s/}}/}\n/"   > log/result.txt
+cat     log/*debug0*.log |grep -E "	INQ	|	MET	|Done|Exiting" |grep -Ev "Fr:|Out going|Delete" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "s/},/}\n/g" |sed "s/}}/}\n/"   > log/result.txt
 
 :: Validate the stress test rsults.
-pytest  tests\stress\test_stress.py
+pytest  tests\stress\test_stress.py log/result.txt
 
 :: Sort the logs in chronological order.
-sort    log/mccache_debug0*.log     >log/chronological.txt
+sort    log/*debug0*.log    >log/chronological.txt
 
 :: Detail details.
 grep -iE  "after lookup|in the background"          log/chronological.txt   >log/detail_expire.log
