@@ -207,7 +207,7 @@ class McCacheConfig:
     cache_sync_mode: int= 1             # Cache consistent syncing mode.  0=Partial sync ,1=Full sync.
     cache_sync_pulse:int= 5             # Cache synchronization heartbeat pulse in minutes.
     cache_sync_on: float= 0.0           # Cache last synchronized time from this node to the members.
-    congestion: int     = 1000          # The maximum cutoff to start congestion control.
+    congestion: int     = 20            # The maximum cutoff to start congestion control.
     packet_mtu: int     = 1472          # Maximum Transmission Unit of your network packet payload.
                                         # Ethernet frame is 1500 without the static 20 bytes IP and 8 bytes ICMP headers.  Jumbo frame is 9000.
                                         # SEE: https://www.youtube.com/watch?v=Od5SEHEZnVU and https://www.youtube.com/watch?v=GjiDmU6cqyA
@@ -264,7 +264,7 @@ def _default_callback(ctx: dict) -> bool:
     """Default callback method to be notified of changes.
 
     Don't write code in here that will block the caller.
-    If you are going to use your own method, you could spin out on a different thread to handle this alert.
+    If you are going to use your own method, you should spin out on a different thread to handle this alert.
 
     Args:
         ctx :dict   A context dictionary of the following format:
@@ -282,17 +282,20 @@ def _default_callback(ctx: dict) -> bool:
         bool    True means this method is successful and the caller should continue down its execution path.
     """
     match ctx['typ']:
-        case 1: # Deletion
-            if  _mcConfig.debug_level > McCacheDebugLevel.BASIC:
-                _log_ops_msg( logging.WARNING   ,opc=OpCode.WRN ,tsm=time.time_ns() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
-                                                ,msg=f">   WRN {ctx['key']} got deleted within {ctx['elp']:0.5f} sec." )
-        case 2: # Updates
-            if  _mcConfig.debug_level > McCacheDebugLevel.BASIC:
-                _log_ops_msg( logging.WARNING   ,opc=OpCode.WRN ,tsm=time.time_ns() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
-                                                ,msg=f">   WRN {ctx['key']} got updated within {ctx['elp']:0.5f} sec." )
-        case 3: # Incoherence
-            _log_ops_msg( logging.WARNING       ,opc=OpCode.WRN ,tsm=time.time_ns() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
-                                                ,msg=f">   WRN {ctx['key']} got delayed within {ctx['elp']:0.5f} sec." )
+        case  CallbackType.DELETE:
+            opw = 'deleted'
+        case  CallbackType.UPDATE:
+            opw = 'updated'
+        case  CallbackType.INCOHERENT:
+            opw = 'delayed'
+
+    msg = f"{ctx['key']} got {opw} within {ctx['elp']:0.5f} sec."
+
+    if  _mcConfig.debug_level > McCacheDebugLevel.BASIC:
+        _log_ops_msg( logging.WARNING   ,opc=OpCode.WRN ,tsm=time.time_ns() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']  ,msg=f">   {msg}" )
+    else:
+        logger.warning( msg )
+
     return  True
 
 def get_cache( name: str | None=None ,callback: FunctionType = _default_callback ) -> PyCache:
@@ -654,15 +657,17 @@ def _get_cache_metrics( name: str | None = None ) -> dict:
         }   # Process stats.
     nms =   {n: {   'count':    len(_mcCache[ n ]),
                     'size':     _mcCache[ n ].ttlSize,
+                    'ibqueue':  _mcIBQueue.qsize(),
+                    'obqueue':  _mcOBQueue.qsize(),
                     'spikes':   _mcCache[ n ].spikes,
                     'spikeInt':
-                        round(  _mcCache[ n ].spikeInt/ONE_NS_SEC ,4),
+                        round(  _mcCache[ n ].spikeInt / ONE_NS_SEC ,4 ),
                     'misses':   _mcCache[ n ].misses,
                     'lookups':  _mcCache[ n ].lookups,
                     'inserts':  _mcCache[ n ].inserts,
                     'updates':  _mcCache[ n ].updates,
                     'deletes':  _mcCache[ n ].deletes,
-                    'evicts':   _mcCache[ n ].evicts,
+                    'evicts':   _mcCache[ n ].evicts    # Normal ttl or capacity evictions.
                 }
                 for n in _mcCache.keys() if n == name or name is None
         }   # Namespace stats.
@@ -1070,13 +1075,12 @@ def _check_recv_assembly() -> None:
             logger.error(f"Key:{aky_t} message incomplete.  Missing fragments: {lst}" ,extra=LOG_EXTRA)
             del _mcArrived[ aky_t ]
 
-def _check_sync_metadata():
+def _check_sync_metadata() -> None:
     """Sync-check the metadata.
 
     Send out a pulse heartbeat sync message to all members.
     The message is a copy of the metadata for the other members to validate their local cache against.
     """
-    RETRIES:int = 3
     now = time.time()   # To get the time in seconds since epoch.
     i   = 1
     if (_mcConfig.cache_sync_on +(_mcConfig.cache_sync_pulse *60)) < now:
@@ -1093,6 +1097,18 @@ def _check_sync_metadata():
 
         if  i > RETRIES:
             logger.warning(f"Encounter issue during metadata serialization for SYC operation after {RETRIES} retries." ,extra=LOG_EXTRA)
+
+def _check_congestion() -> None:
+    """Check the queue depth for congestion.
+    """
+    ibs = _mcIBQueue.qsize()
+    obs = _mcOBQueue.qsize()
+    if  ibs >= _mcConfig.congestion or obs >= _mcConfig.congestion:
+        msg = f"Internal {SRC_IP_ADD} message queue size. IB:{ibs:>6} ,OB:{obs:>4}"
+        if  _mcConfig.debug_level >= McCacheDebugLevel.BASIC:
+            _log_ops_msg( logging.WARNING ,opc=OpCode.FYI ,tsm=PyCache.TSM_VERSION() ,msg=msg )
+        else:
+            logger.warning( msg )
 
 def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> None:
     """Decode the message from the sender.
@@ -1376,8 +1392,11 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                                 _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
                                                             ,msg=f">>  ERR:{key} NOT found in cache/metadata after calling __setitem__() with EnableMultiCast.NO." )
                     elif lts >  tsm and crc != lcs:
-                        _log_ops_msg( logging.WARNING   ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,prvcrc=lcs
-                                                        ,msg="Cache incoherent: Evict {key}! {prvtsm} > {tsm} and {prvcrc} <> {crc}" )
+                        if  _mcConfig.debug_level >= McCacheDebugLevel.BASIC:
+                            _log_ops_msg( logging.WARNING   ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,prvcrc=lcs
+                                                            ,msg="Cache incoherent: Evict {key}! {prvtsm} > {tsm} and {prvcrc} <> {crc}" )
+                        else:
+                            logger.warning(f"Cache incoherent: {SRC_IP_ADD} to evict {key}.  CRC: {base64.b64encode( lcs ).decode()[:-2]} <> {base64.b64encode( crc ).decode()[:-2]}")
 
                         # NOTE: Cache in-consistent, evict this key from all members in the cluster.
                         # TODO: We need some congestion control.  Keep pounding the cache is making is worse.
@@ -1387,8 +1406,9 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
                         # Re-transmitted message.
                         pass
             except  KeyError:   # NOTE: Got deleted in another thread.
-                _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
-                                            ,msg=f">>  ERR:{key} NOT found in cache while processing {opc}." )
+                if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+                    _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
+                                                ,msg=f">>  ERR:{key} NOT found in cache while processing {opc}." )
 
             val = None
             # Acknowledge it.
@@ -1555,14 +1575,7 @@ def _housekeeper() -> None:
 
             # Monitor the internal message queues.
             #
-            ibs = _mcIBQueue.qsize()
-            obs = _mcOBQueue.qsize()
-            if  ibs > 30 or obs > 30:
-                msg = f"Internal {SRC_IP_ADD} message queue size. IB:{ibs:>6} ,OB:{obs:>4}"
-                if  _mcConfig.debug_level >= McCacheDebugLevel.BASIC:
-                    _log_ops_msg( logging.WARNING ,opc=OpCode.FYI ,tsm=PyCache.TSM_VERSION() ,msg=msg )
-                else:
-                    logger.warning( msg )
+            _check_congestion()
         except  Exception as ex:    # noqa: BLE001
             logger.error( ex )
             traceback.print_exc()
