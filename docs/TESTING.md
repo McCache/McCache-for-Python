@@ -129,65 +129,65 @@ The results below are collected from testing output `result.txt` file and the `d
 ### Frequency Stress Test Result
 |<sub><br>Run</sub>|<sub>-c #<br>Nodes</sub>|<sub>-k #<br>Keys</sub>|<sub>-p #<br>Pulse</sub>|<sub>-s #<br>Aperture</sub>|<sub>-d #<br>Duration</sub>|<sub><br>Result</sub>|<sub>Avg<br>Snooze</sub>|<sub>Avg<br>SpikeHits</sub>|<sub>Avg<br>SpikeInt</sub>|<sub>Avg<br>SpikeQue</sub>|<sub>Avg<br>SpikeEvcs</sub>|<sub>Avg<br>LookUps</sub>|<sub>Avg<br>Inserts</sub>|<sub>Avg<br>Updates</sub>|<sub>Avg<br>Deletes</sub>|<sub><br>Comment</sub>|
 |:------|---:|---:|--:|-----:|---:|:----------------------------:|-----:|-----:|-----:|-----:| ----:|-----:|-----:|-----:|-----:|:-|
-|3.1    |   3| 100|  3|   0.1|  10|<font color="cyan">Pass</font>|0.5459|   325|1.1222|      |      |   674|   106|   233|    38|Basic test with **3** nodes using **100** key/value pairs, sync every **5** minutes, running with **100**ms snooze aperture for **10** minutes.|
-|3.1.1  |   3| 100|  3|  0.05|  10|<font color="cyan">Pass</font>|0.2750|   777|0.4024|      |      |  1238|   197|   635|   123|Decrease snooze aperture down to **0.05** second, **50**ms.|
-|3.2    |   3| 100|  3|  0.01|  10|<font color="cyan">Pass</font>|0.0552|  4937|0.1215|      |      |  5907|   856|  3346|   735|Decrease snooze aperture down to **0.01** second, **10**ms.|
-|3.2.1  |   3| 100|  3| 0.005|  10|<font color="cyan">Pass</font>|0.0277| 10155|0.0591|     0|     4| 11239|  1606|  7080|  1469|Decrease snooze aperture down to **0.005** second, **5**ms.|
-|3.3    |   3| 100|  3| 0.001|  10|<font color="cyan">Pass</font>|0.0062| 46061|0.0130|   101|    85| 50266|  6993| 32198|  6848|Decrease snooze aperture down to **0.001** second, **1**ms.|
-|3.3.1  |   3| 100|  3|0.0005|  10|<font color="cyan">Pass</font>|0.0037| 47259|0.0128|   448|   527| 82944| 17215| 12917| 17127|Decrease snooze aperture down to **0.0005** second, **0.5**ms.|
-|3.3.2  |   3| 100|  3|0.0001|  10|<font color="cyan">Pass</font>|0.0015|172779|0.0035| 30877| 54420|217931| 42692| 87511| 42578|Decrease snooze aperture down to **0.0001** second, **0.1**ms.|
+|3.1    |   3| 100|  3|   0.1|  10|<font color="cyan">Pass</font>|0.5459|   325|1.1222|      |      |   674|   106|   233|    38|<sup>Basic test with **3** nodes using **100** key/value pairs, sync every **5** minutes, running with **100**ms snooze aperture for **10** minutes.</sup>|
+|3.1.1  |   3| 100|  3|  0.05|  10|<font color="cyan">Pass</font>|0.2750|   777|0.4024|      |      |  1238|   197|   635|   123|<sup>Decrease snooze aperture down to **0.05** second, **50**ms.</sup>|
+|3.2    |   3| 100|  3|  0.01|  10|<font color="cyan">Pass</font>|0.0552|  4937|0.1215|      |      |  5907|   856|  3346|   735|<sup>Decrease snooze aperture down to **0.01** second, **10**ms.</sup>|
+|3.2.1  |   3| 100|  3| 0.005|  10|<font color="cyan">Pass</font>|0.0277| 10155|0.0591|     0|     4| 11239|  1606|  7080|  1469|<sup>Decrease snooze aperture down to **0.005** second, **5**ms.</sup>|
+|3.3    |   3| 100|  3| 0.001|  10|<font color="cyan">Pass</font>|0.0062| 46061|0.0130|   101|    85| 50266|  6993| 32198|  6848|<sup>Decrease snooze aperture down to **0.001** second, **1**ms.</sup>|
+|3.3.1  |   3| 100|  3|0.0005|  10|<font color="cyan">Pass</font>|0.0037| 47259|0.0128|   448|   527| 82944| 17215| 12917| 17127|<sup>Decrease snooze aperture down to **0.0005** second, **0.5**ms.</sup>|
+|3.3.2  |   3| 100|  3|0.0001|  10|<font color="cyan">Pass</font>|0.0015|172779|0.0035| 30877| 54420|217931| 42692| 87511| 42578|<sup>Decrease snooze aperture down to **0.0001** second, **0.1**ms.</sup>|
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |   |
-|5.1    |   5| 100|  3|   0.1|  10|<font color="cyan">Pass</font>|0.5363|   519|1.0306|      |      |   664|   114|   358|    57|Increase cluster size to **5**.|
-|5.1.1  |   5| 100|  3|  0.05|  10|<font color="cyan">Pass</font>|0.2754|  1355|0.4429|      |      |  1229|   241|   939|   175|Decrease snooze aperture down to **0.05** second, **50**ms.|
-|5.2    |   5| 100|  3|  0.01|  10|<font color="cyan">Pass</font>|0.0552|  7362|0.0815|      |      |  5806|  1099|  5293|   970|Decrease snooze aperture down to **0.01** second, **10**ms.|
-|5.2.1  |   5| 100|  3| 0.005|  10|<font color="cyan">Pass</font>|0.0281| 13673|0.0439|     0|    12| 11309|  1997|  9801|  1875|Decrease snooze aperture down to **0.005** second, **5**ms.|
-|5.3    |   5| 100|  3| 0.001|  10|<font color="cyan">Pass</font>|0.0064| 30765|0.0196|   104|   715| 48831| 13142|  4571| 13052|Decrease snooze aperture down to **0.001** second, **1**ms.|
-|5.3.1  |   5| 100|  3|0.0005|  10|<font color="cyan">Pass</font>|0.0036| 51547|0.0117|   412|  9518| 85916| 20593| 10445| 20510|Decrease snooze aperture down to **0.0005** second, **0.5**ms.|
-|5.3.2  |   5| 100|  3|0.0001|  10|<font color="cyan">Pass</font>|0.0017|146044|0.0041|112288| 94543|183693| 44623| 67638| 44542|Decrease snooze aperture down to **0.0001** second, **0.1**ms.|
+|5.1    |   5| 100|  3|   0.1|  10|<font color="cyan">Pass</font>|0.5363|   519|1.0306|      |      |   664|   114|   358|    57|<sup>Increase cluster size to **5**.|
+|5.1.1  |   5| 100|  3|  0.05|  10|<font color="cyan">Pass</font>|0.2754|  1355|0.4429|      |      |  1229|   241|   939|   175|<sup>Decrease snooze aperture down to **0.05** second, **50**ms.</sup>|
+|5.2    |   5| 100|  3|  0.01|  10|<font color="cyan">Pass</font>|0.0552|  7362|0.0815|      |      |  5806|  1099|  5293|   970|<sup>Decrease snooze aperture down to **0.01** second, **10**ms.</sup>|
+|5.2.1  |   5| 100|  3| 0.005|  10|<font color="cyan">Pass</font>|0.0281| 13673|0.0439|     0|    12| 11309|  1997|  9801|  1875|<sup>Decrease snooze aperture down to **0.005** second, **5**ms.</sup>|
+|5.3    |   5| 100|  3| 0.001|  10|<font color="cyan">Pass</font>|0.0064| 30765|0.0196|   104|   715| 48831| 13142|  4571| 13052|<sup>Decrease snooze aperture down to **0.001** second, **1**ms.</sup>|
+|5.3.1  |   5| 100|  3|0.0005|  10|<font color="cyan">Pass</font>|0.0036| 51547|0.0117|   412|  9518| 85916| 20593| 10445| 20510|<sup>Decrease snooze aperture down to **0.0005** second, **0.5**ms.</sup>|
+|5.3.2  |   5| 100|  3|0.0001|  10|<font color="cyan">Pass</font>|0.0017|146044|0.0041|112288| 94543|183693| 44623| 67638| 44542|<sup>Decrease snooze aperture down to **0.0001** second, **0.1**ms.</sup>|
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |   |
-|7.1    |   7| 100|  3|   0.1|  10|<font color="cyan">Pass</font>|0.5362|   659|0.8528|      |      |   656|   120|   474|    70|Increase cluster size to **7**.|
-|7.1.1  |   7| 100|  3|  0.05|  10|<font color="cyan">Pass</font>|0.2747|  1586|0.3783|      |      |  1293|   247|  1162|   179|Decrease snooze aperture down to **0.05** second, **50**ms.|
-|7.2    |   7| 100|  3|  0.01|  10|<font color="cyan">Pass</font>|0.0554|  8791|0.0683|     0|    11|  5787|  1231|  6442|  1118|Decrease snooze aperture down to **0.01** second, **10**ms.|
-|7.2.1  |   7| 100|  3| 0.005|  10|<font color="cyan">Pass</font>|0.0278| 15914|0.0378|    16|    25| 11514|  2257| 11523|  2134|Decrease snooze aperture down to **0.005** second, **5**ms.|
-|7.3    |   7| 100|  3| 0.001|  10|<font color="cyan">Pass</font>|0.0066| 29807|0.0202|   483|  5104| 47055| 12914|  4060| 12833|Decrease snooze aperture down to **0.001** second, **1**ms.|
-|7.3.1  |   7| 100|  3|0.0005|  10|<font color="cyan">Pass</font>|0.0039| 48349|0.0125|  1193| 24343| 79999| 19323|  9785| 19241|Decrease snooze aperture down to **0.0005** second, **0.5**ms.|
-|7.3.2  |   7| 100|  3|0.0001|  10|<font color="cyan">Pass</font>|0.0023|101683|0.0059|141098| 45527|135183| 37688| 26391| 37605|Decrease snooze aperture down to **0.0001** second, **0.1**ms.|
+|7.1    |   7| 100|  3|   0.1|  10|<font color="cyan">Pass</font>|0.5362|   659|0.8528|      |      |   656|   120|   474|    70|<sup>Increase cluster size to **7**.|
+|7.1.1  |   7| 100|  3|  0.05|  10|<font color="cyan">Pass</font>|0.2747|  1586|0.3783|      |      |  1293|   247|  1162|   179|<sup>Decrease snooze aperture down to **0.05** second, **50**ms.</sup>|
+|7.2    |   7| 100|  3|  0.01|  10|<font color="cyan">Pass</font>|0.0554|  8791|0.0683|     0|    11|  5787|  1231|  6442|  1118|<sup>Decrease snooze aperture down to **0.01** second, **10**ms.</sup>|
+|7.2.1  |   7| 100|  3| 0.005|  10|<font color="cyan">Pass</font>|0.0278| 15914|0.0378|    16|    25| 11514|  2257| 11523|  2134|<sup>Decrease snooze aperture down to **0.005** second, **5**ms.</sup>|
+|7.3    |   7| 100|  3| 0.001|  10|<font color="cyan">Pass</font>|0.0066| 29807|0.0202|   483|  5104| 47055| 12914|  4060| 12833|<sup>Decrease snooze aperture down to **0.001** second, **1**ms.</sup>|
+|7.3.1  |   7| 100|  3|0.0005|  10|<font color="cyan">Pass</font>|0.0039| 48349|0.0125|  1193| 24343| 79999| 19323|  9785| 19241|<sup>Decrease snooze aperture down to **0.0005** second, **0.5**ms.</sup>|
+|7.3.2  |   7| 100|  3|0.0001|  10|<font color="cyan">Pass</font>|0.0023|101683|0.0059|141098| 45527|135183| 37688| 26391| 37605|<sup>Decrease snooze aperture down to **0.0001** second, **0.1**ms.</sup>|
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |   |
-|9.1    |   9| 100|  3|   0.1|  10|<font color="cyan">Pass</font>|0.5362|   864|0.6747|      |      |   683|   142|   632|    93|Increase cluster size to **9**.|
-|9.1.1  |   9| 100|  3|  0.05|  10|<font color="cyan">Pass</font>|0.2753|  1862|0.3224|      |      |  1257|   275|  1374|   213|Decrease snooze aperture down to **0.05** second, **50**ms.|
-|9.2    |   9| 100|  3|  0.01|  10|<font color="cyan">Pass</font>|0.0550|  9002|0.0667|     0|     5|  5744|  1248|  6620|  1134|Decrease snooze aperture down to **0.01** second, **10**ms.|
-|9.2.1  |   9| 100|  3| 0.005|  10|<font color="cyan">Pass</font>|0.0283| 12338|0.0488|  1283|    78| 10633|  2733|  6937|  2668|Decrease snooze aperture down to **0.005** second, **5**ms.|
-|9.3    |   9| 100|  3| 0.001|  10|<font color="cyan">Pass</font>|0.0072| 57628|0.0104|   719| 19994| 43410| 10724| 36278| 10626|Decrease snooze aperture down to **0.001** second, **1**ms.|
-|9.3.1  |   9| 100|  3|0.0005|  10|<font color="cyan">Pass</font>|0.0050| 66906|0.0090|  4518| 55600| 62784| 16763| 33464| 16679|Decrease snooze aperture down to **0.0005** second, **0.5**ms.|
-|9.3.2  |   9| 100|  3|0.0001|  10|<font color="pink">Fail</font>|0.0026| 85840|0.0070| 32104| 117686|18570| 33675| 18570| 33595|Decrease snooze aperture down to **0.0001** second, **0.1**ms.|
+|9.1    |   9| 100|  3|   0.1|  10|<font color="cyan">Pass</font>|0.5362|   864|0.6747|      |      |   683|   142|   632|    93|<sup>Increase cluster size to **9**.|
+|9.1.1  |   9| 100|  3|  0.05|  10|<font color="cyan">Pass</font>|0.2753|  1862|0.3224|      |      |  1257|   275|  1374|   213|<sup>Decrease snooze aperture down to **0.05** second, **50**ms.</sup>|
+|9.2    |   9| 100|  3|  0.01|  10|<font color="cyan">Pass</font>|0.0550|  9002|0.0667|     0|     5|  5744|  1248|  6620|  1134|<sup>Decrease snooze aperture down to **0.01** second, **10**ms.</sup>|
+|9.2.1  |   9| 100|  3| 0.005|  10|<font color="cyan">Pass</font>|0.0283| 12338|0.0488|  1283|    78| 10633|  2733|  6937|  2668|<sup>Decrease snooze aperture down to **0.005** second, **5**ms.</sup>|
+|9.3    |   9| 100|  3| 0.001|  10|<font color="cyan">Pass</font>|0.0072| 57628|0.0104|   719| 19994| 43410| 10724| 36278| 10626|<sup>Decrease snooze aperture down to **0.001** second, **1**ms.</sup>|
+|9.3.1  |   9| 100|  3|0.0005|  10|<font color="cyan">Pass</font>|0.0050| 66906|0.0090|  4518| 55600| 62784| 16763| 33464| 16679|<sup>Decrease snooze aperture down to **0.0005** second, **0.5**ms.</sup>|
+|9.3.2  |   9| 100|  3|0.0001|  10|<font color="pink">Fail</font>|0.0026| 85840|0.0070| 32104| 117686|18570| 33675| 18570| 33595|<sup>Decrease snooze aperture down to **0.0001** second, **0.1**ms.</sup>|
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |   |
 
 ### Duration Stress Test Result
-|<sub><br>Run</sub>|<sub>-c #<br>Nodes</sub>|<sub>-k #<br>Keys</sub>|<sub>-p #<br>Pulse</sub>|<sub>-s #<br>Aperture</sub>|<sub>-d #<br>Duration</sub>|<sub><br>Result</sub>|<sub>Avg<br>Snooze</sub>|<sub>Avg<br>SpikeHits</sub>|<sub>Avg<br>SpikeInt</sub>|<sub>Avg<br>SpikeQue</sub>|<sub>Avg<br>SpikeEvcs</sub>|<sub>Avg<br>LookUps</sub>|<sub>Avg<br>Inserts</sub>|<sub>Avg<br>Updates</sub>|<sub>Avg<br>Deletes</sub>|<sub><br>Comment</sub>|
+|<sup><br>Run</sup>|<sup>-c #<br>Nodes</sup>|<sup>-k #<br>Keys</sup>|<sup>-p #<br>Pulse</sup>|<sup>-s #<br>Aperture</sup>|<sup>-d #<br>Duration</sup>|<sup><br>Result</sup>|<sup>Avg<br>Snooze</sup>|<sup>Avg<br>SpikeHits</sup>|<sup>Avg<br>SpikeInt</sup>|<sup>Avg<br>SpikeQue</sup>|<sup>Avg<br>SpikeEvcs</sup>|<sup>Avg<br>LookUps</sup>|<sup>Avg<br>Inserts</sup>|<sup>Avg<br>Updates</sup>|<sup>Avg<br>Deletes</sup>|<sup><br>Comment</sup>|
 |:------|---:|---:|--:|-----:|---:|:----------------------------:|-----:|-----:|-----:|-----:| ----:|-----:|-----:|-----:|-----:|:-|
-|3.2.1  |   3| 100|  3|  0.01|  20|<font color="cyan">Pass</font>|0.0550| 10242|0.1172|     0|     2| 11852|  1660|  7056|  1515|Basic test with **3** nodes using **100** key/value pairs, sync every **3** minutes, running for **20** minutes with **0.01** second (**10**ms) snooze aperture.|
-|3.2.2  |   3| 100|  3|  0.01|  40|<font color="cyan">Pass</font>|0.0555| 20831|0.1152|     0|     4| 23795|  3269| 14427|  3092|Increase run duration to **40** minutes.|
-|3.2.3  |   3| 100|  3|  0.01|  60|<font color="cyan">Pass</font>|0.0554| 31025|0.1160|     0|    11| 35772|  4822| 21507|  4618|Increase run duration to **60** minutes, **1** hour.|
-|3.2.4  |   3| 100|  3|  0.01| 120|<font color="cyan">Pass</font>|0.0558| 62462|0.1153|     0|    24| 71425|  9498| 43591|  9195|Increase run duration to **120** minutes, **2** hours.|
-|3.2.5  |   3| 100|  3|  0.01| 480|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |Increase run duration to **480** minutes, **8** hours.|
+|3.2.1  |   3| 100|  3|  0.01|  20|<font color="cyan">Pass</font>|0.0550| 10242|0.1172|     0|     2| 11852|  1660|  7056|  1515|<sup>Start with **3** nodes using **100** key/value pairs, sync every **3** minutes, running for **20** minutes with **0.01** second (**10**ms) snooze aperture.</sup>|
+|3.2.2  |   3| 100|  3|  0.01|  40|<font color="cyan">Pass</font>|0.0555| 20831|0.1152|     0|     4| 23795|  3269| 14427|  3092|<sup>Increase run duration to **40** minutes.</sup>|
+|3.2.3  |   3| 100|  3|  0.01|  60|<font color="cyan">Pass</font>|0.0554| 31025|0.1160|     0|    11| 35772|  4822| 21507|  4618|<sup>Increase run duration to **60** minutes, **1** hour.</sup>|
+|3.2.4  |   3| 100|  3|  0.01| 120|<font color="cyan">Pass</font>|0.0558| 62462|0.1153|     0|    24| 71425|  9498| 43591|  9195|<sup>Increase run duration to **120** minutes, **2** hours.</sup>|
+|3.2.5  |   3| 100|  3|  0.01| 480|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |<sup>Increase run duration to **480** minutes, **8** hours.</sup>|
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |  |
-|5.2.1  |   5| 100|  3|  0.01|  20|<font color="cyan">Pass</font>|0.0557| 14261|0.0841|     0|    44| 12628|  2045| 10297|  1907|Increase the basic (`3.2.1`) test to **5** nodes.|
-|5.2.2  |   5| 100|  3|  0.01|  40|<font color="cyan">Pass</font>|0.0559| 27646|0.0868|     0|   131| 25425|  3937| 19891|  3774|Increase run duration to **40** minutes.|
-|5.2.3  |   5| 100|  3|  0.01|  60|<font color="cyan">Pass</font>|0.0561| 41403|0.0869|     0|   191| 38352|  5845| 29825|  5660|Increase run duration to **60** minutes, **1** hour.|
-|5.2.4  |   5| 100|  3|  0.01| 120|<font color="cyan">Pass</font>|0.0562| 82895|0.0869|     0|   374| 76837| 11478| 60055| 11198|Increase run duration to **120** minutes, **2** hours.|
-|5.2.5  |   5| 100|  3|  0.01| 480|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |Increase run duration to **480** minutes, **8** hours.|
+|5.2.1  |   5| 100|  3|  0.01|  20|<font color="cyan">Pass</font>|0.0557| 14261|0.0841|     0|    44| 12628|  2045| 10297|  1907|<sup>Increase the basic (`3.2.1`) test to **5** nodes.</sup>|
+|5.2.2  |   5| 100|  3|  0.01|  40|<font color="cyan">Pass</font>|0.0559| 27646|0.0868|     0|   131| 25425|  3937| 19891|  3774|<sup>Increase run duration to **40** minutes.</sup>|
+|5.2.3  |   5| 100|  3|  0.01|  60|<font color="cyan">Pass</font>|0.0561| 41403|0.0869|     0|   191| 38352|  5845| 29825|  5660|<sup>Increase run duration to **60** minutes, **1** hour.</sup>|
+|5.2.4  |   5| 100|  3|  0.01| 120|<font color="cyan">Pass</font>|0.0562| 82895|0.0869|     0|   374| 76837| 11478| 60055| 11198|<sup>Increase run duration to **120** minutes, **2** hours.</sup>|
+|5.2.5  |   5| 100|  3|  0.01| 480|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |<sup>Increase run duration to **480** minutes, **8** hours.</sup>|
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |  |
-|7.1.1  |   7| 100|  3|  0.01|  20|<font color="cyan">Pass</font>|0.0554| 16674|0.0720|     0|   114| 13388|  2252| 12287|  2126|Increase the basic (`3.2.1`) test to **7** nodes.|
-|7.1.2  |   7| 100|  3|  0.01|  40|<font color="cyan">Pass</font>|0.0564| 32818|0.0731|     0|   673| 27458|  4376| 24192|  4212|Increase run duration to **40** minutes.|
-|7.1.3  |   7| 100|  3|  0.01|  60|<font color="cyan">Pass</font>|0.0564| 48733|0.0739|     0|   827| 41329|  6488| 35870|  6304|Increase run duration to **60** minutes, **1** hour.|
-|7.1.4  |   7| 100|  3|  0.01| 120|<font color="cyan">Pass</font>|0.0567| 99094|0.0727|     0|  2007| 83114| 12978| 73257| 12684|Increase run duration to **120** minutes, **2** hours.|
-|7.1.5  |   7| 100|  3|  0.01| 480|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |Increase run duration to **480** minutes, **8** hours.|
+|7.1.1  |   7| 100|  3|  0.01|  20|<font color="cyan">Pass</font>|0.0554| 16674|0.0720|     0|   114| 13388|  2252| 12287|  2126|<sup>Increase the basic (`3.2.1`) test to **7** nodes.</sup>|
+|7.1.2  |   7| 100|  3|  0.01|  40|<font color="cyan">Pass</font>|0.0564| 32818|0.0731|     0|   673| 27458|  4376| 24192|  4212|<sup>Increase run duration to **40** minutes.</sup>|
+|7.1.3  |   7| 100|  3|  0.01|  60|<font color="cyan">Pass</font>|0.0564| 48733|0.0739|     0|   827| 41329|  6488| 35870|  6304|<sup>Increase run duration to **60** minutes, **1** hour.</sup>|
+|7.1.4  |   7| 100|  3|  0.01| 120|<font color="cyan">Pass</font>|0.0567| 99094|0.0727|     0|  2007| 83114| 12978| 73257| 12684|<sup>Increase run duration to **120** minutes, **2** hours.</sup>|
+|7.1.5  |   7| 100|  3|  0.01| 480|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |<sup>Increase run duration to **480** minutes, **8** hours.</sup>|
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |  |
-|9.1.1  |   9| 100|  3|  0.01|  20|<font color="cyan">Pass</font>|0.0559| 18970|0.0633|     0|   598| 13863|  2407| 14280|  2272|Increase the basic (`3.2.1`) test to **9** nodes.|
-|9.1.2  |   9| 100|  3|  0.01|  40|<font color="cyan">Pass</font>|0.0568| 38011|0.0631|     0|  1624| 29986|  4776| 28570|  4619|Increase run duration to **40** minutes.|
-|9.1.3  |   9| 100|  3|  0.01|  60|<font color="cyan">Pass</font>|0.0564| 56825|0.0634|     0|  1776| 43593|  7052| 42831|  6861|Increase run duration to **60** minutes, **1** hour.|
-|9.1.4  |   9| 100|  3|  0.01| 120|<font color="cyan">Pass</font>|0.0572|111328|0.0647|     0|  5191| 84487| 13947| 83544| 13668|Increase run duration to **120** minutes, **2** hours.|
-|9.1.5  |   9| 100|  3|  0.01| 480|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |Increase run duration to **480** minutes, **8** hours.|
+|9.1.1  |   9| 100|  3|  0.01|  20|<font color="cyan">Pass</font>|0.0559| 18970|0.0633|     0|   598| 13863|  2407| 14280|  2272|<sup>Increase the basic (`3.2.1`) test to **9** nodes.</sup>|
+|9.1.2  |   9| 100|  3|  0.01|  40|<font color="cyan">Pass</font>|0.0568| 38011|0.0631|     0|  1624| 29986|  4776| 28570|  4619|<sup>Increase run duration to **40** minutes.</sup>|
+|9.1.3  |   9| 100|  3|  0.01|  60|<font color="cyan">Pass</font>|0.0564| 56825|0.0634|     0|  1776| 43593|  7052| 42831|  6861|<sup>Increase run duration to **60** minutes, **1** hour.</sup>|
+|9.1.4  |   9| 100|  3|  0.01| 120|<font color="cyan">Pass</font>|0.0572|111328|0.0647|     0|  5191| 84487| 13947| 83544| 13668|<sup>Increase run duration to **120** minutes, **2** hours.</sup>|
+|9.1.5  |   9| 100|  3|  0.01| 480|<font color="cyan">Pass</font>|      |      |      |      |      |      |      |      |      |<sup>Increase run duration to **480** minutes, **8** hours.</sup>|
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |  |
 
 * To be completely transparent, some failures was encountered running the above regression stress tests and upon rebooting the tests passes.
