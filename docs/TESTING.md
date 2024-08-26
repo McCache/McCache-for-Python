@@ -30,7 +30,7 @@ The log file was deposited in `./log/` sub-directory.  The following command:
 $ grep  MET  ./log/mccache_debug*log  |  head -1
 ```
  extracted the following metric from my test run.
- ```json
+ ```python
 15:46:19.928452860 L#1535 Im:172.18.0.4  MET  15:46:19.917445670  N=  K=  C=
 {   '_process_': {
          'avgload': (3.35546875 ,3.2646484375 ,3.109375)
@@ -127,7 +127,7 @@ The results below are collected from testing output `result.txt` file and the `d
 |Avg Deletes    |The average deletes performed in the test.|
 
 ### Frequency Stress Test Result
-|<br>Run|-c #<br>Nodes|-k #<br>Keys|-p #<br>Pulse|-s #<br>Aperture|-d #<br>Duration|<br>Result|Avg<br>Snooze|Avg<br>SpikeHits|Avg<br>SpikeInt|Avg<br>SpikeQue|Avg<br>SpikeEvcs|Avg<br>LookUps|Avg<br>Inserts|Avg<br>Updates|Avg<br>Deletes|<br>Comment|
+|<sub><br>Run</sub>|<sub>-c #<br>Nodes</sub>|<sub>-k #<br>Keys</sub>|<sub>-p #<br>Pulse</sub>|<sub>-s #<br>Aperture</sub>|<sub>-d #<br>Duration</sub>|<sub><br>Result</sub>|<sub>Avg<br>Snooze</sub>|<sub>Avg<br>SpikeHits</sub>|<sub>Avg<br>SpikeInt</sub>|<sub>Avg<br>SpikeQue</sub>|<sub>Avg<br>SpikeEvcs</sub>|<sub>Avg<br>LookUps</sub>|<sub>Avg<br>Inserts</sub>|<sub>Avg<br>Updates</sub>|<sub>Avg<br>Deletes</sub>|<sub><br>Comment</sub>|
 |:------|---:|---:|--:|-----:|---:|:----------------------------:|-----:|-----:|-----:|-----:| ----:|-----:|-----:|-----:|-----:|:-|
 |3.1    |   3| 100|  3|   0.1|  10|<font color="cyan">Pass</font>|0.5459|   325|1.1222|      |      |   674|   106|   233|    38|Basic test with **3** nodes using **100** key/value pairs, sync every **5** minutes, running with **100**ms snooze aperture for **10** minutes.|
 |3.1.1  |   3| 100|  3|  0.05|  10|<font color="cyan">Pass</font>|0.2750|   777|0.4024|      |      |  1238|   197|   635|   123|Decrease snooze aperture down to **0.05** second, **50**ms.|
@@ -163,7 +163,7 @@ The results below are collected from testing output `result.txt` file and the `d
 |       |    |    |   |      |    |                              |      |      |      |      |      |      |      |      |      |   |
 
 ### Duration Stress Test Result
-|<br>Run|-c #<br>Nodes|-k #<br>Keys|-p #<br>Pulse|-s #<br>Aperture|-d #<br>Duration|<br>Result|Avg<br>Snooze|Avg<br>SpikeHits|Avg<br>SpikeInt|Avg<br>SpikeQue|Avg<br>SpikeEvcs|Avg<br>LookUps|Avg<br>Inserts|Avg<br>Updates|Avg<br>Deletes|<br>Comment|
+|<sub><br>Run</sub>|<sub>-c #<br>Nodes</sub>|<sub>-k #<br>Keys</sub>|<sub>-p #<br>Pulse</sub>|<sub>-s #<br>Aperture</sub>|<sub>-d #<br>Duration</sub>|<sub><br>Result</sub>|<sub>Avg<br>Snooze</sub>|<sub>Avg<br>SpikeHits</sub>|<sub>Avg<br>SpikeInt</sub>|<sub>Avg<br>SpikeQue</sub>|<sub>Avg<br>SpikeEvcs</sub>|<sub>Avg<br>LookUps</sub>|<sub>Avg<br>Inserts</sub>|<sub>Avg<br>Updates</sub>|<sub>Avg<br>Deletes</sub>|<sub><br>Comment</sub>|
 |:------|---:|---:|--:|-----:|---:|:----------------------------:|-----:|-----:|-----:|-----:| ----:|-----:|-----:|-----:|-----:|:-|
 |3.2.1  |   3| 100|  3|  0.01|  20|<font color="cyan">Pass</font>|0.0550| 10242|0.1172|     0|     2| 11852|  1660|  7056|  1515|Basic test with **3** nodes using **100** key/value pairs, sync every **3** minutes, running for **20** minutes with **0.01** second (**10**ms) snooze aperture.|
 |3.2.2  |   3| 100|  3|  0.01|  40|<font color="cyan">Pass</font>|0.0555| 20831|0.1152|     0|     4| 23795|  3269| 14427|  3092|Increase run duration to **40** minutes.|
