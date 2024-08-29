@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import time
 
 from datetime import timedelta
@@ -26,32 +27,27 @@ class   TestClass:
 
         with open("./log/result.txt") as fn:
             for ln in fn:
-                if '\tDone' in ln:
-                    # Example:
-                    # 1714334606.717288 L# 262 Im:10.89.2.55\t\tFYI\t20:03:26.710504870
-                    tokens  = ln.split('\t')        # Tokenize the line.
-                    endtsm  = tokens[3]
-                elif '\tINQ' in ln:
-                    # Example
-                    # 1706834856.017798 L#1145 Im:10.89.2.71
-                    tokens  = ln.split(' ')         # Tokenize the line.
-                    member  = tokens[2][3: ].strip()   # Strip away 'Im:'
+                if 'Done testing' in ln:
+                    # Not dependent on the debug format.
+                    tokens  = ln.split('\t')        # Tokenize the the entire log line.
+                    logmsg  = tokens[-1]            # Last token is the message.
+                    tokens  = logmsg.split(' ')     # Tokenize the message portion of the line. e.g. "172.18.0.1 Done testing at 04:00:03.472051929"
+                    member  = tokens[0]             # Source IP address.
+                    endtsm  = tokens[4].strip()     # Timestamp.
+
                     if  member not in chksums:
-                        chksums[ member ] = {'endtsm': None ,'exttsm': None ,'crc': None ,'data': {}}
-                elif 'spikes' in ln:
-                    met = json.loads( '{' + ln.replace("'" ,'"') + '}')
-                    chksums[ member ]['metric'] = met['mccache']
-                elif 'crc' in ln and 'tsm' in ln:
+                        chksums[ member ] = {'endtsm': endtsm ,'exttsm': None ,'crc': None ,'data': {}}
+                elif "'crc':" in ln  and "'tsm':" in ln:
                     # Example:
                     # 'K000-003': {'crc': 'fkU4sT6XTwQhLQT6ZvUb3w', 'tsm': '07:47:33.89543949'}
                     sts = json.loads( '{' + ln.replace("'" ,'"') + '}')
                     chksums[ member ]['data'].update( sts )
-                elif '\tExiting' in ln:
-                    # Example:
-                    # 1714334606.944546 L# 271 Im:10.89.2.55\t\tFYI\t20:03:26.935912182
-                    tokens  = ln.split('\t')        # Tokenize the line.
-                    exttsm  = tokens[3]
-                    chksums[ member ]['endtsm'] = endtsm
+                elif 'Exiting test' in ln:
+                    # Not dependent on the debug format.
+                    tokens  = ln.split('\t')        # Tokenize the the entire log line.
+                    logmsg  = tokens[-1]            # Last token is the message.
+                    tokens  = logmsg.split(' ')     # Tokenize the message portion of the line. e.g. "Exiting test at 04:00:03.510304783."
+                    exttsm  = tokens[4].strip()     # Timestamp.
                     chksums[ member ]['exttsm'] = exttsm
                     chksums[ member ]['crc'] = hashlib.md5( bytearray(str( chksums[ member ]['data'] ) ,encoding='utf-8') ).digest()
 
