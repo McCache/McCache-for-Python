@@ -10,7 +10,8 @@ import socket
 import sys
 import time
 
-from   math import sqrt
+from   copy  import deepcopy
+from   faker import Faker
 
 import mccache as mc
 from   pycache import Cache
@@ -57,6 +58,18 @@ else:
     rndseed = int(str(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]).split(".")[3])
 random.seed( rndseed )
 
+fake = Faker()
+Faker.seed( rndseed )
+BIG_DATA = {
+    'key': None,
+    'name': fake.name(),
+    'address': fake.address(),
+    'text': fake.text( max_nb_chars=10240 ),    # 10K
+    'counter': None,
+    'updated_on': None
+}
+
+
 # The artificial pauses in between cache operation.  Targeting between 10 to 30 ms.
 # SEE: https://www.centurylink.com/home/help/internet/how-to-improve-gaming-latency.html
 #
@@ -64,13 +77,14 @@ aperture:float=0.01 if 'TEST_APERTURE'      not in os.environ else float(os.envi
 entries:int   = 200 if 'TEST_MAX_ENTRIES'   not in os.environ else int(  os.environ['TEST_MAX_ENTRIES'])
 duration:int  = 5   if 'TEST_RUN_DURATION'  not in os.environ else int(  os.environ['TEST_RUN_DURATION'])
 cluster:int   = 3   if 'TEST_CLUSTER_SIZE'  not in os.environ else int(  os.environ['TEST_CLUSTER_SIZE'])
-syncpulse:int = mc._mcConfig.cache_sync_pulse
+datatype:int  = 1   if 'TEST_DATA_SIZE_MIX' not in os.environ else int(  os.environ['TEST_DATA_SIZE_MIX'])  # 1= small ,2= large ,3= mixed
+syncpulse:int = mc._mcConfig.cache_pulse
+callbackw:int = mc._mcConfig.callback_win
 
-if  mc._mcConfig.callback_win < 0.1:    # Only this tight in testing.
+if  mc._mcConfig.callback_win > 0:
     cache = mc.get_cache( callback=test_callback )
 else:
     cache = mc.get_cache( callback=None )
-
 
 bgn = time.time()
 end = time.time()
@@ -78,7 +92,11 @@ frg = '{'+'frg:0{l}'.format( l=len(str( entries )))+'}'
 
 # Random test section.
 #
-mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=f"Config: Seed={rndseed:3}  ,Cluster={cluster} ,Entries={entries} ,Pulse={syncpulse}m ,Aperture={aperture}s ,Duration={duration}m" )
+msg = f"Config: Seed={rndseed:3}  ,Cluster={cluster} ,Entries={entries} ,Pulse={syncpulse}m ,Aperture={aperture}s ,Duration={duration}m ,CBackWin={callbackw}s"
+if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.BASIC:
+    mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=msg )
+else:
+    mc.logger.info( msg )
 
 itg = 0 # Integral, the digits to the left of the decimal.
 scl = 1 # The number of digits to the right of the decimal.
@@ -98,6 +116,7 @@ while (end - bgn) < (duration*60):  # Seconds.
     slp = ((slp *ctr) + elp) / (ctr +1) # Running average of sleep time.
     ctr +=  1
 
+    # DEBUG trace.
     if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.SUPERFLUOUS:
         glp = '~' if abs((elp - snooze) / snooze) < 0.335 else '!'  # 33% Glyph.
         mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,key=' '*8
@@ -150,7 +169,18 @@ while (end - bgn) < (duration*60):  # Seconds.
 
         case 5|6|7|8:   # NOTE: 20% are updates.
             if  key in cache:
-                val = (mc.SRC_IP_SEQ ,datetime.datetime.now(datetime.UTC) ,ctr) # The minimum fields to totally randomize the value.
+                if  opc in {-5 ,-7}:    # TODO: Enable this.
+                    # Generate big data to send.
+                    val = deepcopy( BIG_DATA )
+                    val['key'] = key
+                    val['counter'] = ctr
+                    val['updated_on'] = datetime.datetime.now(datetime.UTC)
+                    pkl: bytes = pickle.dumps( val )
+                    crc: str   = base64.b64encode( hashlib.md5( pkl ).digest() ).decode()   # noqa: S324
+                    val = { 'data': val ,'crc': crc ,'size': len(pkl) }
+                else:
+                    val = (mc.SRC_IP_SEQ ,datetime.datetime.now(datetime.UTC) ,ctr) # The minimum fields to totally randomize the value.
+
                 pkl: bytes = pickle.dumps( val )
                 crc: str   = base64.b64encode( hashlib.md5( pkl ).digest() ).decode()   # noqa: S324
 
@@ -219,19 +249,33 @@ while (end - bgn) < (duration*60):  # Seconds.
 
 # Done stress testing.
 #
-mc._log_ops_msg( logging.INFO   ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=f"Done testing with {slp:0.4f} sec/ops with {ctr} ops.  Querying final cache checksum." )
+msg = f"{mc.SRC_IP_ADD:11} Done testing at {cache.tsm_version_str()} with {slp:0.4f} sec/ops with {ctr} ops."
+if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.BASIC:
+    mc._log_ops_msg( logging.INFO   ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=msg )
+else:
+    mc.logger.info( msg )
 
-# All incoming updates after the the following "Done." cutoff should be discarded.
-#
-# Wait for some straggler to trickle in before to dump out the cache.
-while not mc._mcIBQueue.empty():
+# Wait for some straggler to trickle in/out before to dump out the cache.
+time.sleep( 1 )
+while not mc._mcIBQueue.empty() or not mc._mcOBQueue.empty():
     # NOTE: During high stress testing the queue can back up beyond 40K of entries and can take more than 6 minutes to process all the entries.
-    mc._log_ops_msg( logging.INFO   ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=f"Inbound queue still has {mc._mcIBQueue.qsize()} pending entries." )
-    time.sleep( 2 ^ mc._mcConfig.multicast_hops )
+    tsm = cache.tsm_version_str()
+    ibs = mc._mcIBQueue.qsize()
+    obs = mc._mcOBQueue.qsize()
+    msg = f"{mc.SRC_IP_ADD:11} Internal message queue at {tsm} still has {ibs:3} IB and {obs:3} OB pending entries."
+    if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.BASIC:
+        mc._log_ops_msg( logging.INFO   ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=msg )
+    else:
+        mc.logger.info( msg )
+    time.sleep((cluster/3) + (2 ^ mc._mcConfig.multicast_hops))
 
 # Query the local cache and metrics and exit.
 #
 mc.get_cache_checksum( name=cache.name ,node=mc.SRC_IP_ADD )
 mc.get_cluster_metrics( node=mc.SRC_IP_ADD )
 
-mc._log_ops_msg( logging.INFO   ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=f"Exiting test." )
+msg = f"{mc.SRC_IP_ADD:11} Exiting test at {cache.tsm_version_str()}."
+if  mc._mcConfig.debug_level >= mc.McCacheDebugLevel.BASIC:
+    mc._log_ops_msg( logging.INFO   ,opc=mc.OpCode.FYI ,tsm=cache.TSM_VERSION() ,nms=cache.name ,msg=msg )
+else:
+    mc.logger.info( msg )

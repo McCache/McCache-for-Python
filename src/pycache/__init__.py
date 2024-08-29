@@ -79,11 +79,11 @@ class Cache( OrderedDict ):
 
     # TODO: Refactor to use the following method instead of TSM_VERSION().
     @classmethod
-    def get_tsm_ver( clz ) -> int:
+    def tsm_version( clz ) -> int:
         return  time.time_ns()
 
     @classmethod
-    def tsm_ver_str( clz ,ver: int | None = None ) -> str:
+    def tsm_version_str( clz ,ver: int | None = None ) -> str:
         """
         Conversion the timestamp version from integer to displayable string.  If none is input, anew timestamp version is generated.
 
@@ -93,6 +93,7 @@ class Cache( OrderedDict ):
             String version of the timestamp.
         """
         if  not ver:
+#           ver = Cache.tsm_version()
             ver = Cache.TSM_VERSION()
         tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime( (ver // Cache.ONE_NS_SEC) ))}.{ver % Cache.ONE_NS_SEC:0<9}"
         return  tsm
@@ -269,7 +270,7 @@ class Cache( OrderedDict ):
         """Standardize the output format with this object specifics.
         """
         txt = self.__msgbdy
-        now = Cache.tsm_ver_str()
+        now = Cache.tsm_version_str()
         lno = getframeinfo(stack()[1][0]).lineno
         iam = Cache.IP4_ADDRESS if 'Im:' in txt else f'Im:{Cache.IP4_ADDRESS}'
         md5 = crc
@@ -302,6 +303,7 @@ class Cache( OrderedDict ):
         Return:
             Number of evictions.
         """
+#       now = Cache.tsm_version()
         now = Cache.TSM_VERSION()
         ttl = self.__ttl * Cache.ONE_NS_SEC     # Convert seconds in nanosecond.
         evt: int = 0
@@ -312,6 +314,7 @@ class Cache( OrderedDict ):
         if  self.__debug:
             self._log_ops_msg( opc='EVT' ,tsm=now ,nms=self.__name ,key=None ,crc=None ,msg='Checking for eviction candidates.')
 
+#       oldest: int = Cache.tsm_version()
         oldest: int = Cache.TSM_VERSION()
         with  Cache.CACHE_LOCK:
             for key in self.__meta.copy():  # Make a shallow copy of the keys.
@@ -361,6 +364,7 @@ class Cache( OrderedDict ):
         Return:
             Number of evictions.
         """
+#       now = Cache.tsm_version()
         now = Cache.TSM_VERSION()
         with  Cache.CACHE_LOCK:
             key ,_ = super().popitem( last=False )  # FIFO
@@ -382,7 +386,9 @@ class Cache( OrderedDict ):
             queue_out   Request queuing out operation info to external receiver.
         """
         if  tsm is None:
+#           tsm =  Cache.tsm_version()
             tsm =  Cache.TSM_VERSION()
+        elp = 0
         try:
             crc = self.__meta[ key ]['crc'] # Old crc value.
             lkp = self.__meta[ key ]['lkp'] # Last looked up.
@@ -421,6 +427,7 @@ class Cache( OrderedDict ):
         """Post lookup processing.  Update the metadata.
         """
         try:
+#           self.__meta[ key ]['lkp'] = Cache.tsm_version()
             self.__meta[ key ]['lkp'] = Cache.TSM_VERSION() # Timestamp for the just lookup operation.
         except  KeyError:
             # NOTE: Deleted from another thread.
@@ -444,6 +451,7 @@ class Cache( OrderedDict ):
             queue_out   Request queuing out operation info to external receiver.
         """
         if  tsm is None:
+#           tsm =  Cache.tsm_version()
             tsm =  Cache.TSM_VERSION()
         try:
             if  key not in self.__meta:
@@ -494,6 +502,7 @@ class Cache( OrderedDict ):
             now     The current timestamp to determine a spike.  Default to present.
         """
         if  now is None:
+#           now =  Cache.tsm_version()
             now =  Cache.TSM_VERSION()
         span =  now - self.__latest
         if  span > 0:
@@ -521,6 +530,7 @@ class Cache( OrderedDict ):
             KeyError
         """
         if  tsm is None:
+#           tsm =  Cache.tsm_version()
             tsm =  Cache.TSM_VERSION()
         if  self.__ttl > 0:
             _ = self._evict_items_by_ttl()
@@ -586,6 +596,7 @@ class Cache( OrderedDict ):
             queue_out   Request queuing out operation info to external receiver.
         """
         if  tsm is None:
+#           tsm =  Cache.tsm_version()
             tsm =  Cache.TSM_VERSION()
         if  self.__ttl > 0:
             _ = self._evict_items_by_ttl()
@@ -620,7 +631,9 @@ class Cache( OrderedDict ):
         Call the parent method and then do some house keeping.
         """
         super().clear()
+#       self.__oldest =  Cache.tsm_version()
         self.__oldest = Cache.TSM_VERSION()
+#       self.__latest =  Cache.tsm_version()
         self.__latest = Cache.TSM_VERSION()
         self._reset_metrics()
 
