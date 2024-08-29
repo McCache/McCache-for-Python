@@ -20,11 +20,11 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
+      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
       #
-#     - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
-#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
-#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
-#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
+#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -56,11 +56,11 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
+      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
       #
-#     - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
-#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
-#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
-#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
+#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -92,11 +92,11 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
+      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
       #
-#     - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
-#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
-#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
-#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
+#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -128,11 +128,11 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
+      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
       #
-#     - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
-#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
-#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
-#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
+#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -164,11 +164,11 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
+      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
       #
-#     - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
-#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
-#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
-#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
+#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -200,11 +200,11 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
+      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
       #
-#     - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
-#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
-#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
-#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
+#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -236,11 +236,11 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
+      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
       #
-#     - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
-#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
-#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
-#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
+#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -272,11 +272,11 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
+      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
       #
-#     - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
-#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
-#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
-#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
+#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -308,11 +308,11 @@ services:
       - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
       - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
       - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
+      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
       #
-#     - MCCACHE_CONGESTION={MCCACHE_CONGESTION:-20000}
-#     - MCCACHE_CACHE_SYNC_PULSE={MCCACHE_CACHE_SYNC_PULSE:-5}
-#     - MCCACHE_CALLBACK_WIN={MCCACHE_CALLBACK_WIN:-1.5}
-#     - MCCACHE_MONKEY_TANTRUM={MCCACHE_MONKEY_TANTRUM:-0}
+#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s

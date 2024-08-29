@@ -7,18 +7,18 @@ table {
 </style>
 -->
 ## Overview
-`McCache` is a distributed in-memory write through caching library that is build on the [`OrderedDict`](https://docs.python.org/3/library/collections.html#collections.OrderedDict) package.  A local cache lookup is faster than looking it up across a network.
-It uses **UDP** multicasting as the transport hence the name "Multi-Cast Cache", playfully abbreviated to "`McCache`".
+`McCache` is a distributed in-memory write through caching library that is build on the [`OrderedDict`](https://docs.python.org/3/library/collections.html#collections.OrderedDict) package.  A local cache lookup is faster than retrieving it across a network.
+It uses **UDP** multicast as the transport hence the name "Multi-Cast Cache", playfully abbreviated to "`McCache`".
 
 The goals of this package are:
-1. Reduce complexity by not be dependent on any external caching service such as `memcached`, `redis` or the likes.  SEE: [Distributed Cache](https://en.wikipedia.org/wiki/Distributed_cache)
+1. Reduce complexity by **not** be dependent on any external caching service such as `memcached`, `redis` or the likes.  SEE: [Distributed Cache](https://en.wikipedia.org/wiki/Distributed_cache)
    1. We are guided by the principal of first scaling up before scaling out.
 2. Keep the programming interface consistent with Python's dictionary.  The distributed nature of the cache is transparent to you.
    1. This is an in process cache.
 3. Performant
    1. Need to handle updates that are 0.01sec (10 ms) apart.
 
-`McCache` is **not** a replacement for your persistent or search data.  It is intended to be used to cache your most expensive work.  You can consider the 80/20 rule, which states that caching the most frequently accessed 20% of data can improve performance for most requests.
+`McCache` is **not** a replacement for your persistent or search data.  It is intended to be used to cache your most expensive work.  You can consider the **80/20** rule, which states that caching the most frequently accessed 20% of data can improve performance for most requests.
 
 ## Installation
 ```console
@@ -43,6 +43,10 @@ if 'key' not in c:
     print(f'"key" is not in the cache.')
 
 print('At this point all the cache with namespace "demo" in the cluster are identical.')
+
+# Query the cache metrics.
+mccache.get_cluster_metrics('demo')
+
 ```
 In the above example, there is **nothing** different in the usage of `McCache` from a regular Python dictionary.  However, the benefit is in a clustered environment where the other member's cache are kept coherent with the changes to your local cache.
 
