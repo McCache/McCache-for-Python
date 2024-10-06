@@ -27,25 +27,29 @@ pip install mccache
 
 ## Example
 ```python
-import datetime
-import mccache
+import  datetime
+import  mccache
+from    pprint  import  pprint  as  pp
 
-c = mccache.get_cache('demo')
+c = mccache.get_cache( 'demo' )
 
 c['key'] = datetime.datetime.utcnow()  # Insert a cache entry
-print(f'Started at {c['key']}')
+print(f"Started at {c['key']}")
 
 c['key'] = datetime.datetime.utcnow()  # Update a cache entry
-print(f'Ended at {c['key']}')
+print(f"Ended at {c['key']}")
+print(f"Metadata for key is {c.metadata['key']}")
 
 del c['key']  # Delete a cache entry
 if 'key' not in c:
-    print(f'"key" is not in the cache.')
+    print(f"'key' is not in the cache.")
 
-print('At this point all the cache with namespace "demo" in the cluster are identical.')
+print("At this point all the cache with namespace "demo" in the cluster are identical.")
 
-# Query the cache metrics.
-mccache.get_cluster_metrics('demo')
+# Query the local cache metrics and checksum.
+mccache.get_local_metrics(  'demo' ).replace(')' ,')\n')
+pp( mccache.get_local_checksum( 'demo' ))
+
 
 ```
 In the above example, there is **nothing** different in the usage of `McCache` from a regular Python dictionary.  However, the benefit is in a clustered environment where the other member's cache are kept coherent with the changes to your local cache.
@@ -109,7 +113,7 @@ The following are environment variables you can tune to fit your production envi
     <td>1</td>
     <td>The degree of keeping the cache coherent in the cluster.<br>
     <b>0</b>: Only members that has the same key in their cache shall be updated.<br>
-    <b>1</b>: All member cache shall be kept fully coherent and synchronized.<br></td>
+    <b>1</b>: All members cache shall be kept fully coherent and synchronized.<br></td>
   </tr>
   <tr>
     <td><sub>MCCACHE_SYNC_PULSE</sub></td>
@@ -221,10 +225,11 @@ export MCCACHE_MTU=1472
 ## Design
 `McCache` overwrite both the `__setitem__()` and `__delitem__()` dunder methods of `OrderedDict` to shim in the communication sub-layer to sync-up the other members in the cluster.  All changes to the cache dictionary are captured and queued up to be multicast out.  The cache is all nodes will eventually be consistent under normal condition.
 
-Three DAEMON threads are started when this package is initialized.  They are:
-1. **Multicaster**. &nbsp;Whose job is to dequeue change operation messages and multicast them out into the cluster.
-2. **Listener**. &nbsp;Whose job is to listen for change operation messages multicast by other members in the cluster.
-3. **Housekeeper**. &nbsp;Whose job is manage the acknowledgement of multicast messages.
+Three daemon threads are started when this package is initialized.  They are:
+1. **Multicaster**. &nbsp;Whose job is to dequeue local change operation messages and multicast them out into the cluster.
+2. **Listener**. &nbsp;Whose job is to listen for change operation messages multicast by other members in the cluster and immediately queue them up for processing.
+3. **Processor**. &nbsp;Whose job is to process the incoming changes.
+4. **Housekeeper**. &nbsp;Whose job is manage the acknowledgement of multicast messages.
 
 **UPD** is unreliable.  We have to implement a guaranteed message transfer protocol over it in `McCache`.  We did consider TCP but will have to implement management of peer-to-peer connection manager.  Multi-casting is implemented on top of UDP and we selected it.  Furthermore, the nature of `McCache` is to broadcast out changes and this align well with multicasting.  `McCache` prioritize operation that mutates the cache and only acknowledged these operations.  In the future as our knowledge expand, we can return to re-evaluate this decision.
 
@@ -238,6 +243,9 @@ Collision happens when two or more nodes make a change to a same key at the same
 
 There are **no** remote locks.  Synchronization is implemented using a **monotonic** timestamp that is tagged to every cache entry.  This helps serialized the update operation on every node in the cluster.  An arrived change operation has a timestamp which will be compared to the timestamp of the local cache entry.  Only remote operation with the timestamp that is more recent shall be applied to local cache.
 
+Furthermore, we are experimenting with a lockless design.  Locks are needed when the data is being mutated.  For read operation, the data is read without a lock applied to it.  If the entry doesn't exist the `keyError` exception is throw and be handled appropriately.  If is an very edge case and is the reason we decided on trapping the exception instead of locking the region of code.
+
+
 ## Concern
 * Multicast could saturate the network.  We don't think this is a big issue, with a future outlook, for the following reasons:
   1. Modern network do **not** run in a bus topology.  Bus topology is exposed to more packet collisions that requires backoff and retransmit.  Modern network uses a star topology implemented with high speed switches.  This hardware reduces packet collision and are virtually point-to-point connection between nodes in the cluster.
@@ -248,6 +256,10 @@ There are **no** remote locks.  Synchronization is implemented using a **monoton
   2. Have inconsistency detection to evict the key/value from all caches.
   3. Cache **time-to-live** expiration will eventually flush the entire cache down to empty is an inactive environment.
   4. Sync heart beat to check for cache consistency.  In an edge case, a race condition could result in a new inconsistent just after a sync up but the latest entry should have been multicast out tho the members in cluster.
+
+## Load balancer
+* We recommend to use sticky session load balancer.
+* SEE https://www.youtube.com/watch?v=hTp4czOrvOY
 
 ## Limitation
 * Even though the latency is low, it will **eventually** be consistent.  There is a very micro chance that an event can slip in just after the cache is read with the old value.  You have the option to pass in callback function to `McCache` for it to invoke if a change to the value of your cached object have changed within one second ago.  The other possibility is to perform a manual check.  The following is a code snippet that illustrate both approaches:
@@ -301,6 +313,8 @@ Other non-functional technical requirements are:
 * Not "complex" beyond our skill set and understanding
 
 Building a simple distributed system is more challenging than we originally thought.  You may question some design decision but we arrive here from a collection of wrong and right turns on a long learning journey but we agreed to delivering a good enough working software is the most important compromise.  In the future if we still feel strongly for a re-factoring or a re-design, this option is always available to us.  We are still on this journey of learning and hopefully contribute something of value back into the community.  (circa Oct-2023)
+
+It too so long because there was slew of very subtle bugs in both the cache implementation and also in the stress test script.  We were also getting **false negative** results that send down the wrong path hunting for bugs.  Narrowing the bug down was very discouraging and we took some time off.
 
 ## Releases
 Releases are recorded [here](https://github.com/McCache/McCache-for-Python/issues).

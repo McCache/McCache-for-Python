@@ -32,41 +32,23 @@ GOTO :EOF_CON_CHK
 SET CONTAINER_EXE=docker-compose
 
 :EOF_CON_CHK
-::ECHO %CONTAINER_EXE%
-
 
 :: Setup the variable RUN_TIMESTAMP to be passed into the container composer.
 ::
 FOR /f "tokens=*" %%v IN ('powershell get-date -format "{_yyyyMMdd_HHmm}"') DO SET RUN_TIMESTAMP=%%v
 
-:: Setup the variable TEST_CLUSTER_SIZE to be passed into the container composer.
-SET TEST_CLUSTER_SIZE=3
-
-:: Setup the variable TEST_RUN_DURATION to be passed into the container composer.
-SET TEST_RUN_DURATION=5
-
-:: Setup the variable TEST_MAX_ENTRIES to be passed into the container composer.
-SET TEST_MAX_ENTRIES=200
-
-:: Setup the variable TEST_APERTURE to be passed into the container composer.
-SET TEST_APERTURE=0.05
-
-:: Setup the variable TEST_DEBUG_LEVEL to be passed into the container composer.
+:: Setup the variables to be passed into the container composer.
 SET TEST_DEBUG_LEVEL=0
-
-:: Setup the variable TEST_DATA_MIX_TYPE to be passed into the container composer.
+SET TEST_CLUSTER_SIZE=5
+SET TEST_KEY_ENTRIES=200
+SET TEST_APERTURE=0.05
 SET TEST_DATA_SIZE_MIX=1
-
-:: Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
+SET TEST_RUN_DURATION=5
 SET TEST_MONKEY_TANTRUM=0
-
-:: Setup the variable MCCACHE_CONGESTION to be passed into the container composer.
-SET MCCACHE_CONGESTION=5
-
-:: Setup the variable MCCACHE_CACHE_PULSE to be passed into the container composer.
-SET MCCACHE_CACHE_PULSE=3
-
-:: Setup the variable MCCACHE_CALLBACK_WIN to be passed into the container composer.
+SET MCCACHE_CACHE_TTL=3600
+SET MCCACHE_CACHE_MAX=256
+SET MCCACHE_CACHE_SIZE=1048576
+SET MCCACHE_CACHE_PULSE=5
 SET MCCACHE_CALLBACK_WIN=0
 
 :: Start of CLI.
@@ -74,35 +56,45 @@ SET MCCACHE_CALLBACK_WIN=0
 :: run_test.bat [ key1 val1 [key2 val2 [key3 val3 [...]]]]
 :: where the case insensitive keys:
 :SOF_CLI
+:: Test CLI flags.
 IF  "%~1"=="-D"  GOTO :SET_DOCKER_CONTAINER
 IF  "%~1"=="-P"  GOTO :SET_PODMAN_CONTAINER
-IF  "%~1"=="-c"  GOTO :SET_TEST_CLUSTER_SIZE
-IF  "%~1"=="-d"  GOTO :SET_TEST_RUN_DURATION
-IF  "%~1"=="-k"  GOTO :SET_TEST_MAX_ENTRIES
-IF  "%~1"=="-l"  GOTO :SET_TEST_DEBUG_LEVEL
-IF  "%~1"=="-m"  GOTO :SET_TEST_DATA_SIZE_MIX
-IF  "%~1"=="-s"  GOTO :SET_TEST_APERTURE
-IF  "%~1"=="-y"  GOTO :SET_TEST_MONKEY_TANTRUM
-IF  "%~1"=="-g"  GOTO :SET_MCCACHE_CONGESTION
+IF  "%~1"=="-L"  GOTO :SET_TEST_DEBUG_LEVEL
+IF  "%~1"=="-C"  GOTO :SET_TEST_CLUSTER_SIZE
+IF  "%~1"=="-K"  GOTO :SET_TEST_KEY_ENTRIES
+IF  "%~1"=="-A"  GOTO :SET_TEST_APERTURE
+IF  "%~1"=="-M"  GOTO :SET_TEST_DATA_SIZE_MIX
+IF  "%~1"=="-R"  GOTO :SET_TEST_RUN_DURATION
+IF  "%~1"=="-T"  GOTO :SET_TEST_MONKEY_TANTRUM
+::  McCache config.
+IF  "%~1"=="-e"  GOTO :SET_MCCACHE_CACHE_MAX
+IF  "%~1"=="-s"  GOTO :SET_MCCACHE_CACHE_SIZE
 IF  "%~1"=="-p"  GOTO :SET_MCCACHE_CACHE_PULSE
+IF  "%~1"=="-t"  GOTO :SET_MCCACHE_CACHE_TTL
 IF  "%~1"=="-w"  GOTO :SET_MCCACHE_CALLBACK_WIN
+
+
 IF  "%~1"==""    GOTO :EOF_CLI
 
 :HELP_SCREEN
 ECHO Invalid parameter %~1 value.  Try the following:
-ECHO %SCRIPT_NAME%  [-D ] [ -P] [-c #] [-d #] [-k #] [-l #] [-p #] [-s #] [-y #] [-w #]
-ECHO -D    Use Docker container.
-ECHO -P    Use Podman container.
-ECHO -c #  Cluster size.          Default %TEST_CLUSTER_SIZE%.  Max is 9.
-ECHO -d #  Run duration.          Default %TEST_RUN_DURATION% minutes.
-ECHO -g #  Congestion trigger.    Default %MCCACHE_CONGESTION%.
-ECHO -k #  Max entries.           Default %TEST_MAX_ENTRIES%.
-ECHO -l #  Debug level.           Default %TEST_DEBUG_LEVEL%.  0=Off ,1=Basic ,3=Extra ,5=Superfluous
-ECHO -m #  Data size mix.         Default %TEST_DATA_SIZE_MIX%.  1=Small ,2=Large ,3=Mixed.
-ECHO -p #  Sync pulse.            Default %MCCACHE_CACHE_PULSE% minutes.
-ECHO -s #  Sleep aperture.        Default %TEST_APERTURE% second.  1=1s ,0.1=100ms ,0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
-ECHO -y #  Monkey tantrum.        Default %TEST_MONKEY_TANTRUM%.
-ECHO -w #  Callback window sec.   Default %MCCACHE_CALLBACK_WIN%.
+ECHO %SCRIPT_NAME%  [-D ] [ -P] [-L #] [-C #] [-S #] [-M #] [-R #] [-T #]  [-t #] [-e #] [-s #] [-p #] [-w #]
+ECHO        Test configuration:
+ECHO -D     Use Docker container.
+ECHO -P     Use Podman container.
+ECHO -L #   Debug level.            Default %TEST_DEBUG_LEVEL%.  0=Off ,1=Basic ,3=Extra ,5=Superfluous
+ECHO -K #   Max key entries to use. Default %TEST_KEY_ENTRIES%
+ECHO -C #   Cluster size.           Default %TEST_CLUSTER_SIZE%.  Max is 9.
+ECHO -A #   Sleep aperture.         Default %TEST_APERTURE% second pause between operations.  1=1s ,0.1=100ms ,0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
+ECHO -M #   Data size mix.          Default %TEST_DATA_SIZE_MIX%.  1=Small ,2=Big ,3=Mix.
+ECHO -R #   Run duration.           Default %TEST_RUN_DURATION% minutes.
+ECHO -T #   Monkey tantrum.         Default %TEST_MONKEY_TANTRUM% percent of dropped packets.  0=Disabled.
+ECHO        Test configuration:
+ECHO -t #   Time-to-live.           Default %MCCACHE_CACHE_TTL% seconds.
+ECHO -e #   Maximum cache entries.  Default %MCCACHE_CACHE_MAX% entries.
+ECHO -s #   Maximum cache storage.  Default %MCCACHE_CACHE_SIZE% bytes.
+ECHO -p #   Cache sync pulse.       Default %MCCACHE_CACHE_PULSE% seconds.
+ECHO -w #   Callback spike window.  Default %MCCACHE_CALLBACK_WIN% seconds.
 GOTO :EOF_SCRIPT
 
 :SET_DOCKER_CONTAINER
@@ -125,20 +117,20 @@ GOTO :HELP_SCREEN
 SHIFT
 GOTO :SOF_CLI
 
+:SET_TEST_DEBUG_LEVEL
+SET  TEST_DEBUG_LEVEL=0
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
 :SET_TEST_CLUSTER_SIZE
 SET  TEST_CLUSTER_SIZE=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
 
-:SET_TEST_RUN_DURATION
-SET  TEST_RUN_DURATION=%2
-SHIFT
-SHIFT
-GOTO :SOF_CLI
-
-:SET_TEST_MAX_ENTRIES
-SET  TEST_MAX_ENTRIES=%2
+:SET_TEST_KEY_ENTRIES
+SET  TEST_KEY_ENTRIES=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
@@ -149,14 +141,14 @@ SHIFT
 SHIFT
 GOTO :SOF_CLI
 
-:SET_TEST_DEBUG_LEVEL
-SET  TEST_DEBUG_LEVEL=%2
+:SET_TEST_DATA_SIZE_MIX
+SET  TEST_DATA_SIZE_MIX=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
 
-:SET_TEST_DATA_SIZE_MIX
-SET  TEST_DATA_SIZE_MIX=%2
+:SET_TEST_RUN_DURATION
+SET  TEST_RUN_DURATION=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
@@ -167,8 +159,20 @@ SHIFT
 SHIFT
 GOTO :SOF_CLI
 
-:SET_MCCACHE_CONGESTION
-SET  MCCACHE_CONGESTION=%2
+:SET_MCCACHE_CACHE_TTL
+SET  MCCACHE_CACHE_TTL=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+:SET_MCCACHE_CACHE_MAX
+SET  MCCACHE_CACHE_MAX=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
+:SET_MCCACHE_CACHE_SIZE
+SET  MCCACHE_CACHE_SIZE=%2
 SHIFT
 SHIFT
 GOTO :SOF_CLI
@@ -189,16 +193,19 @@ GOTO :SOF_CLI
 :EOF_CLI
 
 
-ECHO Running McCache test with envar:
+ECHO Running McCache test with following environment variables:
+ECHO    CONTAINER_EXE:          %CONTAINER_EXE%
 ECHO    RUN_TIMESTAMP:          %RUN_TIMESTAMP%
 ECHO    TEST_DEBUG_LEVEL:       %TEST_DEBUG_LEVEL%
 ECHO    TEST_CLUSTER_SIZE:      %TEST_CLUSTER_SIZE%
-ECHO    TEST_DATA_SIZE_MIX:     %TEST_DATA_SIZE_MIX%
-ECHO    TEST_RUN_DURATION:      %TEST_RUN_DURATION%
-ECHO    TEST_MAX_ENTRIES:       %TEST_MAX_ENTRIES%
+ECHO    TEST_KEY_ENTRIES:       %TEST_KEY_ENTRIES%
 ECHO    TEST_APERTURE:          %TEST_APERTURE%
+ECHO    TEST_DATA_SIZE_MIX:     %TEST_DATA_SIZE_MIX%
 ECHO    TEST_MONKEY_TANTRUM:    %TEST_MONKEY_TANTRUM%
-ECHO    MCCACHE_CONGESTION:     %MCCACHE_CONGESTION%
+ECHO    TEST_RUN_DURATION:      %TEST_RUN_DURATION%
+ECHO    MCCACHE_CACHE_TTL:      %MCCACHE_CACHE_TTL%
+ECHO    MCCACHE_CACHE_MAX:      %MCCACHE_CACHE_MAX%
+ECHO    MCCACHE_CACHE_SIZE:     %MCCACHE_CACHE_SIZE%
 ECHO    MCCACHE_CACHE_PULSE:    %MCCACHE_CACHE_PULSE%
 ECHO    MCCACHE_CALLBACK_WIN:   %MCCACHE_CALLBACK_WIN%
 ECHO:
@@ -241,7 +248,7 @@ ECHO Run test using the output log from the cluster.
 
 :: Extract out and clean up the INQ result from each of the debug log files into a result file.
 :: NOTE: There is a embedded TAB character in the search string.
-cat     log/*debug0*.log |grep -E "	INQ	|_process_|Done|Exiting" |grep -Ev "Fr:|Out going|Delete" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "/[0-9]'}}$/s/},/}\n/g" |sed "s/'}}/'}\n/"    |sed "s/)}, /)}, \n/"   |sed "s/'mqueue'/\n'mqueue'/"   > log/result.txt
+cat     log/*debug0*.log |grep -E "	INQ	|process|Done|Exiting" |grep -Ev "Fr:|Out going|Delete" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "/[0-9]'}}$/s/},/}\n/g" |sed "s/'}}/'}}\n/"    |sed "s/}, /}, \n/g" > log/result.txt
 
 :: Validate the stress test rsults.
 pytest  tests\stress\test_stress.py log/result.txt
@@ -250,11 +257,6 @@ pytest  tests\stress\test_stress.py log/result.txt
 sort    log/*.log   >log/chronological.txt
 
 :: Extract details.
-grep  -iE   "after lookup|in the background"        log/chronological.txt   >log/detail_expire.log
-grep  -iE   "internal message queue|done testing"   log/chronological.txt   >log/detail_queue_pressure.log
-grep  -iE   "sending local|requesting sender"       log/chronological.txt   >log/detail_synchronization.log
-grep  -iE   "cache incoherent"                      log/chronological.txt   >log/detail_incoherent.log
-grep  -iE   "monkey is angry"                       log/chronological.txt   >log/detail_drop_packets.log
 
 :: Extract sumamries.
 IF  %TEST_DEBUG_LEVEL%  GEQ 1   (

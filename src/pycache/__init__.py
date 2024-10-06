@@ -44,6 +44,7 @@ class CallbackType( IntEnum ):
     def __str__(self):
         return str( self.value )
 
+
 class Cache( OrderedDict ):
     """Cache based of the ordered dict object.
        ... "who says inheritance is bad" ...
@@ -316,11 +317,12 @@ class Cache( OrderedDict ):
 
 #       oldest: int = Cache.tsm_version()
         oldest: int = Cache.TSM_VERSION()
-        with  Cache.CACHE_LOCK:
+        with  Cache.CACHE_LOCK: # TODO: Not working!
             for key in self.__meta.copy():  # Make a shallow copy of the keys.
                 val = self.__meta[ key ]
                 if  ttl < now - val['tsm']:
-                    _ = super().pop( key )
+                    if  self.__contains__( key ):
+                        _ = super().pop( key )
                     evt += 1
                     self._post_del( key=key ,tsm=now ,eviction=True ,queue_out=True )
                 elif val['tsm'] < oldest:
@@ -366,9 +368,13 @@ class Cache( OrderedDict ):
         """
 #       now = Cache.tsm_version()
         now = Cache.TSM_VERSION()
-        with  Cache.CACHE_LOCK:
-            key ,_ = super().popitem( last=False )  # FIFO
-            self._post_del(  key=key ,tsm=now ,eviction=True ,queue_out=True )
+        with  Cache.CACHE_LOCK: # TODO: Not working!
+            try:
+                key ,_ = super().popitem( last=False )  # FIFO
+                self._post_del(  key=key ,tsm=now ,eviction=True ,queue_out=True )
+            except  KeyError:
+                # Someone else deleted the last item.  We are good.
+                pass
         return  1
 
     def _post_del(self,
@@ -385,10 +391,12 @@ class Cache( OrderedDict ):
             eviction    Originated from a cache eviction or deletion.
             queue_out   Request queuing out operation info to external receiver.
         """
+        crc = None
+        lkp = None
+        elp = None
         if  tsm is None:
 #           tsm =  Cache.tsm_version()
             tsm =  Cache.TSM_VERSION()
-        elp = 0
         try:
             crc = self.__meta[ key ]['crc'] # Old crc value.
             lkp = self.__meta[ key ]['lkp'] # Last looked up.
@@ -415,7 +423,7 @@ class Cache( OrderedDict ):
                 self.__logger.warning( f"Key '{key}' not found in cache '{self.__name}'.")
 
         # Callback to notify a change in the cache.
-        if  self.__callback and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
+        if  self.__callback and elp and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
             # Type: 1=Deletion ,2=Update ,3=Incoherent
             # The key/value got changed since last read.
             arg = {'typ': CallbackType.DELETE ,'nms': self.__name ,'key': key ,'lkp': lkp ,'tsm': tsm ,'elp': elp ,'prvcrc': crc ,'newcrc': crc}
@@ -455,7 +463,7 @@ class Cache( OrderedDict ):
             tsm =  Cache.TSM_VERSION()
         try:
             if  key not in self.__meta:
-                self.__meta[ key ] = {'tsm': None ,'crc': None ,'lkp': 0}
+                self.__meta[ key ] = {'tsm': tsm ,'crc': None ,'lkp': 0}
 
             crc = self.__meta[ key ]['crc'] # Old crc value.
             lkp = self.__meta[ key ]['lkp'] # Last looked up.
@@ -474,8 +482,12 @@ class Cache( OrderedDict ):
 
             # Increment metrics.
             if  update:
-                with  Cache.CACHE_LOCK:
-                    self.move_to_end( key ,last=True )    # FIFO
+                with  Cache.CACHE_LOCK: # TODO: Not working!
+                    try:
+                        self.move_to_end( key ,last=True )    # FIFO
+                    except  KeyError:
+                        # Someone else deleted the last item.  We are good.
+                        pass
                 self.updates += 1
             else:
                 self.inserts += 1
@@ -486,7 +498,7 @@ class Cache( OrderedDict ):
                 self.__logger.warning( f"Key '{key}' not found in cache '{self.__name}'.")
 
         # Callback to notify a change in the cache.
-        if  self.__callback and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
+        if  self.__callback and elp and elp < (self.__cbwindow * Cache.ONE_NS_SEC):
             # Type: 1=Deletion ,2=Update ,3=Incoherent
             # The key/value got changed since last read.
             arg = {'typ': CallbackType.UPDATE ,'nms': self.__name ,'key': key ,'lkp': lkp ,'tsm': tsm ,'elp': elp ,'prvcrc': crc ,'newcrc': crc}
@@ -539,7 +551,7 @@ class Cache( OrderedDict ):
             crc = self.__meta[ key ]['crc'] if key in self.__meta else None
             self._log_ops_msg( opc='DEL' ,tsm=tsm ,nms=self.__name ,key=key ,crc=crc ,msg='Deleted via __delitem__()')
 
-        with  Cache.CACHE_LOCK:
+        with  Cache.CACHE_LOCK: # TODO: Not working!
             if  self.__contains__( key ):
                 size = self._get_size(super().__getitem__( key ))
                 super().__delitem__( key )
@@ -601,12 +613,12 @@ class Cache( OrderedDict ):
         if  self.__ttl > 0:
             _ = self._evict_items_by_ttl()
 
-        with  Cache.CACHE_LOCK:
-            # NOTE: Very coarse way to check for eviction.  Not meant to be precise.
-            while super().__len__()     > 0 and \
-                ((super().__len__() + 1 > self.__maxlen) or (self.ttlSize + sys.getsizeof( value ) > self.__maxsize)):
-                    _ = self._evict_items_by_capacity()
+        # NOTE: Very coarse way to check for eviction.  Not meant to be precise.
+        while super().__len__()     > 0 and \
+            ((super().__len__() + 1 > self.__maxlen) or (self.ttlSize + sys.getsizeof( value ) > self.__maxsize)):
+                _ = self._evict_items_by_capacity()
 
+        with  Cache.CACHE_LOCK: # TODO: Not working!
             updmode: bool = self.__contains__( key )   # If exist we are in UPD mode ,else INS mode.
             if  updmode:
                 self.ttlSize -= self._get_size( super().__getitem__( key )) # Decrement the previous object size.
@@ -715,7 +727,7 @@ class Cache( OrderedDict ):
             crc = self.__meta[ key ]['crc'] if  key in self.__meta  and 'crc' in self.__meta[ key ] else None
             self._log_ops_msg( opc='POP' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In pop()')
 
-        with  Cache.CACHE_LOCK:
+        with  Cache.CACHE_LOCK: # TODO: Not working!
             val = super().pop( key ,default )
 
         self._post_del( key=key ,eviction=False ,queue_out=True )
@@ -739,7 +751,7 @@ class Cache( OrderedDict ):
             crc = self.__meta[ key ]['crc'] if  key in self.__meta  and 'crc' in self.__meta[ key ] else None
             self._log_ops_msg( opc='POPI' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In popitem()')
 
-        with  Cache.CACHE_LOCK:
+        with  Cache.CACHE_LOCK: # TODO: Not working!
             key ,val = super().popitem( last )
 
         self._post_del( key=key ,eviction=False ,queue_out=True )
@@ -779,7 +791,7 @@ class Cache( OrderedDict ):
         if  self.__ttl > 0:
             _ = self._evict_items_by_ttl()
 
-        with  Cache.CACHE_LOCK:
+        with  Cache.CACHE_LOCK: # TODO: Not working!
             updates = {}
             for key ,val in iterable.items():
                 updates[ key ] = {'val': val ,'upd': self.__contains__( key )}    # If exist we are in UPD mode ,else INS mode.

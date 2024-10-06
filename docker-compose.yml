@@ -14,17 +14,19 @@ services:
     privileged: true
     environment:
       - TEST_RANDOM_SEED=101
-      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.05 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
-      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
-      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
-      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
-      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
-      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
-      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
+      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}           # Default to 0.     0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
+      - TEST_KEY_ENTRIES=${TEST_KEY_ENTRIES:-200}         # Default to 200    entries.
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}              # Default to 0.05   seconds.
+      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}       # Default to 1.     1=Small ,2=Medium ,3=Mixed
+      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}         # Default to 5      minutes.
+      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0}     # Default to 0      percent.  0=Disabled.
       #
-#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
-      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
-      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
+      - MCCACHE_CACHE_TTL=${MCCACHE_CACHE_TTL:-3600}      # Default to 3600   seconds.
+      - MCCACHE_CACHE_MAX=${MCCACHE_CACHE_MAX:-256}       # Default to 256    entries.
+      - MCCACHE_CACHE_SIZE=${MCCACHE_CACHE_SIZE:-1048576} # Default to 262144 bytes.
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-5}     # Default to 5      minutes.
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}   # Default to 0      seconds.  0=Disabled.
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -50,17 +52,19 @@ services:
     privileged: true
     environment:
       - TEST_RANDOM_SEED=127
-      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
-      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
-      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
-      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
-      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
-      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
-      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
+      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}           # Default to 0.     0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
+      - TEST_KEY_ENTRIES=${TEST_KEY_ENTRIES:-200}         # Default to 200    entries.
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}              # Default to 0.05   seconds.
+      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}       # Default to 1.     1=Small ,2=Medium ,3=Mixed
+      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}         # Default to 5      minutes.
+      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0}     # Default to 0      percent.  0=Disabled.
       #
-#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
-      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
-      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
+      - MCCACHE_CACHE_TTL=${MCCACHE_CACHE_TTL:-3600}      # Default to 3600   seconds.
+      - MCCACHE_CACHE_MAX=${MCCACHE_CACHE_MAX:-256}       # Default to 256    entries.
+      - MCCACHE_CACHE_SIZE=${MCCACHE_CACHE_SIZE:-1048576} # Default to 262144 bytes.
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-5}     # Default to 5      minutes.
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}   # Default to 0      seconds.  0=Disabled.
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -86,17 +90,19 @@ services:
     privileged: true
     environment:
       - TEST_RANDOM_SEED=131
-      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
-      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
-      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
-      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
-      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
-      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
-      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
+      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}           # Default to 0.     0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
+      - TEST_KEY_ENTRIES=${TEST_KEY_ENTRIES:-200}         # Default to 200    entries.
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}              # Default to 0.05   seconds.
+      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}       # Default to 1.     1=Small ,2=Medium ,3=Mixed
+      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}         # Default to 5      minutes.
+      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0}     # Default to 0      percent.  0=Disabled.
       #
-#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
-      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
-      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
+      - MCCACHE_CACHE_TTL=${MCCACHE_CACHE_TTL:-3600}      # Default to 3600   seconds.
+      - MCCACHE_CACHE_MAX=${MCCACHE_CACHE_MAX:-256}       # Default to 256    entries.
+      - MCCACHE_CACHE_SIZE=${MCCACHE_CACHE_SIZE:-1048576} # Default to 262144 bytes.
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-5}     # Default to 5      minutes.
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}   # Default to 0      seconds.  0=Disabled.
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -122,17 +128,19 @@ services:
     privileged: true
     environment:
       - TEST_RANDOM_SEED=149
-      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
-      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
-      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
-      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
-      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
-      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
-      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
+      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}           # Default to 0.     0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
+      - TEST_KEY_ENTRIES=${TEST_KEY_ENTRIES:-200}         # Default to 200    entries.
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}              # Default to 0.05   seconds.
+      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}       # Default to 1.     1=Small ,2=Medium ,3=Mixed
+      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}         # Default to 5      minutes.
+      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0}     # Default to 0      percent.  0=Disabled.
       #
-#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
-      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
-      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
+      - MCCACHE_CACHE_TTL=${MCCACHE_CACHE_TTL:-3600}      # Default to 3600   seconds.
+      - MCCACHE_CACHE_MAX=${MCCACHE_CACHE_MAX:-256}       # Default to 256    entries.
+      - MCCACHE_CACHE_SIZE=${MCCACHE_CACHE_SIZE:-1048576} # Default to 262144 bytes.
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-5}     # Default to 5      minutes.
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}   # Default to 0      seconds.  0=Disabled.
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -158,17 +166,19 @@ services:
     privileged: true
     environment:
       - TEST_RANDOM_SEED=151
-      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
-      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
-      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
-      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
-      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
-      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
-      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
+      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}           # Default to 0.     0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
+      - TEST_KEY_ENTRIES=${TEST_KEY_ENTRIES:-200}         # Default to 200    entries.
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}              # Default to 0.05   seconds.
+      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}       # Default to 1.     1=Small ,2=Medium ,3=Mixed
+      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}         # Default to 5      minutes.
+      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0}     # Default to 0      percent.  0=Disabled.
       #
-#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
-      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
-      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
+      - MCCACHE_CACHE_TTL=${MCCACHE_CACHE_TTL:-3600}      # Default to 3600   seconds.
+      - MCCACHE_CACHE_MAX=${MCCACHE_CACHE_MAX:-256}       # Default to 256    entries.
+      - MCCACHE_CACHE_SIZE=${MCCACHE_CACHE_SIZE:-1048576} # Default to 262144 bytes.
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-5}     # Default to 5      minutes.
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}   # Default to 0      seconds.  0=Disabled.
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -194,17 +204,19 @@ services:
     privileged: true
     environment:
       - TEST_RANDOM_SEED=163
-      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
-      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
-      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
-      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
-      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
-      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
-      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
+      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}           # Default to 0.     0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
+      - TEST_KEY_ENTRIES=${TEST_KEY_ENTRIES:-200}         # Default to 200    entries.
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}              # Default to 0.05   seconds.
+      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}       # Default to 1.     1=Small ,2=Medium ,3=Mixed
+      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}         # Default to 5      minutes.
+      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0}     # Default to 0      percent.  0=Disabled.
       #
-#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
-      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
-      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
+      - MCCACHE_CACHE_TTL=${MCCACHE_CACHE_TTL:-3600}      # Default to 3600   seconds.
+      - MCCACHE_CACHE_MAX=${MCCACHE_CACHE_MAX:-256}       # Default to 256    entries.
+      - MCCACHE_CACHE_SIZE=${MCCACHE_CACHE_SIZE:-1048576} # Default to 262144 bytes.
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-5}     # Default to 5      minutes.
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}   # Default to 0      seconds.  0=Disabled.
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -230,17 +242,19 @@ services:
     privileged: true
     environment:
       - TEST_RANDOM_SEED=173
-      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
-      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
-      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
-      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
-      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
-      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
-      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
+      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}           # Default to 0.     0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
+      - TEST_KEY_ENTRIES=${TEST_KEY_ENTRIES:-200}         # Default to 200    entries.
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}              # Default to 0.05   seconds.
+      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}       # Default to 1.     1=Small ,2=Medium ,3=Mixed
+      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}         # Default to 5      minutes.
+      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0}     # Default to 0      percent.  0=Disabled.
       #
-#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
-      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
-      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
+      - MCCACHE_CACHE_TTL=${MCCACHE_CACHE_TTL:-3600}      # Default to 3600   seconds.
+      - MCCACHE_CACHE_MAX=${MCCACHE_CACHE_MAX:-256}       # Default to 256    entries.
+      - MCCACHE_CACHE_SIZE=${MCCACHE_CACHE_SIZE:-1048576} # Default to 262144 bytes.
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-5}     # Default to 5      minutes.
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}   # Default to 0      seconds.  0=Disabled.
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -266,17 +280,19 @@ services:
     privileged: true
     environment:
       - TEST_RANDOM_SEED=181
-      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
-      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
-      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
-      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
-      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
-      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
-      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
+      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}           # Default to 0.     0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
+      - TEST_KEY_ENTRIES=${TEST_KEY_ENTRIES:-200}         # Default to 200    entries.
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}              # Default to 0.05   seconds.
+      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}       # Default to 1.     1=Small ,2=Medium ,3=Mixed
+      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}         # Default to 5      minutes.
+      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0}     # Default to 0      percent.  0=Disabled.
       #
-#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
-      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
-      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
+      - MCCACHE_CACHE_TTL=${MCCACHE_CACHE_TTL:-3600}      # Default to 3600   seconds.
+      - MCCACHE_CACHE_MAX=${MCCACHE_CACHE_MAX:-256}       # Default to 256    entries.
+      - MCCACHE_CACHE_SIZE=${MCCACHE_CACHE_SIZE:-1048576} # Default to 262144 bytes.
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-5}     # Default to 5      minutes.
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}   # Default to 0      seconds.  0=Disabled.
+#     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
@@ -302,17 +318,18 @@ services:
     privileged: true
     environment:
       - TEST_RANDOM_SEED=191
-      - TEST_APERTURE=${TEST_APERTURE:-0.05}          # Default to (0.01 sec).  0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us
-      - TEST_MAX_ENTRIES=${TEST_MAX_ENTRIES:-200}     # Default to 200 key entries.
-      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}     # Default to  5 minutes.
-      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0} # Default to  0  percent.
-      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}       # Default to  0. 0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
-      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}   # Default to  1. 1=Small ,2=Medium ,3=Mixed
-      - TEST_MONKEY_TANTRUM={TEST_MONKEY_TANTRUM:-0}  # Default to  0.
+      - TEST_DEBUG_LEVEL=${TEST_DEBUG_LEVEL:-0}           # Default to 0.     0=Disabled ,1=Basic ,3=Extra ,5=Surplus.
+      - TEST_KEY_ENTRIES=${TEST_KEY_ENTRIES:-200}         # Default to 200    entries.
+      - TEST_APERTURE=${TEST_APERTURE:-0.05}              # Default to 0.05   seconds.
+      - TEST_DATA_SIZE_MIX=${TEST_DATA_SIZE_MIX:-1}       # Default to 1.     1=Small ,2=Medium ,3=Mixed
+      - TEST_RUN_DURATION=${TEST_RUN_DURATION:-5}         # Default to 5      minutes.
+      - TEST_MONKEY_TANTRUM=${TEST_MONKEY_TANTRUM:-0}     # Default to 0      percent.  0=Disabled.
       #
-#     - MCCACHE_CONGESTION=${MCCACHE_CONGESTION:-20000}
-      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-3}
-      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}
+      - MCCACHE_CACHE_TTL=${MCCACHE_CACHE_TTL:-3600}      # Default to 3600   seconds.
+      - MCCACHE_CACHE_MAX=${MCCACHE_CACHE_MAX:-256}       # Default to 256    entries.
+      - MCCACHE_CACHE_SIZE=${MCCACHE_CACHE_SIZE:-1048576} # Default to 262144 bytes.
+      - MCCACHE_CACHE_PULSE=${MCCACHE_CACHE_PULSE:-5}     # Default to 5      minutes.
+      - MCCACHE_CALLBACK_WIN=${MCCACHE_CALLBACK_WIN:-0}   # Default to 0      seconds.  0=Disabled.
 #     - MCCACHE_LOG_FORMAT=%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
