@@ -161,6 +161,8 @@ if  mc._mcConfig.debug_level < mc.McCacheDebugLevel.BASIC:
 else:
     mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.FYI ,tsm=cache.tsm_version() ,nms=cache.name ,msg=msg )
 
+#debug
+dg1:int = datetime.datetime.now().minute
 
 scl = 1 # The number of digits to the right of the decimal.
 while (aperture * scl) < 1:
@@ -215,8 +217,15 @@ while (end - bgn) < (duration*60):  # Seconds.
 
     match   opc:
         case 0:
+            #debug
+            if  dg1 != datetime.datetime.now().minute:
+                dg1  = datetime.datetime.now().minute
+                mc.logger.warning(f"{cache.tsm_version_str()} Pending:{len(mc._mcPending):5} {sorted(mc._mcPending.keys() ,reverse=True )}")
+                mc.logger.warning(f"{cache.tsm_version_str()} Arrive: {len(mc._mcArrived):5} {sorted(mc._mcArrived.keys() ,reverse=True )}")
+            #debug
             pass
-        case 1|2|3|4:   # NOTE: 20% are inserts.
+#       case 1|2|3|4:   # NOTE: 20% are inserts.    This has lots of hot spots.
+        case 1|3|5|7:   # NOTE: 20% are inserts.
             if  key not in cache:
                 val =  get_data( doBig )
                 pkl: bytes = pickle.dumps( val )
@@ -247,7 +256,8 @@ while (end - bgn) < (duration*60):  # Seconds.
                             mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.INS ,tsm=cache.tsm_version() ,nms=cache.name ,key=key ,crc=crc[:-2]
                                                             ,msg=f">   ERR:{key} Not found in cache after insert in test script." )
 
-        case 5|6|7|8:   # NOTE: 20% are updates.
+#       case 5|6|7|8:   # NOTE: 20% are updates.    This has lots of hot spots.
+        case 2|4|6|8:   # NOTE: 20% are updates.
             if  key in cache:
                 val =  get_data( doBig )
                 pkl: bytes = pickle.dumps( val )
