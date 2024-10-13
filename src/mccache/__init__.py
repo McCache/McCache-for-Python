@@ -151,6 +151,8 @@ class McCacheOption( StrEnum ):
     MCCACHE_MULTICAST_IP    = 'MCCACHE_MULTICAST_IP'
     MCCACHE_MULTICAST_PORT  = 'MCCACHE_MULTICAST_PORT'
     MCCACHE_MULTICAST_HOPS  = 'MCCACHE_MULTICAST_HOPS'
+#   MCCACHE_QUEUE_IB_SIZE   = 'MCCACHE_QUEUE_IB_SIZE'
+#   MCCACHE_QUEUE_OB_SIZE   = 'MCCACHE_QUEUE_OB_SIZE'
     MCCACHE_CALLBACK_WIN    = 'MCCACHE_CALLBACK_WIN'
     MCCACHE_DAEMON_SLEEP    = 'MCCACHE_DAEMON_SLEEP'
     MCCACHE_DEBUG_LOGFILE   = 'MCCACHE_DEBUG_LOGFILE'
@@ -218,6 +220,8 @@ class McCacheConfig:
     multicast_ip: str   ='224.0.0.3'    # Unassigned multi-cast IP.
     multicast_port: int = 4000          # Unofficial port.  Was for Diablo II game.
     multicast_hops: int = 1             # Only local subnet.
+    queue_ib_size: int  = 65536         # Internal  in-bound queue size to prevent run away memory consumption.  Set it large but no infinite.
+    queue_ob_size: int  = 65536         # Internal out-bound queue size to prevent run away memory consumption.  Set it large but no infinite.
     callback_win: int   = 5             # Change callback window size seconds (1-999).
     monkey_tantrum: int = 0             # Chaos monkey tantrum % level (0 - 99).
     daemon_sleep: float = SEASON_TIME   # House keeping snooze seconds (0.33 - 3.0).
@@ -988,15 +992,51 @@ def _send_fragment( sock:socket.socket ,fragment: bytes ) -> None:
     # The following is to assist with testing.
     # This Monkey should NOT throw a tantrum in a production environment.
     #
-    if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA and _mcConfig.monkey_tantrum > 0 and _mcConfig.monkey_tantrum < HUNDRED:
+    if  _mcConfig.monkey_tantrum > 0 and _mcConfig.monkey_tantrum < HUNDRED:
         tantrum = random.randint(1 ,HUNDRED)    # noqa: S311    Between 1 and 99.
-        if  tantrum >= (50 - _mcConfig.monkey_tantrum/2) and \
-            tantrum <= (50 + _mcConfig.monkey_tantrum/2):
+        if  tantrum >= (50.0 - _mcConfig.monkey_tantrum/2.0) and \
+            tantrum <= (50.0 + _mcConfig.monkey_tantrum/2.0):
             # Either side of 50 by the tantrum percent.
-            _log_ops_msg( logging.WARNING ,opc=OpCode.NOP ,msg="Monkey is angry!  NOT sending out packet." )
+
+            # DEBUG trace.
+            if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+                _log_ops_msg( logging.WARNING ,opc=OpCode.NOP ,msg="Monkey is angry!  NOT sending out packet." )
             return
 
     sock.sendto( fragment ,(_mcConfig.multicast_ip ,_mcConfig.multicast_port))
+
+def _check_expr_pending() -> None:
+    """Check the pending list of messages that are obsolete due to more recent update.
+
+    Iterate through the pending list sorted by nsm ,key and tsm in descending order:
+        If the namespace and key is the same as previous entry, delete it for it is not the latest.
+    """
+    prv_nms: str    = None
+    prv_key: object = None
+    prv_tsm: int    = None
+    for pky_t in sorted(_mcPending.keys() ,reverse=True ):  # Key for this message pending acknowledgement.
+        if  prv_nms and prv_nms == pky_t[0] and \
+            prv_key and prv_key == pky_t[1] and \
+            prv_tsm and(prv_tsm >  pky_t[2] or ((PyCache.TSM_VERSION() - pky_t[2]) > (5*PyCache.ONE_NS_SEC))) and \
+            pky_t   in _mcPending:
+            #   1)  Same namespace.
+            #   2)  Same key.
+            #   3)  Previous timestamp is older than current timestamp OR current timestamp is older than 5 seconds.
+            #   4)  The key is still in the list.
+
+            # DEBUG trace.
+            if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.WRN ,tsm=pky_t[2] ,nms=pky_t[0] ,key=pky_t[1] ,crc=_mcPending[ pky_t ]['crc']
+                                            ,msg=f">   Delete expired change that is pending acknowledgement." )
+            try:
+                del _mcPending[ pky_t ]
+                prv_tsm = None
+            except  KeyError:
+                pass
+
+        prv_nms = pky_t[0]
+        prv_key = pky_t[1]
+        prv_tsm = pky_t[2]
 
 def _check_sent_pending() -> None:
     """Check the pending list for messages that have NOT been acknowledge.
@@ -1162,14 +1202,13 @@ def _check_sync_metadata() -> None:
 def _check_congestion() -> None:
     """Check the queue depth for congestion.
     """
-    ibs = _mcIBQueue.qsize()
-    obs = _mcOBQueue.qsize()
-    if  ibs >= _mcConfig.congestion or obs >= _mcConfig.congestion:
-        msg = f"Internal message queue size. IB:{ibs:>6} ,OB:{obs:>4}"
-        if  _mcConfig.debug_level >= McCacheDebugLevel.BASIC:
+    # DEBUG trace.
+    if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+        ibs = _mcIBQueue.qsize()
+        obs = _mcOBQueue.qsize()
+        if  ibs >= _mcConfig.congestion or obs >= _mcConfig.congestion:
+            msg = f"Internal message queue size. IB:{ibs:>6} ,OB:{obs:>4}"
             _log_ops_msg( logging.WARNING ,opc=OpCode.WRN ,tsm=PyCache.TSM_VERSION() ,msg=msg )
-        else:
-            logger.warning( f'Im:{SRC_IP_ADD:11} {msg}' )
 
 def _get_local_value( key: object ,mcc: dict ) -> tuple:
     """Get the value from the local cache along with  its checksum and timestamp.
@@ -1281,7 +1320,7 @@ def process_NEW( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,
     if  sdr not in _mySelf and sdr not in _mcMember:
         _mcMember[ sdr ] = tsm   # Timestamp
 
-def process_RAK( aky_t: tuple ,nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):
+def process_RAK( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ,aky_t: tuple ):
     mcc: dict = get_cache( nms )
 
      #   Deep Tracing
@@ -1529,7 +1568,7 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
             process_NEW(    nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
 
         case OpCode.RAK:    # Re-Acknowledgement
-            process_RAK( aky_t ,nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
+            process_RAK(    nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr ,aky_t )
 
         case OpCode.REQ:
             process_REQ(    nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
@@ -1625,9 +1664,6 @@ def _multicaster() -> None:
             rcv: str    = msg[6]    # Addressed to receiving member. None == multicast to all members.
             frg: list   = []
 
-#           assert opc is not None
-#           assert tsm is not None
-
             # TODO: Handle self targetting operation.  Check the "rcv" value for specifc MET operation.
             pky_t = (nms ,key ,tsm) # Key for this message pending acknowledgement.
             match opc:
@@ -1697,7 +1733,7 @@ def _multicaster() -> None:
                 else:
                     logger.info( val )
         except  Exception as ex:    # noqa: BLE001
-            _log_ops_msg( logging.ERROR ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc  ,msg=f"Send failed due to {ex}" ) #debug
+            _log_ops_msg( logging.ERROR ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc  ,msg=f"Send failed due to {ex}" )
             logger.error( ex )
             traceback.print_exc()
 
@@ -1721,6 +1757,10 @@ def _housekeeper() -> None:
     while True:
         time.sleep( _mcConfig.daemon_sleep )
         try:
+            # Check send messages that are expired.
+            #
+            _check_expr_pending()
+
             # Check sent messages that are pending acknowledgement.
             #
             _check_sent_pending()
@@ -1764,9 +1804,7 @@ def _listener() -> None:
             logger.error( ex )
             traceback.print_exc()
 
-#def _listener() -> None:
 def  _processor() -> None:
-#   """Listen in the group for new cache operation from all members.
     """Processed the incoming cache operation from all members.
 
     Args:
@@ -1828,6 +1866,12 @@ else:
     logger.setLevel( logging.INFO )
 logger.debug( _mcConfig )
 
+# TODO: Need a better way to seperate out testing and production code.
+if 'TEST_APERTURE'  in  os.environ:
+    # Resize is to prevent run away memory consumption during stress test.
+    _mcIBQueue = queue.Queue( 65536 )
+    _mcOBQueue = queue.Queue( 65536 )
+
 # Main section to start the background daemon threads.
 #
 atexit.register( _goodbye ) # SEE: https://docs.python.org/3.8/library/atexit.html#module-atexit
@@ -1872,4 +1916,4 @@ if __name__ == "__main__":
 # IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
 # DAMAGES OR OTHER LIABILITY ,WHETHER IN AN ACTION OF CONTRACT ,TORT OR
 # OTHERWISE ,ARISING FROM ,OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
-# OR OTHER DEALINGS IN THE SOFTWARE.
+# OR OTHER DEALINGS IN THE  SOFTWARE.
