@@ -156,62 +156,51 @@ The results below are collected from testing output `result.txt` file and the `d
 |Avg Deletes      |The average deletes performed in the test.|
 
 ### Frequency Stress Test Result
-|<sub><br>Run</sub>|<sub>-C #<br>Nodes</sub>|<sub>-K #<br>Keys</sub>|<sub>-A #<br>Aperture</sub>|<sub>-R #<br>Duration</sub>|<sub><br>Result</sub>|<sub>Avg<br>Snooze</sub>|<sub>Avg<br>SpikeHits</sub>|<sub>Avg<br>SpikeInt</sub>|<sub>Avg&nbsp;InQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg&nbsp;OutQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg<br>LookUps</sub>|<sub>Avg<br>Inserts</sub>|<sub>Avg<br>Updates</sub>|<sub>Avg<br>Deletes</sub>|<sub><br>Comment</sub>|
-|:------|---:|---:|-----:|---:|:----------------------------:|-----:|-----:|-----:|:--------:|:---------:|------:|------:|------:|------:|:--|
-|3.1    |   3| 100|   0.1|  10|<font color="cyan">Pass</font>|0.5362|   392|1.0754|  2 / 18  |  89 / 189 |    849|    123|    263|     47|   |
-|3.2    |   3| 100|  0.01|  10|<font color="cyan">Pass</font>|0.0553|  5094|0.1178|  2 / 37  |  85 / 190 |   6051|    874|   3467|    753|   |
-|3.2.1  |   3| 100| 0.005|  10|<font color="cyan">Pass</font>|0.0281| 10230|0.0586|  2 / 41  |  55 / 128 |  11543|   1619|   7129|   1482|   |
-|3.3    |   3| 100| 0.001|  10|<font color="cyan">Pass</font>|0.0059| 48129|0.0125|  1 / 49  |  49 / 427 |  53169|   7318|  33641|   7170|   |
-|3.3.1  |   3| 100|0.0005|  10|<font color="cyan">Pass</font>|0.0033| 86822|0.0069|  2 / 31  |  12 / 141 |  95255|  13059|  60844|  12919|   |
-|3.3.2  |   3| 100|0.0001|  10|<font color="cyan">Pass</font>|0.0011|247783|0.0032|  4 / 412 |  48 / 526 | 280336|  41755| 164428|  41600|   |
-|       |    |    |      |    |                              |      |      |      |          |           |       |       |       |       |   |
-|5.1    |   5| 100|   0.1|  10|<font color="cyan">Pass</font>|0.5361|   496|0.9102|  4 / 41  | 273 / 691 |   1182|    114|    356|     57|   |
-|5.2    |   5| 100|  0.01|  10|<font color="cyan">Pass</font>|0.0553|  6795|0.0883|  3 / 49  | 124 / 326 |   6777|   1032|   4843|    920|   |
-|5.2.1  |   5| 100| 0.005|  10|<font color="cyan">Pass</font>|0.0278| 13705|0.0438|  2 / 64  | 127 / 440 |  12518|   1970|  10150|   1857|   |
-|5.3    |   5| 100| 0.001|  10|<font color="cyan">Pass</font>|0.0062| 61914|0.0097|  3 / 430 | 141 / 833 |  51688|   8682|  44677|   8555|   |
-|5.3.1  |   5| 100|0.0005|  10|<font color="cyan">Pass</font>|0.0035|104876|0.0057|  4 / 473 |  74 / 861 |  88751|  15848|  73310|  15718|   |
-|5.3.2  |   5| 100|0.0001|  10|<font color="cyan">Pass</font>|0.0015|180155|0.0033| 11 / 1747|  24 / 421 | 204686|  46191|  87858|  46107|   |
-|       |    |    |      |    |                              |      |      |      |          |           |       |       |       |       |   |
-|7.1    |   7| 100|   0.1|  10|<font color="cyan">Pass</font>|0.5438|   721|0.7391| 93 / 1962| 429 / 1570|   1933|    130|    528|     78|   |
-|7.2    |   7| 100|  0.01|  10|<font color="cyan">Pass</font>|0.0549|  8154|0.0736| 49 / 1669| 272 / 1116|   7465|   1185|   5882|   1087|   |
-|7.2.1  |   7| 100| 0.005|  10|<font color="cyan">Pass</font>|0.0281| 16016|0.0375| 44 / 1533| 264 / 1280|  13235|   2193|  11751|   2072|   |
-|7.3    |   7| 100| 0.001|  10|<font color="cyan">Pass</font>|0.0064| 67556|0.0089| 11 / 1231|  45 / 478 |  50473|  10055|  47564|   9937|   |
-|7.3.1  |   7| 100|0.0005|  10|<font color="cyan">Pass</font>|0.0039| 99322|0.0060| 13 / 1478|  34 / 818 |  81542|  18389|  62639|  18294|   |
-|7.3.2  |   7| 100|0.0001|  10|<font color="pink">Fail</font>|0.0025| 82234|0.0073| 71 / 2993|  76 / 1909| 122789|  35774|  10773|  35687|   |
-|7.3.2.1|   7| 500|0.0001|  10|<font color="cyan">Pass</font>|0.0019|153891|0.0039| 45 / 2770| 115 / 5123| 160715|  46753|  60387|  28012|   |
-|       |    |    |      |    |                              |      |      |      |          |           |       |       |       |       |   |
-|9.1    |   9| 100|   0.1|  10|<font color="cyan">Pass</font>|0.5454|   833|0.6524|462 / 4282| 691 / 1859|   2606|    139|    621|     86|   |
-|9.2    |   9| 100|  0.01|  10|<font color="cyan">Pass</font>|0.0556|  9476|0.0633|258 / 3047| 631 / 2007|   7930|   1240|   7102|   1134|   |
-|9.2.1  |   9| 100| 0.005|  10|<font color="cyan">Pass</font>|0.0279| 19146|0.0314|210 / 3003| 780 / 2199|  13549|   2361|  14536|   2249|   |
-|9.3    |   9| 100| 0.001|  10|<font color="cyan">Pass</font>|0.0068| 65166|0.0092| 39 / 2174|  97 / 1172|  46928|  11023|  43215|  10928|   |
-|9.3.1  |   9| 100|0.0005|  10|<font color="cyan">Pass</font>|0.0048| 66477|0.0090| 73 / 2887|  97 / 1521|  65900|  17500|  31562|  17415|   |
-|9.3.2  |   9| 100|0.0001|  10|<font color="pink">Fail</font>|0.0029| 70108|0.0086|210 / 4243|1136 / 5495| 103436|  30736|   8713|  30660|   |
-|9.3.2.1|   9| 500|0.0001|  10|<font color="pink">Fail</font>|0.0030| 76544|0.0079|210 / 4243|1136 / 5495|  99775|  29904|  16951|  28654|   |
-|       |    |    |      |    |                              |      |      |      |          |           |       |       |       |       |   |
+|<sub><br>Run</sub>|<sub>-C #<br>Nodes</sub>|<sub>-K #<br>Keys</sub>|<sub>-A #<br>Aperture</sub>|<sub>-R #<br>Duration</sub>|<sub><br>Result</sub>|<sub>Avg<br>Snooze</sub>|<sub>Avg<br>SpikeHits</sub>|<sub>Avg<br>SpikeInt</sub>|<sub>Avg&nbsp;InQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg&nbsp;OutQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg<br>LookUps</sub>|<sub>Avg<br>Inserts</sub>|<sub>Avg<br>Updates</sub>|<sub>Avg<br>Deletes</sub>|<sub>Avg<br>Evicts</sub>|<sub><br>Comment</sub>|
+|:------|---:|---:|-----:|---:|:----------------------------:|-----:|-----:|-----:|:-----------:|:-----------:|------:|------:|------:|------:|---:|:--|
+|3.1    |   3| 100|   0.1|  10|<font color="cyan">Pass</font>|0.1419|  2802|0.2142|    1 / 2    |   1 / 2     |   5154|    607|   1758|    437|   0|   |
+|3.2    |   3| 100|  0.01|  10|<font color="cyan">Pass</font>|0.0146| 27316|0.0220|    1 / 5    |   1 / 5     |  50064|   4872|  17819|   4505| 120|   |
+|3.2.1  |   3| 100| 0.005|  10|<font color="cyan">Pass</font>|0.0052| 72131|0.0083|    1 / 7    | 333 / 834   | 135213|  12888|  46599|  12083| 563|   |
+|3.3    |   3| 100| 0.001|  10|<font color="cyan">Pass</font>|0.0017|198865|0.0030|    1 / 9    | 967 / 7207  | 379863|  35167| 128785|  33886|1027|   |
+|3.3.1  |   3| 100|0.0005|  10|<font color="cyan">Pass</font>|0.0010|341951|0.0018|    2 / 22   | 488 / 16383 | 640322|  60186| 221833|  58510|1424|   |
+|3.3.2  |   3| 100|0.0001|  10|<font color="cyan">Pass</font>|0.0009|336611|0.0018|    5 / 57   | 312 / 15699 | 568502|  59249| 218371|  57333|1667|   |
+|       |    |    |      |    |                              |      |      |      |             |             |       |       |       |       |    |   |
+|5.1    |   5| 100|   0.1|  10|<font color="cyan">Pass</font>|0.1439|  4534|0.1323|    2 / 11   |    3 / 10   |   7925|    949|   2846|    739|   0|   |
+|5.2    |   5| 100|  0.01|  10|<font color="cyan">Pass</font>|0.0145| 44875|0.0134|    2 / 13   |    1 / 9    |  78551|   8230|  28659|   7927|  59|   |
+|5.2.1  |   5| 100| 0.005|  10|<font color="cyan">Pass</font>|0.0053|114206|0.0053|    2 / 40   |  831 / 2763 | 201024|  21428|  71603|  20613| 564|   |
+|5.3    |   5| 100| 0.001|  10|<font color="cyan">Pass</font>|0.0017|337663|0.0018|    2 / 24   | 1216 /10716 | 611913|  62652| 212611|  60213|2190|   |
+|5.3.1  |   5| 100|0.0005|  10|<font color="cyan">Pass</font>|0.0012|522466|0.0011|  113 / 11710|  357 /16383 | 853127|  96983| 328757|  92861|3877|Took an average of ` 3.5` minutes to dequeue after the testing have stop.|
+|5.3.2  |   5| 100|0.0001|  10|<font color="cyan">Pass</font>|0.0007|625592|0.0010|  114 / 32767|   454 / 16383|1387929| 148397| 328811|  84700|5540|Took an average of ` 4.5` minutes to dequeue after the testing have stop.|
+|       |    |    |      |    |                              |      |      |      |             |             |       |       |       |       |    |   |
+|7.1    |   7| 100|   0.1|  10|<font color="cyan">Pass</font>|0.1414|  6459|0.0929|    2 / 9    |    1 / 2    |  11030|   1284|   4139|   1036|   0|   |
+|7.2    |   7| 100|  0.01|  10|<font color="cyan">Pass</font>|0.0145| 64547|0.0093|    2 / 26   |    1 / 11   | 109398|  11842|  41115|  11361| 230|   |
+|7.2.1  |   7| 100| 0.005|  10|<font color="cyan">Pass</font>|0.0053|158618|0.0038|    2 / 54   |  706 / 4237 | 274852|  30035|  98801|  28845| 940|Took an average of ` 2.0` minutes to dequeue after the testing have stop.|
+|7.3    |   7| 100| 0.001|  10|<font color="cyan">Pass</font>|0.0022|341254|0.0018|    6 / 559  |  285 / 12653| 612992|  63390| 214733|  59933|3203|Took an average of ` 5.0` minutes to dequeue after the testing have stop.|
+|7.3.1  |   7| 100|0.0005|  10|<font color="cyan">Pass</font>|0.0020|280724|0.0021|30196 / 32768|  197 / 21330| 569234|  67248| 146481|  63954|3043|Took an average of ` 7.5` minutes to dequeue after the testing have stop.|
+|7.3.2  |   7| 100|0.0001|  10|<font color="cyan">Pass</font>|0.0009|672400|0.0009| 5069 / 32768|10829 / 32767|1405468|207267| 256967| 128248|79927|Took an average of `11.5` minutes to dequeue after the testing have stop.|
+|       |    |    |      |    |                              |      |      |      |             |             |       |       |       |       |    |   |
+|9.1    |   9| 100|   0.1|  10|<font color="cyan">Pass</font>|0.1430|  8277|0.0725|    3 / 17   |    2 / 6    |  13550|   1679|   5173|   1417|   8|   |
+|9.2    |   9| 100|  0.01|  10|<font color="cyan">Pass</font>|0.0146| 81552|0.0074|    3 / 92   |    7 / 53   | 134950|  15127|  51548|  14446| 431|   |
+|9.2.1  |   9| 100| 0.005|  10|<font color="cyan">Pass</font>|0.0056|194818|0.0031|    6 / 389  |  739 / 6485 | 325658|  37229| 120615|  35254|1720|Took an average of ` 2.0` minutes to dequeue after the testing have stop.|
+|9.3    |   9| 100| 0.001|  10|<font color="cyan">Pass</font>|0.0028|291969|0.0021| 6830 / 23602|  198 / 14222| 583991|  63727| 164765|  58680|4800|Took an average of ` 9.0` minutes to dequeue after the testing have stop.|
+|9.3.1  |   9| 100|0.0005|  10|<font color="cyan">Pass</font>|0.0017|394400|0.0015| 5482 / 32768|10050 / 32767| 650617| 128083| 138478| 126198|1648|Took an average of ` 8.5` minutes to dequeue after the testing have stop.|
+|9.3.2  |   9| 100|0.0001|  10|<font color="cyan">Pass</font>|0.0012|424483|0.0014|62875 / 65536|  262 / 35467| 680510| 162123| 100481| 159182|2706|Took an average of `17.0` minutes to dequeue after the testing have stop.|
+|       |    |    |      |    |                              |      |      |      |             |             |       |       |       |       |    |   |
 * 9 nodes are more than the 8 cores on the test machine.
 
 ### Duration Stress Test Result
 ```bash
-$ tests/run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 60 -T 4
+$ tests/run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 480 -T 4
 ```
-|<sub><br>Run</sub>|<sub>-C #<br>Nodes</sub>|<sub>-K #<br>Keys</sub>|<sub>-A #<br>Aperture</sub>|<sub>-R #<br>Duration</sub>|<sub><br>Result</sub>|<sub>Avg<br>Snooze</sub>|<sub>Avg<br>SpikeHits</sub>|<sub>Avg<br>SpikeInt</sub>|<sub>Avg&nbsp;InQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg&nbsp;OutQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg<br>LookUps</sub>|<sub>Avg<br>Inserts</sub>|<sub>Avg<br>Updates</sub>|<sub>Avg<br>Deletes</sub>|<sub><br>Comment</sub>|
-|:------|---:|---:| ----:|---:|:----------------------------:|-----:|------:|-----:|:--------:|:---------:|--------:|----------:|----------:|----------:|:-|
-|9.2.1  |   9| 100|  0.01| 480|<font color="cyan">Pass</font>|0.0162|5497602|0.0047|  4 /1556 | 15 / 1432 |  6516186|    2472578|     552526|    2466800|  |
-|9.2.2  |   9| 100| 0.005| 480|<font color="cyan">Pass</font>|      |       |      |          |           |         |           |           |           |  |
-|9.2.3  |   9| 100| 0.001| 480|<font color="cyan">Pass</font>|      |       |      |          |           |         |           |           |           |  |
-|9.2.4  |   9| 100|0.0005| 480|<font color="cyan">Pass</font>|      |       |      |          |           |         |           |           |           |  |
-|9.2.5  |   9| 100|0.0001| 480|<font color="cyan">Pass</font>|      |       |      |          |           |         |           |           |           |  |
-|       |    |    |      |    |                              |      |       |      |          |           |         |           |           |           |  |
-|9.2.6  |   9| 100| 0.005|1440|<font color="cyan">Pass</font>|      |       |      |          |           |         |           |           |           |  |
-|9.2.7  |   9| 100| 0.001|1440|<font color="cyan">Pass</font>|      |       |      |          |           |         |           |           |           |  |
-|9.2.8  |   9| 100|0.0005|1440|<font color="cyan">Pass</font>|      |       |      |          |           |         |           |           |           |  |
-|9.2.9  |   9| 100|0.0001|1440|<font color="cyan">Pass</font>|      |       |      |          |           |         |           |           |           |  |
+|<sub><br>Run</sub>|<sub>-C #<br>Nodes</sub>|<sub>-K #<br>Keys</sub>|<sub>-A #<br>Aperture</sub>|<sub>-R #<br>Duration</sub>|<sub><br>Result</sub>|<sub>Avg<br>Snooze</sub>|<sub>Avg<br>SpikeHits</sub>|<sub>Avg<br>SpikeInt</sub>|<sub>Avg&nbsp;InQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg&nbsp;OutQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg<br>LookUps</sub>|<sub>Avg<br>Inserts</sub>|<sub>Avg<br>Updates</sub>|<sub>Avg<br>Deletes</sub>|<sub>Avg<br>Evicts</sub>|<sub><br>Comment</sub>|
+|:------|---:|---:| ----:|---:|:----------------------------:|-----:|------:|-----:|:---------:|:---------:|--------:|----------:|----------:|----------:|---:|:-|
+|9.2.1  |   9| 100|  0.01| 480|<font color="cyan">Pass</font>|0.0145| 5700951|0.0051| 4 / 653  |  12 / 2621|  6783081|    2482802|     735515|    2477708|4981|Took an average of `17.0` minutes to dequeue after the testing have stop.|
+|9.2.2  |   9| 100|  0.01|1440|<font color="cyan">Pass</font>|0.0155|17089517|0.0047| 4 / 802  |   8 / 322 | 19551763|    8010656|    1068399|    8005235|5350|  |
 
 * Interpreting the results.
     1. Watch the average snooze (pause plus processing) time per iteration.  This number is an indicator of the latency between cache updates.
     2. Watch the average number of spike count and how close they are with the average spike interval.  These 2 number are indicators of how hard the cache is pounded.
     3. Watch the average queues depth.  This number is an indicator if the cache is keeping up with processing.
-    4. Watch the average spike eviction.  This number is an indicator of the test randomness of generating an update to the same key at the "same" time by at different nodes.
 * The following may have subtle influence over the above results:
     * The class of machine the test was ran on.
     * Number of running containers and load from them.  CPU may throttle down when it is too hot.
@@ -225,15 +214,15 @@ The following is a snapshot of the Docker containers running a stress test.  SEE
 ```bash
     $ docker stats
     CONTAINER ID   NAME        CPU %     MEM USAGE / LIMIT     MEM %     NET I/O          BLOCK I/O   PIDS
-    16bf2f64db6a   mccache01   82.33%    26.52MiB / 5.702GiB   0.45%     5.19GB / 547MB   0B / 0B     8
-    b18882fbd621   mccache02   76.60%    27.11MiB / 5.702GiB   0.46%     5.19GB / 581MB   0B / 0B     8
-    cceb8e046682   mccache03   74.43%    28.16MiB / 5.702GiB   0.48%     5.19GB / 581MB   0B / 0B     8
-    4b8a1429f4af   mccache04   76.94%    28.28MiB / 5.702GiB   0.48%     5.19GB / 581MB   0B / 0B     8
-    c6c59a509fcd   mccache05   77.35%    28.25MiB / 5.702GiB   0.48%     5.19GB / 581MB   0B / 0B     8
-    631d4a11b17c   mccache06   75.97%    28.30MiB / 5.702GiB   0.48%     5.19GB / 581MB   0B / 0B     8
-    455363b958dc   mccache07   78.28%    25.37MiB / 5.702GiB   0.43%     5.19GB / 581MB   0B / 0B     8
-    7d31d9244b92   mccache08   87.03%    29.87MiB / 5.702GiB   0.51%     5.19GB / 580MB   0B / 0B     8
-    f53abde9fdeb   mccache09   76.87%    27.14MiB / 5.702GiB   0.46%     5.19GB / 581MB   0B / 0B     8
+    4c5533635d8c   mccache01   56.15%    52.36MiB / 5.702GiB   0.90%     1.01GB / 113MB   0B / 0B     8
+    be4b289503fe   mccache02   57.19%    52.48MiB / 5.702GiB   0.90%     1.01GB / 112MB   0B / 0B     8
+    00625aade927   mccache03   68.43%    54.36MiB / 5.702GiB   0.93%     1.01GB / 111MB   0B / 0B     8
+    45e610a0b89c   mccache04   69.92%    54.73MiB / 5.702GiB   0.94%     1.01GB / 110MB   0B / 0B     10
+    100e4b98692f   mccache05   102.07%   53.37MiB / 5.702GiB   0.91%     1.01GB / 111MB   0B / 0B     8
+    b7493e0d19a9   mccache06   56.91%    51.79MiB / 5.702GiB   0.89%     1.01GB / 112MB   0B / 0B     8
+    1c49b8530f65   mccache08   56.25%    52.8 MiB / 5.702GiB   0.90%     1.01GB / 111MB   0B / 0B     8
+    d260c6822812   mccache07   57.23%    55.74MiB / 5.702GiB   0.95%     1.01GB / 113MB   0B / 0B     8
+    d3806d9b2f75   mccache09   69.69%    54.82MiB / 5.702GiB   0.94%     1.01GB / 112MB   0B / 0B     8
 ```
 
 ### Observations
@@ -243,7 +232,7 @@ The following is a snapshot of the Docker containers running a stress test.  SEE
 * The more nodes, the longer it takes to for the other nodes to receive message.  **5** nodes have about **8** seconds latency when tested with very high frequency updates (<= `0.005` ms snooze).
 * Anecdotally, it does **not** look like `time.sleep( 0.0001 )` can yield accurate precision.
 * `McCache` can handle very heavy update/delete against it.
-    * If you do **not** have an use case where the cache is pounded **less** than once every **50**ms, sustained for **10** minutes, `McCache` may be suitable for you.
+    * If you do **not** have an use case where the cache is pounded **less** than once every **10**ms, sustained for **10** minutes, `McCache` may be suitable for you.
 
 
 ### Cloud VM
