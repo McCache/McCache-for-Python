@@ -49,9 +49,8 @@ print("At this point all the cache with namespace "demo" in the cluster are iden
 # Query the local cache metrics and checksum.
 mccache.get_local_metrics(  'demo' ).replace(')' ,')\n')
 pp( mccache.get_local_checksum( 'demo' ))
-
-
 ```
+
 In the above example, there is **nothing** different in the usage of `McCache` from a regular Python dictionary.  However, the benefit is in a clustered environment where the other member's cache are kept coherent with the changes to your local cache.
 
 ## Guidelines

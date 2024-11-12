@@ -992,7 +992,7 @@ def _send_fragment( sock:socket.socket ,fragment: bytes ) -> None:
     # The following is to assist with testing.
     # This Monkey should NOT throw a tantrum in a production environment.
     #
-    if  _mcConfig.monkey_tantrum > 0 and _mcConfig.monkey_tantrum < HUNDRED:
+    if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA and _mcConfig.monkey_tantrum > 0 and _mcConfig.monkey_tantrum < HUNDRED:
         tantrum = random.randint(1 ,HUNDRED)    # noqa: S311    Between 1 and 99.
         if  tantrum >= (50.0 - _mcConfig.monkey_tantrum/2.0) and \
             tantrum <= (50.0 + _mcConfig.monkey_tantrum/2.0):

@@ -397,6 +397,7 @@ class Cache( OrderedDict ):
         if  tsm is None:
 #           tsm =  Cache.tsm_version()
             tsm =  Cache.TSM_VERSION()
+        elp = 0
         try:
             crc = self.__meta[ key ]['crc'] # Old crc value.
             lkp = self.__meta[ key ]['lkp'] # Last looked up.
