@@ -32,6 +32,7 @@ ENV         LANG=C.UTF-8
 # Dont need the following if you are using the latest image.
 #
 RUN         apt-get update
+RUN         apt-get install -y  iputils-ping
 RUN         apt-get install -y  sudo
 RUN         apt-get install -y  vim
 

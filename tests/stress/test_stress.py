@@ -3,6 +3,7 @@
 # Pytest script template.
 # SEE:  https://docs.pytest.org/en/7.4.x/explanation/anatomy.html
 
+import base64
 import hashlib
 import json
 import logging
@@ -30,24 +31,34 @@ class   TestClass:
                 if 'Done testing' in ln:
                     # Not dependent on the debug format.
                     tokens  = ln.split('\t')        # Tokenize the the entire log line.
+                    if 'Im:' in tokens[0]:
+                        # Debug format.
+                        strMrk = tokens[0].index('Im:')+3
+                        member = tokens[0][ strMrk: ]   # Source IP address.
+
                     logmsg  = tokens[-1]            # Last token is the message.
                     tokens  = logmsg.split(' ')     # Tokenize the message portion of the line. e.g. "172.18.0.1 Done testing at 04:00:03.472051929"
-                    member  = tokens[0]             # Source IP address.
-                    endtsm  = tokens[4].strip()     # Timestamp.
+                    if 'Im:' in tokens[0]:
+                        # Debug format.
+                        strMrk = tokens[0].index('Im:')+3
+                        member = tokens[0][ strMrk: ].split(' ')[0] # Source IP address.
+
+                    tokens  = logmsg[ logmsg.index('at ')+3: ].strip().split(' ')
+                    endtsm  = tokens[0].strip()     # Timestamp.
 
                     if  member not in chksums:
                         chksums[ member ] = {'endtsm': endtsm ,'exttsm': None ,'crc': None ,'data': {}}
                 elif "'crc':" in ln  and "'tsm':" in ln:
                     # Example:
                     # 'K000-003': {'crc': 'fkU4sT6XTwQhLQT6ZvUb3w', 'tsm': '07:47:33.89543949'}
-                    sts = json.loads( '{' + ln.replace("'" ,'"') + '}')
+                    sts = json.loads( '{' + ln.replace('}}' ,'}').replace("'" ,'"') + '}')
                     chksums[ member ]['data'].update( sts )
                 elif 'Exiting test' in ln:
                     # Not dependent on the debug format.
                     tokens  = ln.split('\t')        # Tokenize the the entire log line.
                     logmsg  = tokens[-1]            # Last token is the message.
-                    tokens  = logmsg.split(' ')     # Tokenize the message portion of the line. e.g. "Exiting test at 04:00:03.510304783."
-                    exttsm  = tokens[4].strip()     # Timestamp.
+                    tokens  = logmsg[ logmsg.index('at ')+3: ].strip().split(' ') # Tokenize the message portion of the line. e.g. "Exiting test at 04:00:03.510304783."
+                    exttsm  = tokens[0].strip()     # Timestamp.
                     chksums[ member ]['exttsm'] = exttsm
                     chksums[ member ]['crc'] = hashlib.md5( bytearray(str( chksums[ member ]['data'] ) ,encoding='utf-8') ).digest()
 
@@ -77,13 +88,13 @@ class   TestClass:
 
         chksums = self.get_result( caplog )
 
-        if 'TEST_CLUSTER_SIZE' in os.environ:
-            _cs = int( os.environ['TEST_CLUSTER_SIZE'] )
-            _ls = len(chksums)
-            assert  _cs == _ls ,f"Expecting {_cs} INQ results but got {_ls}."
-            print("Hello World!")
+        with caplog.at_level(logging.INFO):
+            for node in chksums.keys():
+                endtsm  = chksums[node]['endtsm']
+                exttsm  = chksums[node]['exttsm']
+                md5     = base64.b64encode( chksums[node]['crc'] ).decode()[:-2]
+                logger.info(f"{node:11}: Done at {endtsm} ,existed at {exttsm} with CRC: {md5} ...")
 
-        # Compare the remainder members.
         # Any entry timestamp that older than the compared to endings (endtsm) timestamp is discarded
         # for compared to member is done with its test while this member is still running.
         #
@@ -166,6 +177,17 @@ class   TestClass:
         # Assert the incoherence count.
         pass
 
+    def test_stress_02(self ,caplog):
+        logger = logging.getLogger()
+        with caplog.at_level(logging.INFO):
+            logger.info(f"In test_stress_02 ...")
+
+        chksums = self.get_result( caplog )
+
+        if 'TEST_CLUSTER_SIZE' in os.environ:
+            _cs = int( os.environ['TEST_CLUSTER_SIZE'] )
+            _ls = len(chksums)
+            assert  _cs == _ls ,f"Expecting {_cs} INQ results but got {_ls}."
 
 # The MIT License (MIT)
 # Copyright (c) 2023 Edward Lau.
