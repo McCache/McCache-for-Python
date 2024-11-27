@@ -1126,54 +1126,54 @@ def _check_recv_assembly() -> None:
     """
     bads = {}
     try:
-        keys = {}
         keys = list(_mcArrived.keys())  # aky_t: tuple = (sender ,frg_c ,key_s ,tsm)
     except  KeyError:
-        pass
+        keys = []
+
     for aky_t in keys:
-        if  aky_t in _mcArrived:
+        if  aky_t not in _mcArrived:
+            continue  # Skip if the key was removed by another thread.
+
+        #if  aky_t in _mcArrived:
+        try:
+            # Calculate elapsed time since the fragment was last updated
             elps = (PyCache.TSM_VERSION() - _mcArrived[ aky_t ]['tsm']) / ONE_NS_SEC
 
+            # Handle backoff logic
             if  _mcArrived[ aky_t ]['backoff']:
-                # NOTE: The following is NOT lock down and subjected to change.
                 # Get the head of the backoff pause second.
                 boff: int = next(iter(_mcArrived[ aky_t ]['backoff']))
 
                 # The minimum wait second before we consider message not acknowledged.
                 minw = max((boff * _mcConfig.multicast_hops) ,boff)
                 if  elps > minw:
-                    try:
-                        for seq in range( 0 ,len(_mcArrived[ aky_t ]['message'])):
-                            if  _mcArrived[ aky_t ]['message'][ seq ] is None:
-                                # FIXME: Rework the following.
-                                _mcOBQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,None ,f"{seq}" ,aky_t[0])) # FIXME: Parse out 4th octet.
+                    for seq in range( 0 ,len(_mcArrived[ aky_t ]['message'])):
+                        if  _mcArrived[ aky_t ]['message'][ seq ] is None:
+                        	# NOTE:        (opc        ,tsm      ,nms  ,key   ,crc  ,val      ,rcv)
+                            _mcOBQueue.put((OpCode.REQ ,aky_t[3] ,None ,aky_t ,None ,f"{seq}" ,aky_t[0]))
 
-                        _ = _mcArrived[ aky_t ]['backoff'].pop()    # Pop off the head of the backoff pause.
-                    except  KeyError:
-                        pass    # Was removed in the other thread.
+                    _ = _mcArrived[ aky_t ]['backoff'].pop()    # Pop off the head of the backoff pause.
             elif aky_t not in bads:
-                # TODO: Try using list.remove() instead of using a `bad` list.
+                # Ran out of backoff.
                 bads[ aky_t ] = None
+        except  KeyError:
+            pass    # Was removed in the other thread.
 
     # Delete away the un-assemble fragments.
-    # TODO: Convert this to use list comprehension.
-    # TODO: Need to delete the current key entry in the local cache for it is obsolete.
     for aky_t in bads:
         lst: list =  None
         try:
-            _lock.acquire()
-            lst = [ seq for seq in range( 0, len(_mcArrived[ aky_t ])) \
-                        if  _mcArrived and \
-                            aky_t in _mcArrived and \
-                            seq   in _mcArrived[ aky_t ] and \
-                            _mcArrived[ aky_t ][ seq] is None
-                ]
-        finally:
-            _lock.release()
+            if _mcArrived and aky_t in _mcArrived:
+                lst = [ seq for seq in  range( 0, len(_mcArrived[ aky_t ])) \
+                            if  seq in _mcArrived[ aky_t ] and _mcArrived[ aky_t ][ seq] is None
+                    ]
+        except  KeyError:
+            pass    # Was removed in the other thread.
 
         if  lst:
+            if  aky_t in _mcArrived:
+                del _mcArrived[ aky_t ]
             logger.error(f"Key:{aky_t} message incomplete.  Missing fragments: {lst}" ,extra=LOG_EXTRA)
-            del _mcArrived[ aky_t ]
 
 def _check_sync_metadata() -> None:
     """Sync-check the metadata.
@@ -1703,9 +1703,7 @@ def _multicaster() -> None:
                         if  pky_t not in _mcPending:
                             # Acknowledgement is needed for Insert ,Update and Delete.
                             _mcPending[ pky_t ] = ack
-
                             frg = _mcPending[ pky_t ]['message']
-#                       frg = _mcPending[ pky_t ]['message']
                     else:
                         # Acknowledgement is NOT needed for others.
                         frg = ack['message']

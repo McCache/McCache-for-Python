@@ -220,8 +220,9 @@ while (end - bgn) < (duration*60):  # Seconds.
             #debug
             if  dg1 != datetime.datetime.now().minute:
                 dg1  = datetime.datetime.now().minute
-                mc.logger.warning(f"{cache.tsm_version_str()} Pending:{len(mc._mcPending):5} {sorted(mc._mcPending.keys() ,reverse=True )}")
-                mc.logger.warning(f"{cache.tsm_version_str()} Arrive: {len(mc._mcArrived):5} {sorted(mc._mcArrived.keys() ,reverse=True )}")
+                if  len(mc._mcPending) > 9 or len(mc._mcArrived) > 9:
+                    mc.logger.warning(f"{cache.tsm_version_str()} Pending:{len(mc._mcPending):5} {sorted(mc._mcPending.keys() ,reverse=True )}")
+                    mc.logger.warning(f"{cache.tsm_version_str()} Arrive: {len(mc._mcArrived):5} {sorted(mc._mcArrived.keys() ,reverse=True )}")
             #debug
             pass
 #       case 1|2|3|4:   # NOTE: 20% are inserts.    This has lots of hot spots.
