@@ -52,7 +52,7 @@ class Cache( OrderedDict ):
     Functionality:
         - LRU (Least Recently Updated) cache.
         - Maintain usage metrics.
-        - Maintain spike metrics.  Rapid updates within 5 seconds.
+        - Maintain spike metrics.  Rapid updates within the default 3 seconds.
         - Support time-to-live (ttl) eviction.  Updated item will have its ttl reset.
         - Support telemetry communication with external via queue.
     Future:
@@ -64,7 +64,6 @@ class Cache( OrderedDict ):
     CACHE_LOCK  = RLock()           # Lock for serializing access to shared data.
     ONE_NS_SEC  = 1_000_000_000     # One second in nano seconds.
     ONE_NS_MIN  = 60 * ONE_NS_SEC   # One minute in nano seconds.
-    TSM_VERSION = time.time_ns
     # NOTE: time.monotonic_ns() behave differently on different OS.  Different precision is returned.
     #       time.monotonic_ns()
     #       Win11:  828250000000
@@ -78,7 +77,6 @@ class Cache( OrderedDict ):
     #
     IP4_ADDRESS = sorted(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET ))[0][4][0]
 
-    # TODO: Refactor to use the following method instead of TSM_VERSION().
     @classmethod
     def tsm_version( clz ) -> int:
         return  time.time_ns()
@@ -94,8 +92,7 @@ class Cache( OrderedDict ):
             String version of the timestamp.
         """
         if  not ver:
-#           ver = Cache.tsm_version()
-            ver = Cache.TSM_VERSION()
+            ver = Cache.tsm_version()
         tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime( (ver // Cache.ONE_NS_SEC) ))}.{ver % Cache.ONE_NS_SEC:0<9}"
         return  tsm
 
@@ -136,8 +133,8 @@ class Cache( OrderedDict ):
         self.__callback :Callable       = None
         self.__cbwindow :int    = 3         # Callback window, in seconds, for changes in the cache since last looked up.
         self.__debug    :bool   = False     # Internal debug is disabled.
-        self.__oldest   :int    = Cache.TSM_VERSION()  # Oldest entry in the cache.
-        self.__latest   :int    = Cache.TSM_VERSION()  # Latest time the cache was touch on.
+        self.__oldest   :int    = Cache.tsm_version()  # Oldest entry in the cache.
+        self.__latest   :int    = Cache.tsm_version()  # Latest time the cache was touch on.
         self.__meta     :dict   = {}
         # Public instance metrics.
         self._reset_metrics()
@@ -304,8 +301,7 @@ class Cache( OrderedDict ):
         Return:
             Number of evictions.
         """
-#       now = Cache.tsm_version()
-        now = Cache.TSM_VERSION()
+        now = Cache.tsm_version()
         ttl = self.__ttl * Cache.ONE_NS_SEC     # Convert seconds in nanosecond.
         evt: int = 0
 
@@ -315,8 +311,7 @@ class Cache( OrderedDict ):
         if  self.__debug:
             self._log_ops_msg( opc='EVT' ,tsm=now ,nms=self.__name ,key=None ,crc=None ,msg='Checking for eviction candidates.')
 
-#       oldest: int = Cache.tsm_version()
-        oldest: int = Cache.TSM_VERSION()
+        oldest: int = Cache.tsm_version()
         with  Cache.CACHE_LOCK: # TODO: Not working!
             for key in self.__meta.copy():  # Make a shallow copy of the keys.
                 val = self.__meta[ key ]
@@ -366,8 +361,7 @@ class Cache( OrderedDict ):
         Return:
             Number of evictions.
         """
-#       now = Cache.tsm_version()
-        now = Cache.TSM_VERSION()
+        now = Cache.tsm_version()
         with  Cache.CACHE_LOCK: # TODO: Not working!
             try:
                 key ,_ = super().popitem( last=False )  # FIFO
@@ -395,8 +389,7 @@ class Cache( OrderedDict ):
         lkp = None
         elp = None
         if  tsm is None:
-#           tsm =  Cache.tsm_version()
-            tsm =  Cache.TSM_VERSION()
+            tsm =  Cache.tsm_version()
         elp = 0
         try:
             crc = self.__meta[ key ]['crc'] # Old crc value.
@@ -436,8 +429,7 @@ class Cache( OrderedDict ):
         """Post lookup processing.  Update the metadata.
         """
         try:
-#           self.__meta[ key ]['lkp'] = Cache.tsm_version()
-            self.__meta[ key ]['lkp'] = Cache.TSM_VERSION() # Timestamp for the just lookup operation.
+            self.__meta[ key ]['lkp'] = Cache.tsm_version() # Timestamp for the just lookup operation.
         except  KeyError:
             # NOTE: Deleted from another thread.
             if  self.__debug:
@@ -460,8 +452,7 @@ class Cache( OrderedDict ):
             queue_out   Request queuing out operation info to external receiver.
         """
         if  tsm is None:
-#           tsm =  Cache.tsm_version()
-            tsm =  Cache.TSM_VERSION()
+            tsm =  Cache.tsm_version()
         try:
             if  key not in self.__meta:
                 self.__meta[ key ] = {'tsm': tsm ,'crc': None ,'lkp': 0}
@@ -515,8 +506,7 @@ class Cache( OrderedDict ):
             now     The current timestamp to determine a spike.  Default to present.
         """
         if  now is None:
-#           now =  Cache.tsm_version()
-            now =  Cache.TSM_VERSION()
+            now =  Cache.tsm_version()
         span =  now - self.__latest
         if  span > 0:
             # Monotonic.
@@ -543,8 +533,7 @@ class Cache( OrderedDict ):
             KeyError
         """
         if  tsm is None:
-#           tsm =  Cache.tsm_version()
-            tsm =  Cache.TSM_VERSION()
+            tsm =  Cache.tsm_version()
         if  self.__ttl > 0:
             _ = self._evict_items_by_ttl()
 
@@ -609,8 +598,7 @@ class Cache( OrderedDict ):
             queue_out   Request queuing out operation info to external receiver.
         """
         if  tsm is None:
-#           tsm =  Cache.tsm_version()
-            tsm =  Cache.TSM_VERSION()
+            tsm =  Cache.tsm_version()
         if  self.__ttl > 0:
             _ = self._evict_items_by_ttl()
 
@@ -644,10 +632,8 @@ class Cache( OrderedDict ):
         Call the parent method and then do some house keeping.
         """
         super().clear()
-#       self.__oldest =  Cache.tsm_version()
-        self.__oldest = Cache.TSM_VERSION()
-#       self.__latest =  Cache.tsm_version()
-        self.__latest = Cache.TSM_VERSION()
+        self.__oldest = Cache.tsm_version()
+        self.__latest = Cache.tsm_version()
         self._reset_metrics()
 
     def copy(self) -> OrderedDict:
@@ -716,7 +702,7 @@ class Cache( OrderedDict ):
         If key is not found, default is returned if given, otherwise KeyError is raised.
         Check for ttl evict then call the parent method and then do some house keeping.
 
-        SEE:    OrdredDict.pop()
+        SEE:    OrderedDict.pop()
         Args:
             key         Key to the item to get.
             default     Default value to return if the key doesn't exist in the cache.

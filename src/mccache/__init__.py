@@ -2,12 +2,14 @@
 #
 """
 This is a distributed application cache build on top of the Python Ordered dictionary.
-It uses UDP multicasting is used as the transport hence the name "Multi-Cast Cache", playfully abbreviated to "McCache".
+It uses UDP multicast as the transport hence the name "Multi-Cast Cache", playfully abbreviated to "McCache".
 SEE: https://www.pico.net/kb/udp-vs-tcp/
 SEE: https://stackoverflow.com/questions/47903/udp-vs-tcp-how-much-faster-is-it
+SEE: https://support.biamp.com/General/Networking/Multicast_traffic_and_IGMP
 SEE: https://en.wikipedia.org/wiki/Distributed_cache
 SEE: https://www.centurylink.com/home/help/internet/how-to-improve-gaming-latency.html#:~:text=Low%20latency%20means%20less%20lag,a%20noticeable%20lag%20in%20gaming.
 SEE: https://cache.industry.siemens.com/dl/files/587/94772587/att_113195/v1/94772587_ruggedcom_latency_switched_network_en.pdf
+SEE: https://highscalability.com/gossip-protocol-explained/
 
 2023-09-10:
     To implement a peer-to-peer communication will be a big management overhead.
@@ -207,7 +209,7 @@ class McCacheConfig:
                                         # SEE: https://dev.acquia.com/blog/how-choose-right-cache-expiry-lifetime
     cache_max: int      = 256           # Max entries threshold for triggering entries eviction.
     cache_size: int     = 256*4096      # Max size in bytes threshold for triggering entries eviction.
-    cache_pulse:int     = 15            # Cache synchronization heartbeat pulse in minutes.
+    cache_pulse:int     = 5             # Cache synchronization heartbeat pulse in minutes.
     cache_sync_mode: int= 1             # Cache consistent syncing mode.  0=Partial sync ,1=Full sync.
     cache_sync_on: float= 0.0           # Cache last synchronized time from this node to the members.
     congestion: int     = 25            # The maximum cutoff to start congestion control.
@@ -290,13 +292,13 @@ def _default_callback(ctx: dict) -> bool:
     if  _mcConfig.debug_level >= McCacheDebugLevel.BASIC:
         match ctx['typ']:
             case 1: # Deletion
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.WRN ,tsm=PyCache.TSM_VERSION() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.WRN ,tsm=PyCache.tsm_version() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
                                             ,msg=f"^   WRN {ctx['key']} got deleted     within {ctx['elp']:0.5f} sec in the background." )
             case 2: # Updates
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.WRN ,tsm=PyCache.TSM_VERSION() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.WRN ,tsm=PyCache.tsm_version() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
                                             ,msg=f"^   WRN {ctx['key']} got updated     within {ctx['elp']:0.5f} sec in the background." )
             case 3: # Incoherence
-                _log_ops_msg( logging.DEBUG ,opc=OpCode.WRN ,tsm=PyCache.TSM_VERSION() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
+                _log_ops_msg( logging.DEBUG ,opc=OpCode.WRN ,tsm=PyCache.tsm_version() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
                                             ,msg=f"^   WRN {ctx['key']} got incoherent  within {ctx['elp']:0.5f} sec in the background." )
     return  True
 
@@ -349,8 +351,8 @@ def clear_cache( name: str | None = None ) -> None:
     Return:
         None
     """
-    _mcOBQueue.put((OpCode.RST ,PyCache.TSM_VERSION() ,name ,None ,None ,None ,None))
-    _mcOBQueue.put((OpCode.INQ ,PyCache.TSM_VERSION() ,name ,None ,None ,None ,None))
+    _mcOBQueue.put((OpCode.RST ,PyCache.tsm_version() ,name ,None ,None ,None ,None))
+    _mcOBQueue.put((OpCode.INQ ,PyCache.tsm_version() ,name ,None ,None ,None ,None))
 
 def get_cluster_metrics( node: str | None = None ) -> None:
     """Inquire the metrics for all the distributed caches.
@@ -369,7 +371,7 @@ def get_cluster_metrics( node: str | None = None ) -> None:
         logger.error(f"Input node: {node} does not exist in the cluster.")
         return
 
-    _mcOBQueue.put((OpCode.MET ,PyCache.TSM_VERSION() ,None ,None ,None ,None ,node))
+    _mcOBQueue.put((OpCode.MET ,PyCache.tsm_version() ,None ,None ,None ,None ,node))
 
 def get_local_metrics( name: str | None = None ) -> dict:
     """Inquire the local cache metrics.
@@ -394,7 +396,7 @@ def get_cache_checksum( name: str | None = None ,key: str | None = None ,node: s
         logger.error(f"Input node: {node} does not exist in the cluster.")
         return
 
-    tsm = PyCache.TSM_VERSION() # To maintain a common unique checkpoint across the cluster.
+    tsm = PyCache.tsm_version() # To maintain a common unique checkpoint across the cluster.
     if  node is None or node != SRC_IP_ADD:
         # Either broadcast the inquiry out or unicast to a specific member in the cluster other than myself.
         _mcOBQueue.put((OpCode.INQ ,tsm ,name ,key ,None ,None ,node))
@@ -796,16 +798,17 @@ def _make_pending_ack( key_t: tuple ,val_t: tuple ,members: dict | str ,frame_si
     Args:
         key_t:      Key tuple object made up of (namespace ,key ,timestamp).
         val_t:      Value tuple.  (opc ,crc ,val)
-        member:     Set of members in the cluster or a specific member IP.
+        members:    Set of members in the cluster or a specific member IP, excluding self.
         frame_size: The size of the usable Ethernet frame (minus the IP header).
     Return:
         A dictionary of the following structure:
         {
             'tsm':     int      # The time of the original message was queued in nano seconds.
+            'opc':     str,     # The operation code.
             'crc':     str,     # The checksum for the entire message.
             'message': list(),  # Ordered list of fragments for re-send.
             'members': {
-                ip: {
+                ip: {           # IP address of the target node.
                     'unack':    set(),  # Set of unacknowledged fragments for the given IP key.
                     'backoff':  set()   # Backoff scale.
                 }
@@ -846,6 +849,7 @@ def _make_pending_ack( key_t: tuple ,val_t: tuple ,members: dict | str ,frame_si
             }
         }
 
+    # NOTE:  If only one entry, therefore targetting a specific node.
     if  len( members ) == 1:
         rcv  = int(next(iter( members )).split('.')[3]) # Last octet of the receiver IP.
 
@@ -862,7 +866,7 @@ def _make_pending_ack( key_t: tuple ,val_t: tuple ,members: dict | str ,frame_si
             raise(f"Failed to pack header for {key_t} due to {e}. seq: {seq} ,frg_c: {frg_c} ,tsm: {tsm} ,rcv: {rcv} ,ack: {ack}")  # noqa: EM102
     return  ack
 
-def _collect_fragment( pkt_b: bytes ,sender: str ) -> ():
+def _collect_fragment( pkt_b: bytes ,sender: str ) -> tuple:
     """Collect the arrived fragment to be later assembled back into an incoming key and value.
 
     The fragments are collected in the global `_mcArrived` dictionary of the following structure:
@@ -1017,7 +1021,7 @@ def _check_expr_pending() -> None:
     for pky_t in sorted(_mcPending.keys() ,reverse=True ):  # Key for this message pending acknowledgement.
         if  prv_nms and prv_nms == pky_t[0] and \
             prv_key and prv_key == pky_t[1] and \
-            prv_tsm and(prv_tsm >  pky_t[2] or ((PyCache.TSM_VERSION() - pky_t[2]) > (5*PyCache.ONE_NS_SEC))) and \
+            prv_tsm and(prv_tsm >  pky_t[2] or ((PyCache.tsm_version() - pky_t[2]) > (5*PyCache.ONE_NS_SEC))) and \
             pky_t   in _mcPending:
             #   1)  Same namespace.
             #   2)  Same key.
@@ -1052,7 +1056,7 @@ def _check_sent_pending() -> None:
             key = pky_t[1]
             tsm = pky_t[2]
             crc = _mcPending[ pky_t ]['crc']
-            elps= (PyCache.TSM_VERSION() - tsm) / ONE_NS_SEC    # Elapsed seconds since this key was queued.
+            elps= (PyCache.tsm_version() - tsm) / ONE_NS_SEC    # Elapsed seconds since this key was queued.
             try:
                 ips = {}
                 ips = list(_mcPending[ pky_t ]['members'].keys())  # All members in the cluster for this key.
@@ -1134,10 +1138,9 @@ def _check_recv_assembly() -> None:
         if  aky_t not in _mcArrived:
             continue  # Skip if the key was removed by another thread.
 
-        #if  aky_t in _mcArrived:
         try:
             # Calculate elapsed time since the fragment was last updated
-            elps = (PyCache.TSM_VERSION() - _mcArrived[ aky_t ]['tsm']) / ONE_NS_SEC
+            elps = (PyCache.tsm_version() - _mcArrived[ aky_t ]['tsm']) / ONE_NS_SEC
 
             # Handle backoff logic
             if  _mcArrived[ aky_t ]['backoff']:
@@ -1190,7 +1193,7 @@ def _check_sync_metadata() -> None:
                     # TODO: Send out metadata that have been updated since two sync ago instead of everything.
                     val = get_cache( nms ).metadata.copy()
                     if  val:
-                        _mcOBQueue.put((OpCode.SYC ,PyCache.TSM_VERSION() ,nms ,None ,None ,val ,None))
+                        _mcOBQueue.put((OpCode.SYC ,PyCache.tsm_version() ,nms ,None ,None ,val ,None))
                 _mcConfig.cache_sync_on = now
                 break
             except  KeyError:
@@ -1208,7 +1211,7 @@ def _check_congestion() -> None:
         obs = _mcOBQueue.qsize()
         if  ibs >= _mcConfig.congestion or obs >= _mcConfig.congestion:
             msg = f"Internal message queue size. IB:{ibs:>6} ,OB:{obs:>4}"
-            _log_ops_msg( logging.WARNING ,opc=OpCode.WRN ,tsm=PyCache.TSM_VERSION() ,msg=msg )
+            _log_ops_msg( logging.WARNING ,opc=OpCode.WRN ,tsm=PyCache.tsm_version() ,msg=msg )
 
 def _get_local_value( key: object ,mcc: dict ) -> tuple:
     """Get the value from the local cache along with  its checksum and timestamp.
@@ -1413,7 +1416,7 @@ def process_SYC( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,
                                             ,msg=f">   {key} from {sdr} is not in local cache. Requesting sender for missing entry." )
 
             # Not in local cache therefore request the syncing sender to resend this key/value.
-            _mcOBQueue.put((OpCode.REQ ,PyCache.TSM_VERSION() ,nms ,key ,None ,None ,sdr))
+            _mcOBQueue.put((OpCode.REQ ,PyCache.tsm_version() ,nms ,key ,None ,None ,sdr))
 
 def process_UPD( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):
     mcc: dict = get_cache( nms )
@@ -1607,13 +1610,13 @@ def _goodbye() -> None:
     Inform all the members in the cluster that this node is leaving the group.
     Output the current metrics of this local cache.
 
-    SEE: https://docs.python.org/3.8/library/atexit.html#module-atexit
+    SEE: https://docs.python.org/3.12/library/atexit.html#module-atexit
 
     Args:
     Return:
         None
     """
-    _mcOBQueue.put((OpCode.BYE ,PyCache.TSM_VERSION() ,None ,None ,None ,None ,None))
+    _mcOBQueue.put((OpCode.BYE ,PyCache.tsm_version() ,None ,None ,None ,None ,None))
 
     # Stop the log listner.
     _mcLgLsnr.stop()
@@ -1697,19 +1700,20 @@ def _multicaster() -> None:
                         mbrs = { rcv: None }    #   Unicast, simulated.
                     else:
                         mbrs = _mcMember        #   Muticast.
+                    #                             key_t ,val_t
                     ack: dict= _make_pending_ack( pky_t ,(opc ,crc ,val) ,mbrs ,_mcConfig.packet_mtu )
 
                     if  opc in {OpCode.DEL ,OpCode.INS ,OpCode.UPD}:
                         if  pky_t not in _mcPending:
                             # Acknowledgement is needed for Insert ,Update and Delete.
                             _mcPending[ pky_t ] = ack
-                            frg = _mcPending[ pky_t ]['message']
+                            frgs = _mcPending[ pky_t ]['message']
                     else:
                         # Acknowledgement is NOT needed for others.
-                        frg = ack['message']
+                        frgs = ack['message']
 
             # Transmit the fragments out ASAP.
-            for frg_b in frg:
+            for frg_b in frgs:
                 _send_fragment( sock ,frg_b )
 
             # Collect outbound operation code stats.
@@ -1738,6 +1742,7 @@ def _multicaster() -> None:
     # NOTE: Congestion control?
     #       Holding back the multicast is not solving the problem for the timestamp is already fixed.
     #       The application should slow down its pounding of the cache.
+    # SEE:  https://dzone.com/articles/the-role-of-rate-limiting-in-service-stability
 
 def _housekeeper() -> None:
     """Background house keeping thread.
@@ -1872,7 +1877,7 @@ if 'TEST_APERTURE'  in  os.environ:
 
 # Main section to start the background daemon threads.
 #
-atexit.register( _goodbye ) # SEE: https://docs.python.org/3.8/library/atexit.html#module-atexit
+atexit.register( _goodbye ) # SEE: https://docs.python.org/3.12/library/atexit.html#module-atexit
 
 if  sys.platform == 'win32':
     _ = psutil.getloadavg() # Windows only simulate the load, so pre-warm it in the background.
@@ -1888,7 +1893,6 @@ t4.start()
 
 if __name__ == "__main__":
     # ONLY used during development testing.
-    # TODO: Get unit test working.
     import sys
     sys.path.append(__file__[:__file__.find('src')-1])
     sys.path.append(__file__[:__file__.find('src')+3])
