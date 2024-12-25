@@ -7,18 +7,18 @@ table {
 </style>
 -->
 ## Overview
-`McCache` is a distributed in-memory write through caching library that is build on the [`OrderedDict`](https://docs.python.org/3/library/collections.html#collections.OrderedDict) package.  A local cache lookup is faster than retrieving it across a network.
+`McCache` is a, write through cluster aware, local in-memory caching library that is build on Python's [`OrderedDict`](https://docs.python.org/3/library/collections.html#collections.OrderedDict) package.  A local cache lookup is faster than retrieving it across a network.
 It uses **UDP** multicast as the transport hence the name "Multi-Cast Cache", playfully abbreviated to "`McCache`".
 
 The goals of this package are:
 1. Reduce complexity by **not** be dependent on any external caching service such as `memcached`, `redis` or the likes.  SEE: [Distributed Cache](https://en.wikipedia.org/wiki/Distributed_cache)
-   1. We are guided by the principal of first scaling up before scaling out.
+    * We are guided by the principal of first scaling up before scaling out.
 2. Keep the programming interface consistent with Python's dictionary.  The distributed nature of the cache is transparent to you.
-   1. This is an in process cache.
+    * This is an in process cache.
 3. Performant
-   1. Need to handle updates that are 0.01sec (10 ms) apart.
+    * Need to handle rapid updates that are 0.01sec (10 ms) or faster.
 
-`McCache` is **not** a replacement for your persistent or search data.  It is intended to be used to cache your most expensive work.  You can consider the **80/20** rule, which states that caching the most frequently accessed 20% of data can improve performance for most requests.
+`McCache` is **not** a replacement for your persistent or search data.  It is intended to be used to cache your most expensive work.  You can consider the Pareto Principle [**80/20**](https://en.wikipedia.org/wiki/Pareto_principle) rule, which states that caching **20%** of the most frequently accessed **80%** data can improve performance for most requests.
 
 ## Installation
 ```console
@@ -27,16 +27,16 @@ pip install mccache
 
 ## Example
 ```python
-import  datetime
 import  mccache
-from    pprint  import  pprint  as  pp
+from    datetime  import  datetime  as  dt
+from    pprint    import  pprint    as  pp
 
 c = mccache.get_cache( 'demo' )
 
-c['key'] = datetime.datetime.utcnow()  # Insert a cache entry
+c['key'] = dt.utcnow()  # Insert a cache entry
 print(f"Started at {c['key']}")
 
-c['key'] = datetime.datetime.utcnow()  # Update a cache entry
+c['key'] = dt.utcnow()  # Update a cache entry
 print(f"Ended at {c['key']}")
 print(f"Metadata for key is {c.metadata['key']}")
 
@@ -47,7 +47,7 @@ if 'key' not in c:
 print("At this point all the cache with namespace "demo" in the cluster are identical.")
 
 # Query the local cache metrics and checksum.
-mccache.get_local_metrics(  'demo' ).replace(')' ,')\n')
+mccache.get_local_metrics( 'demo' ).replace(')' ,')\n')
 pp( mccache.get_local_checksum( 'demo' ))
 ```
 
@@ -79,7 +79,8 @@ We suggest the following testing to collect metrics of your application running 
 1. Import the `McCache` library into your project.
 2. Use it in your data access layer by populating and updating the cache but **don't** use the cached values.
 3. Configure to enable the debug logging by providing a path for your log file.
-4. Run your application for an extended period and exit.  A metric summary will be logged out.
+4. Run your application for an extended period and exit.
+5. Log the summary metric out to be analyze.
 5. Review the metrics to quantify the fit to your application and environment.  **SEE**: [Testing](https://github.com/McCache/McCache-for-Python/blob/main/TESTING.md#Container)
 
 ## Saving
@@ -103,8 +104,8 @@ The following are environment variables you can tune to fit your production envi
     <td>Maximum number of seconds a cached entry can live before eviction.  Update operations shall reset the timer.</td>
   </tr>
   <tr>
-    <td><sub>MCCACHE_CACHE_SIZE</sub></td>
-    <td>512 entries</td>
+    <td><sub>MCCACHE_CACHE_MAX</sub></td>
+    <td>256 entries</td>
     <td>The maximum entries per cache.</td>
   </tr>
   <tr>
@@ -113,6 +114,11 @@ The following are environment variables you can tune to fit your production envi
     <td>The degree of keeping the cache coherent in the cluster.<br>
     <b>0</b>: Only members that has the same key in their cache shall be updated.<br>
     <b>1</b>: All members cache shall be kept fully coherent and synchronized.<br></td>
+  </tr>
+  <tr>
+    <td><sub>MCCACHE_CACHE_SIZE</sub></td>
+    <td>1,048,576 bytes</td>
+    <td>The maximum size for the cache.</td>
   </tr>
   <tr>
     <td><sub>MCCACHE_SYNC_PULSE</sub></td>
@@ -130,28 +136,20 @@ The following are environment variables you can tune to fit your production envi
     <td>The multicast IP address and the optional port number for your group to multicast within.
     <br><b>SEE</b>: https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml</td>
   </tr>
-  <!--
-  <tr>
-    <td><sub>MCCACHE_SEND_LATENCY</sub></td>
-    <td>0.01</td>
-    <td>The pause second between each send message. A congestion control value to slow down the rapid sending out of messages.
-    <br>0.01 = 10 ms</td>
-  </tr>
-  -->
   <tr>
     <td><sub>MCCACHE_MULTICAST_HOPS</sub></td>
     <td>1 hop</td>
     <td>The maxinum network hop. 1 is just within the local subnet. [1-9]</td>
   </tr>
   <tr>
-    <td><sub>MCCACHE_DAEMON_SLEEP</sub></td>
-    <td>0.8 sec</td>
-    <td>The snooze duration for the daemon housekeeper before waking up to check the state of the cache.</td>
+    <td><sub>MCCACHE_CALLBACK_WIN</sub></td>
+    <td>5 sec</td>
+    <td>The window, in seconds, where the last lookup and the current change falls in to trigger a callback to a function provided by you. </td>
   </tr>
   <tr>
-    <td><sub>MCCACHE_CALLBACK_WIN</sub></td>
-    <td>3 sec</td>
-    <td>The window, in seconds, where the last lookup and the current change falls in to trigger a callback to a function provided by you. </td>
+    <td><sub>MCCACHE_DAEMON_SLEEP</sub></td>
+    <td>1 sec</td>
+    <td>The snooze duration for the daemon housekeeper before waking up to check the state of the cache.</td>
   </tr>
   <tr>
     <td><sub>MCCACHE_DEBUG_LOGFILE</sub></td>
@@ -161,7 +159,8 @@ The following are environment variables you can tune to fit your production envi
   <tr>
     <td><sub>MCCACHE_LOG_FORMAT</sub></td>
     <td></td>
-    <td>The custom logging format for your project.</td>
+    <td>The custom logging format for your project.
+    <br><b>SEE</b>: Line# <b>229</b> in __init__.py</td>
   </tr>
   <tr>
     <td colspan=3><b>The following are parameters you can tune to fit your stress testing needs.</b></td>
@@ -172,6 +171,13 @@ The following are environment variables you can tune to fit your production envi
     <td>The random seed for each different node in the test cluster.</td>
   </tr>
   <tr>
+    <td><sub>TEST_KEY_ENTRIES</sub></td>
+    <td>200 key/values</td>
+    <td>The maximum of randomly generated keys.<br>
+        The smaller the number, the higher the chance of cache collision.
+        Tune this number down to add stress to the test.</td>
+  </tr>
+  <tr>
     <td><sub>TEST_RUN_DURATION</sub></td>
     <td>5 min</td>
     <td>The duration in minutes of the testing run. <br>
@@ -179,16 +185,11 @@ The following are environment variables you can tune to fit your production envi
         Tune this number up to add stress to the test.</td>
   </tr>
   <tr>
-    <td><sub>TEST_MAX_ENTRIES</sub></td>
-    <td>200 key/values</td>
-    <td>The maximum of randomly generated keys.<br>
-        The smaller the number, the higher the chance of cache collision.
-        Tune this number down to add stress to the test.</td>
-  </tr>
-  <tr>
-    <td><sub>TEST_TEST_APERTURE</sub></td>
+    <td><sub>TEST_APERTURE</sub></td>
     <td>0.01 sec</td>
-    <td>The time scale to keep the randomly generated value to snooze within.  If you supply `0.01`, which is `10`ms, the snooze value will be randomly generated within the range between 0.01s and 0.1s or between 10ms and 100ms.</td>
+    <td>The time scale to keep the randomly generated value to snooze within.
+        The value of 0.01, 10ms, a random snooze shall be between 6.5ms and 45ms.
+        Tune this number down to add stress to the test.</td>
   </tr>
   <tr>
     <td><sub>TEST_MONKEY_TANTRUM</sub></td>
@@ -201,48 +202,61 @@ The following are environment variables you can tune to fit your production envi
 </table>
 
 ### pyproject.toml
+Specifying tuning parameters via `pyproject.toml` file.
 ```toml
 [tool.mccache]
 cache_ttl = 900
 packet_mtu = 1472
 ```
 ### Environment variables
+Specifying tuning parameters via environment variables.
 ```bash
+#  Unix
 export MCCACHE_TTL=900
 export MCCACHE_MTU=1472
+```
+```command
+::  Windows
+SET MCCACHE_TTL=900
+SET MCCACHE_MTU=1472
 ```
 
 ## Architecture Diagram
 ### Centralized implementation
+A centralize caching architecture shall be a remote server providing the caching service.
 ![Centralized Architecture](docs/Centralize%20Architecture.png)
 * This diagram is generated at https://www.eraser.io/diagramgpt.  I am in need of some help in the art department.
 
 ### McCache implementation
+`McCache` attempt to keep the cache in the other members in the cluster in sync with each other.
 ![McCache Architecture](docs/McCache%20Architecture.png)
 * This diagram is generated at https://www.eraser.io/diagramgpt.  I am in need of some help in the art department.
 
-## Design
-`McCache` overwrite both the `__setitem__()` and `__delitem__()` dunder methods of `OrderedDict` to shim in the communication sub-layer to sync-up the other members in the cluster.  All changes to the cache dictionary are captured and queued up to be multicast out.  The cache is all nodes will eventually be consistent under normal condition.
+## Design Gist
+`McCache` overwrite both the `__setitem__()` and `__delitem__()` dunder methods of `OrderedDict` to shim in the communication sub-layer to sync-up the other members' cache in the cluster.  All changes to the local cache are captured and queued up to be multicast out.  The cache in all nodes will eventually be consistent.
 
-Three daemon threads are started when this package is initialized.  They are:
+Four daemon threads are started when this package is initialized.  They are:
 1. **Multicaster**. &nbsp;Whose job is to dequeue local change operation messages and multicast them out into the cluster.
 2. **Listener**. &nbsp;Whose job is to listen for change operation messages multicast by other members in the cluster and immediately queue them up for processing.
 3. **Processor**. &nbsp;Whose job is to process the incoming changes.
-4. **Housekeeper**. &nbsp;Whose job is manage the acknowledgement of multicast messages.
+4. **Housekeeper**. &nbsp;Whose job is manage the acknowledgement of the messages.
 
-**UPD** is unreliable.  We have to implement a guaranteed message transfer protocol over it in `McCache`.  We did consider TCP but will have to implement management of peer-to-peer connection manager.  Multi-casting is implemented on top of UDP and we selected it.  Furthermore, the nature of `McCache` is to broadcast out changes and this align well with multicasting.  `McCache` prioritize operation that mutates the cache and only acknowledged these operations.  In the future as our knowledge expand, we can return to re-evaluate this decision.
+UDP is unreliable.  We have to implement a guaranteed message transfer protocol over it in `McCache`.  We did consider TCP but will have to implement management of peer-to-peer connection manager.  Multi-casting is implemented on top of UDP and we selected it.  Furthermore, the nature of `McCache` is to broadcast out changes and this align well with multicasting.  `McCache` prioritize operation that mutates the cache and only acknowledged these operations.  In the future as our knowledge expand, we can return to re-evaluate this decision.
 
-A message may be larger than the UDP payload size.  Regardless, we always chunk up the message into fragments plus a header that fully fit into the UPD payload.  Each UDP payload is made up of a fixed length header follow by a variable length message fragment.  The message is further broken up into the key and fragment section as depicted below:
+UDP is unreliable.  We  implemented a guaranteed message transfer protocol over UDP in `McCache`.
+The nature of `McCache` is to broadcast out changes and this align well with multicast service offered by UDP and we selected it.  Furthermore, `McCache` prioritize operation that mutates the cache and only acknowledged these operations.  We did consider TCP but will have to implement management of peer-to-peer connection manager.
+
+A message may be larger than the UDP payload size.  Regardless, we always chunk up the message into fragments plus a header that fully fit into the UDP payload.  Each UDP payload is made up of a fixed length header follow by a variable length message fragment.  The message is further broken up into the key and fragment section as depicted below:
 
 Given the size of each field in the header, we have a limitation of a maximum 255 fragments per message.  The maximum size of your message shall be 255 multiple by the `packet_mtu` size set in the configuration.
 
 The multicasting member will keep track of all the send fragments to all the member in the cluster.  Each member will re-assemble fragments back into a message.  Dropped fragment will be requested for a re-transmission.  Once each member have acknowledge receipt of all fragments, the message for that member is considered complete and be deleted from pending of acknowledgement.  Each member is always listening to traffic and maintaining its own members list.
 
-Collision happens when two or more nodes make a change to a same key at the same time.  The timestamp that is attached to the update is not granular enough to serialize the operation.  In this case, a warning is log and multi-cast out the eviction of this key to prevent the cache from becoming in-coherent.
+Collision happens when two or more nodes make a change to a same key at nearly the same time.  The received message timestamp and checksum of the arriving object shall be compared to the local object timestamp and checksum.  If the local object is more current, based on the timestamp, the local object shall be send back to the original sender to be updated.
 
 There are **no** remote locks.  Synchronization is implemented using a **monotonic** timestamp that is tagged to every cache entry.  This helps serialized the update operation on every node in the cluster.  An arrived change operation has a timestamp which will be compared to the timestamp of the local cache entry.  Only remote operation with the timestamp that is more recent shall be applied to local cache.
 
-Furthermore, we are experimenting with a lockless design.  Locks are needed when the data is being mutated.  For read operation, the data is read without a lock applied to it.  If the entry doesn't exist the `keyError` exception is throw and be handled appropriately.  If is an very edge case and is the reason we decided on trapping the exception instead of locking the region of code.
+Furthermore, we are experimenting with a lockless design.  Locks are needed when the data is being mutated.  For read operation, the data is read without a lock applied to it.  If the entry doesn't exist the `keyError` exception is throw and be handled appropriately.  This is a very edge case and is the reason we decided on trapping the exception instead of locking the region of code.
 
 
 ## Concern
@@ -296,24 +310,7 @@ if 'k' in c.metadata:
 Different cloud provider uses different size.
 
 ## Background Story
-This project started as a forum for a diverse bunch of experience colleagues to learn `Python`.  Very soon we decided that we need a more challenging and real project to implement.  We wanted to learn network and threading programming.  We search for sample code and ended up with some mutli-casting chat server example as our starting point.  We also talked about all the external services used in some application architecture and wonder if they could be removed to reduce complexity and cost.
-
-Finally, we decided on implementing a distributed cache that do **not** introduce any new ways but keep the same `Python` dictionary usage experience.
-
-First we kept it simple to fit our understanding and to deliver working code.  We limit the size of the cached object small.  Each member maintain their owe cache and do not share it.  Any updates to each local cache will be broadcast out an eviction so that the next lookup shall be reprocessed thus be the freshest.  If there is no changes to the underneath platform, they should have the same processed result.
-
-Very soon, we realized that it is a fun academic learning but not functional enough to use it in our own project.  `McCache` functional requirements are:
-* Reliable
-* Performant
-
-Other non-functional technical requirements are:
-* Handle large message
-* Small code base
-* Not "complex" beyond our skill set and understanding
-
-Building a simple distributed system is more challenging than we originally thought.  You may question some design decision but we arrive here from a collection of wrong and right turns on a long learning journey but we agreed to delivering a good enough working software is the most important compromise.  In the future if we still feel strongly for a re-factoring or a re-design, this option is always available to us.  We are still on this journey of learning and hopefully contribute something of value back into the community.  (circa Oct-2023)
-
-It too so long because there was slew of very subtle bugs in both the cache implementation and also in the stress test script.  We were also getting **false negative** results that send down the wrong path hunting for bugs.  Narrowing the bug down was very discouraging and we took some time off.
+* SEE: [Background story](https://github.com/McCache/McCache-for-Python/blob/main/BACKGROUND.md).
 
 ## Releases
 Releases are recorded [here](https://github.com/McCache/McCache-for-Python/issues).
@@ -322,7 +319,7 @@ Releases are recorded [here](https://github.com/McCache/McCache-for-Python/issue
 `McCache` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
 
 ## Contribute
-We welcome your contribution.  Please read [contributing](https://github.com/McCache/McCache-for-Python/blob/main/CONTRIBUTING.md) to learn how to contribute to this project.
+We welcome your contribution.  Please read [contributing](https://github.com/McCache/McCache-for-Python/blob/main/CONTRIBUTING.md) to learn how to get setup to contribute to this project.
 
 Issues and feature request can be posted [here](https://github.com/McCache/McCache-for-Python/issues). Help us port this library to other languages.  The repos are setup under the [GitHub `McCache` organization](https://github.com/mccache).
 You can reach our administrator at `elau1004@netscape.net`.

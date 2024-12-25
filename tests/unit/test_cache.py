@@ -1,6 +1,5 @@
 # See MIT license at the bottom of this script.
 #
-# Pytest script template.
 # SEE:  https://docs.pytest.org/en/7.4.x/explanation/anatomy.html
 # SEE:  https://realpython.com/pytest-python-testing
 
@@ -18,12 +17,12 @@ from mccache.pycache import Cache
 # SEE: https://docs.python.org/3/library/stdtypes.html#dict
 #
 #   When started, I had a different implementation and was testing alot of the overwrote methods.
-#   Since, I have change my implmentation BUT I am keeping the original test so more testing is better.
+#   Since, I have change my implementation BUT I am keeping the original test so more testing is better.
 
 class   TestCache:
     """Test Cache
     """
-#   Don't define a constructor.  You will get the folloing error:
+#   Don't define a constructor.  You will get the following error:
 #       PytestCollectionWarning: cannot collect test class 'TestCache' because it has a __init__ constructor
 #   def __init__(self): ...
 
@@ -427,7 +426,7 @@ class   TestCache:
     def test_queue(self):
         q = queue.Queue()
         c = Cache( queue=q )
-        t = Cache.TSM_VERSION()
+        t = Cache.tsm_version()
         c['k1'] = True
         c['k2'] = 3
         c['k3'] = 3.14

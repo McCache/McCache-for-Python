@@ -43,8 +43,8 @@ Removing an external dependency in your architecture reduces it's <strong>comple
         <tr><td colspan=2 align="right"><sub><b>Total</b></sub></td><td align="center"><sub> 2</sub></td><td><sub>8 Gb</sub></td><td align="right"><sub><b>$34.56</b></sub></td></tr>
         <tr><td colspan=5/></tr>
         <tr><td><sub>t3a.small       </sub></td><td><sub>One Year</sub></td>   <td align="center"><sub> 2</sub></td><td><sub>4 Gb</sub></td><td align="right"><sub>    $15.84</sub></td></tr>
-        <tr><td><sub>cache.t4g.medium</sub></td><td><sub>One Year</sub></td>   <td align="center"><sub> 1</sub></td><td><sub>3 Gb</sub></td><td align="right"><sub>    $29.52</sub></td></tr>
-        <tr><td colspan=2 align="right"><sub><b>Total</b></sub></td><td align="center"><sub> 3</sub></td><td><sub>7 Gb</sub></td><td align="right"><sub><b>$45.36</b></sub></td></tr>
+        <tr><td><sub>cache.t4g.medium</sub></td><td><sub>One Year</sub></td>   <td align="center"><sub> 2</sub></td><td><sub>6 Gb</sub></td><td align="right"><sub>    $59.04</sub></td></tr>
+        <tr><td colspan=2 align="right"><sub><b>Total</b></sub></td><td align="center"><sub> 4</sub></td><td><sub>10 Gb</sub></td><td align="right"><sub><b>$74.88</b></sub></td></tr>
         <tr><td colspan=5/></tr>
         <tr><td colspan=5><sub>Single Python 3.11 memory footprint while idling:<br><pre>
 $ python -c 'import time; time.sleep(60)' &
@@ -61,4 +61,4 @@ $ ps aux |grep python \
 </table>
 
 
-For example, a small cluster of three `t3a.medium` instances should have plenty of available memory for caching as compared to a dedicated one `cache.m6g.large` instance.  Furthermore, availability of the cache should be implemented using at least two servers which is not reflected in the above table.
+For example, a minimum small cluster of two `t3a.medium` instances, for your backend application, should have plenty of available memory for caching as compared to having an additional dedicated cluster of `cache.m6g.medium` instances for caching.

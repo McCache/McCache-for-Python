@@ -218,7 +218,7 @@ The following is a snapshot of the Docker containers running a stress test.  SEE
     be4b289503fe   mccache02   57.19%    52.48MiB / 5.702GiB   0.90%     1.01GB / 112MB   0B / 0B     8
     00625aade927   mccache03   68.43%    54.36MiB / 5.702GiB   0.93%     1.01GB / 111MB   0B / 0B     8
     45e610a0b89c   mccache04   69.92%    54.73MiB / 5.702GiB   0.94%     1.01GB / 110MB   0B / 0B     10
-    100e4b98692f   mccache05   102.07%   53.37MiB / 5.702GiB   0.91%     1.01GB / 111MB   0B / 0B     8
+    100e4b98692f   mccache05  102.07%    53.37MiB / 5.702GiB   0.91%     1.01GB / 111MB   0B / 0B     8
     b7493e0d19a9   mccache06   56.91%    51.79MiB / 5.702GiB   0.89%     1.01GB / 112MB   0B / 0B     8
     1c49b8530f65   mccache08   56.25%    52.8 MiB / 5.702GiB   0.90%     1.01GB / 111MB   0B / 0B     8
     d260c6822812   mccache07   57.23%    55.74MiB / 5.702GiB   0.95%     1.01GB / 113MB   0B / 0B     8

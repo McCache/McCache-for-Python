@@ -1,15 +1,26 @@
 [project]
 name = "McCache"
-#version = "0.0.1"
 dynamic = ["version"]
 authors = [
   { name="Edward Lau", email="elau1004@netscape.net" },
-  { name="Daniel Escobar", email="daniel.escobar1037@gmail.com" },
+# { name="Daniel Escobar", email="daniel.escobar1037@gmail.com" },
 ]
 description = "McCache-for-Python"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
+keyword = [
+  "cache",
+  "cluster",
+  "distributed",
+  "eventual",
+  "mccache",
+  "multicast",
+  "optimistic",
+  "performance",
+  "scale-out",
+  "udp",
+]
 classifiers = [  #! Update me
   "Development Status :: 2 - Pre-Alpha",
   "Intended Audience :: Developers",
@@ -20,22 +31,19 @@ classifiers = [  #! Update me
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+]
+dependencies = [
+  "psutil>=5.9.5"
 ]
 
-keyword = [
-  "cache",
-  "cluster",
-  "distributed",
-  "multicast",
-  "optimistic",
-  "performance",
-  "scale-out",
-  "udp",
-]
 
 [project.urls]
-"Homepage" = "https://github.com/McCache/McCache-for-Python"
-"Bug Tracker" = "https://github.com/McCache/McCache-for-Python/issues"
+Homepage = "https://github.com/McCache/McCache-for-Python"
+Source = "https://github.com/McCache/McCache-for-Python"
+Issues = "https://github.com/McCache/McCache-for-Python/issues"
+
 
 # SEE: https://pypa-build.readthedocs.io/en/stable/index.html
 # SEE: https://hatch.pypa.io/latest/config/build/
@@ -51,6 +59,32 @@ packet_mtu = 1472
 
 [tool.hatch.version]
 path = "src/mccache/__about__.py"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/mccache tests}"
+
+[tool.coverage.run]
+source_pkgs = ["mccache", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/mccache/__about__.py",
+]
+
+[tool.coverage.paths]
+mccache = ["src/mccache", "*/mccache/src/mccache", "src/pycache", "*/mccache/src/pycache"]
+tests = ["tests", "*/mccache/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
 
 [tool.hatch.build]
 include = [
@@ -71,21 +105,25 @@ exclude = [
 "src/mccache" = "mccache"
 
 [[tool.hatch.envs.all.matrix]]
-python = ["3.10", "3.11", "3.12"]
+python = [
+  "3.10",
+  "3.11",
+  "3.12"
+]
 
 [tool.hatch.envs.lint]
 detached = true
 dependencies = [
 # "black>=23.1.0",
   "blue>=0.9.1",
-  "mypy>=1.5.1",
+  "mypy>=1.12.1",
   "ruff>=0.0.287",
 ]
 [tool.hatch.envs.lint.scripts]
 typing = "mypy --install-types --non-interactive {args:src/mccache tests}"
 style = [
-  "ruff {args:src/mccache}",
 # "black --check --diff {args:src/mccache}",
+  "ruff {args:src/mccache}",
 ]
 fmt = [
 # "black {args:src/mccache}",
