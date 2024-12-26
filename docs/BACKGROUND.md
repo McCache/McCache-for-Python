@@ -20,5 +20,3 @@ It too so long because there was slew of very subtle bugs in both the cache impl
 * Ping-Pong messages between the nodes.
 * Memory leak.
 * Race condition.
-
-It is a very satisfactory project for we came up with our original implementation before we found articles through Google search.
