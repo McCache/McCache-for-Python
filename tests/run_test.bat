@@ -54,7 +54,7 @@ SET MCCACHE_CALLBACK_WIN=0
 :: Start of CLI.
 :: Parse the command line parameters with the following format:
 :: run_test.bat [ key1 val1 [key2 val2 [key3 val3 [...]]]]
-:: where the case insensitive keys:
+:: where the keys are case sensitive:
 :SOF_CLI
 :: Test CLI flags.
 IF  "%~1"=="-D"  GOTO :SET_DOCKER_CONTAINER
@@ -257,6 +257,11 @@ pytest  tests\stress\test_stress.py log/result.txt
 sort    log/*.log   >log/chronological.txt
 
 :: Extract details.
+grep -iE  "after lookup|in the background"          log/chronological.txt   >log/detail_expire.log
+grep -iE  "message queue size|done testing"         log/chronological.txt   >log/detail_queue_pressure.log
+grep -iE  "sending local|requesting sender"         log/chronological.txt   >log/detail_synchronization.log
+grep -iE  "cache incoherent"                        log/chronological.txt   >log/detail_incoherent.log
+grep -iE  "monkey is angry"                         log/chronological.txt   >log/detail_drop_packets.log
 
 :: Extract sumamries.
 IF  %TEST_DEBUG_LEVEL%  GEQ 1   (

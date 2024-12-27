@@ -149,12 +149,9 @@ class McCacheOption( StrEnum ):
     MCCACHE_CACHE_PULSE     = 'MCCACHE_CACHE_PULSE'
     MCCACHE_CONGESTION      = 'MCCACHE_CONGESTION'
     MCCACHE_PACKET_MTU      = 'MCCACHE_PACKET_MTU'
-    MCCACHE_PACKET_PACE     = 'MCCACHE_PACKET_PACE'
     MCCACHE_MULTICAST_IP    = 'MCCACHE_MULTICAST_IP'
     MCCACHE_MULTICAST_PORT  = 'MCCACHE_MULTICAST_PORT'
     MCCACHE_MULTICAST_HOPS  = 'MCCACHE_MULTICAST_HOPS'
-#   MCCACHE_QUEUE_IB_SIZE   = 'MCCACHE_QUEUE_IB_SIZE'
-#   MCCACHE_QUEUE_OB_SIZE   = 'MCCACHE_QUEUE_OB_SIZE'
     MCCACHE_CALLBACK_WIN    = 'MCCACHE_CALLBACK_WIN'
     MCCACHE_DAEMON_SLEEP    = 'MCCACHE_DAEMON_SLEEP'
     MCCACHE_DEBUG_LOGFILE   = 'MCCACHE_DEBUG_LOGFILE'
@@ -222,8 +219,8 @@ class McCacheConfig:
     multicast_ip: str   ='224.0.0.3'    # Unassigned multi-cast IP.
     multicast_port: int = 4000          # Unofficial port.  Was for Diablo II game.
     multicast_hops: int = 1             # Only local subnet.
-    queue_ib_size: int  = 65536         # Internal  in-bound queue size to prevent run away memory consumption.  Set it large but no infinite.
-    queue_ob_size: int  = 65536         # Internal out-bound queue size to prevent run away memory consumption.  Set it large but no infinite.
+#   queue_ib_size: int  = 65536         # Internal  in-bound queue size to prevent run away memory consumption.  Set it large but no infinite.
+#   queue_ob_size: int  = 65536         # Internal out-bound queue size to prevent run away memory consumption.  Set it large but no infinite.
     callback_win: int   = 5             # Change callback window size seconds (1-999).
     monkey_tantrum: int = 0             # Chaos monkey tantrum % level (0 - 99).
     daemon_sleep: float = SEASON_TIME   # House keeping snooze seconds (0.33 - 3.0).
@@ -522,7 +519,7 @@ def _get_mccache_logger( debug_log: str | None = None ) -> logging.Logger:
     Args:
         debug_log   Full path to a file for the log message to be written to.
     Return:
-        A logger specific to the module.
+        A logger specific to the McCache.
     """
     shdlr = None
     fhdlr = None
@@ -531,22 +528,20 @@ def _get_mccache_logger( debug_log: str | None = None ) -> logging.Logger:
     logger.handlers.clear() # This is strictly a McCache logger.
     fmtr  = logging.Formatter(fmt=_mcConfig.log_format ,datefmt='%Y%m%d%a %H%M%S' ,defaults=LOG_EXTRA)
 
-
     if 'TERM' in os.environ or ('SESSIONNAME' in os.environ and os.environ['SESSIONNAME'] == 'Console'):
         shdlr = logging.StreamHandler()
         shdlr.setFormatter( fmtr )
-#       logger.addHandler(  shdlr )
         logger.setLevel( logging.INFO )
     if  debug_log:
         os.makedirs( os.path.dirname( debug_log ), exist_ok=True )
         fhdlr = logging.FileHandler(  debug_log ,mode="a" ,encoding="utf-8" )
-#       hdlr = RotatingFileHandler( debug_log ,mode="a" ,encoding="utf-8" ,maxBytes=(2*1024*1024*1024), backupCount=99)   # 2Gib with 99 backups.
         fhdlr.setFormatter( fmtr )
-#       logger.addHandler(  fhdlr )
+#       fhdlr = RotatingFileHandler(  debug_log ,mode="a" ,encoding="utf-8" ,maxBytes=(2*1024*1024*1024), backupCount=99)   # 2Gib with 99 backups.
+#       fhdlr.setFormatter( fmtr )
         logger.setLevel( logging.DEBUG )
 
     logQ  = queue.Queue()
-    qhdlr = logging.handlers.QueueHandler(  logQ )
+    qhdlr = logging.handlers.QueueHandler( logQ )
     logger.addHandler( qhdlr )
     if  shdlr and fhdlr:
         logLstnr = logging.handlers.QueueListener( logQ ,shdlr ,fhdlr )

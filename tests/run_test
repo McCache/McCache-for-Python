@@ -1,5 +1,5 @@
 #!/bin/env bash
-set -xv
+#set -xv
 
 # Check if either podman or docker is installed.
 #
@@ -17,113 +17,129 @@ else
 fi
 
 # Setup the variable RUN_TIMESTAMP to be passed into the container composer.
-export RUN_TIMESTAMP=$(date +'_%Y%m%d_%H%M')
+export  RUN_TIMESTAMP=$(date +'_%Y%m%d_%H%M')
 
-# Setup the variable TEST_CLUSTER_SIZE to be passed into the container composer.
-TEST_CLUSTER_SIZE=3
-
-# Setup the variable TEST_RUN_DURATION  to be passed into the container composer.
-TEST_RUN_DURATION=5
-
-# Setup the variable TEST_APERTURE to be passed into the container composer.
-TEST_MAX_ENTRIES=100
-
-# Setup the variable TEST_SLEEP_SPAN to be passed into the container composer.
-TEST_APERTURE=0.01
-
-# Setup the variable TEST_DEBUG_LEVEL to be passed into the container composer.
-TEST_DEBUG_LEVEL=0
-
-# Setup the variable TEST_DATA_MIX_TYPE to be passed into the container composer.
-TEST_DATA_SIZE_MIX=1
-
-# Setup the variable TEST_MONKEY_TANTRUM to be passed into the container composer.
-TEST_MONKEY_TANTRUM=0
-
-# Setup the variable MCCACHE_CONGESTION to be passed into the container composer.
-MCCACHE_CONGESTION=5
-
-# Setup the variable MCCACHE_SYNC_PULSE to be passed into the container composer.
-MCCACHE_SYNC_PULSE=5
-
-# Setup the variable MCCACHE_CALLBACK_WIN to be passed into the container composer.
-MCCACHE_CALLBACK_WIN=0
+# Setup the variables to be passed into the container composer.
+export  TEST_DEBUG_LEVEL=0
+export  TEST_CLUSTER_SIZE=5
+export  TEST_KEY_ENTRIES=200
+export  TEST_APERTURE=0.05
+export  TEST_DATA_SIZE_MIX=1
+export  TEST_RUN_DURATION=5
+export  TEST_MONKEY_TANTRUM=0
+export  MCCACHE_CACHE_TTL=3600
+export  MCCACHE_CACHE_MAX=256
+export  MCCACHE_CACHE_SIZE=1048576
+export  MCCACHE_CACHE_PULSE=5
+export  MCCACHE_CALLBACK_WIN=0
 
 # Start of CLI.
 # Parse the command line parameters with the following format:
-# run_test  -k #  -m #
-# where the case insensitive keys:
-while getopts "c:d:g:k:l:p:y:w" opt; do
+# run_test  [ key1 val1 [key2 val2 [key3 val3 [...]]]]
+# where the keys are case sensitive:
+while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
     case  $opt  in
-        c)  if  [[ $OPTARG =~ ^[2-9]$ ]]
-            then
-                TEST_CLUSTER_SIZE=${OPTARG}
+        D)  which docker-compose    2> /dev/null
+            if  (($? == 0)) then
+                CONTAINER_EXE=docker-compose
             else
-                echo "Option for -c MUST be a positive integer. 2-9"
-                exit  1
+                echo docker executable NOT found!
+                exit 1
             fi
             ;;
-        d)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
-            then
-                TEST_RUN_DURATION=${OPTARG}
+        P)  which podman-compose    2> /dev/null
+            if  (($? == 0)) then
+                CONTAINER_EXE=podman-compose
             else
-                echo "Option for -d MUST be a positive integer."
-                exit  1
+                echo podman executable NOT found!
+                exit 1
             fi
             ;;
-        g)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
-            then
-                MCCACHE_CONGESTION=${OPTARG}
-            else
-                echo "Option for -g MUST be a positive integer."
-                exit  1
-            fi
-            ;;
-        k)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
-            then
-                TEST_MAX_ENTRIES=${OPTARG}
-            else
-                echo "Option for -k MUST be a positive integer."
-                exit  1
-            fi
-            ;;
-        l)  if  [[ $OPTARG =~ ^[0-5]$ ]]
+        L)  if  [[ $OPTARG =~ ^[0-5]$ ]]
             then
                 TEST_DEBUG_LEVEL=${OPTARG}
             else
-                echo "Option for -l MUST be a positive integer. 0=diable ,1=basic ,3=extra ,5=superfluous"
+                echo "Option for -L MUST be a positive integer. 0=diable ,1=basic ,3=extra ,5=superfluous"
                 exit  1
             fi
             ;;
-        m)  if  [[ $OPTARG =~ ^[123]$ ]]
+        K)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
             then
-                TEST_DATA_SIZE_MIX=${OPTARG}
+                TEST_KEY_ENTRIES=${OPTARG}
             else
-                echo "Option for -m MUST be either 1=small ,2=large ,3=mixed."
+                echo "Option for -K MUST be a positive integer."
                 exit  1
             fi
             ;;
-        p)  if  [[ $OPTARG =~ ^0.[0-9]$ ]]
+        C)  if  [[ $OPTARG =~ ^[2-9]$ ]]
             then
-                MCCACHE_SYNC_PULSE=${OPTARG}
+                TEST_CLUSTER_SIZE=${OPTARG}
             else
-                echo "Option for -p MUST be a positive integer."
+                echo "Option for -C MUST be a positive integer. 2-9"
                 exit  1
             fi
             ;;
-        s)  if  [[ $OPTARG =~ ^0.[0-9]$ ]]
+        A)  if  [[ $OPTARG =~ ^0.[0-9]+$ ]]
             then
                 TEST_APERTURE=${OPTARG}
             else
-                echo "Option for -s MUST be a positive float. 0.1 - 0.0001"
+                echo "Option for -A MUST be a positive float. 0.1 - 0.0001"
                 exit  1
             fi
             ;;
-        y)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+        M)  if  [[ $OPTARG =~ ^[123]$ ]]
+            then
+                TEST_DATA_SIZE_MIX=${OPTARG}
+            else
+                echo "Option for -M MUST be either 1=small ,2=large ,3=mixed."
+                exit  1
+            fi
+            ;;
+        R)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+            then
+                TEST_RUN_DURATION=${OPTARG}
+            else
+                echo "Option for -R MUST be a positive integer."
+                exit  1
+            fi
+            ;;
+        T)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
             then
                 TEST_MONKEY_TANTRUM=${OPTARG}
             else
-                echo "Option for -u MUST be a positive integer. 0-9"
+                echo "Option for -T MUST be a positive integer. 0-9"
+                exit  1
+            fi
+            ;;
+        t)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+            then
+                MCCACHE_CACHE_TTL=${OPTARG}
+            else
+                echo "Option for -t MUST be a positive integer."
+                exit  1
+            fi
+            ;;
+        e)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+            then
+                MCCACHE_CACHE_MAX=${OPTARG}
+            else
+                echo "Option for -e MUST be a positive integer."
+                exit  1
+            fi
+            ;;
+        s)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+            then
+                MCCACHE_CACHE_SIZE=${OPTARG}
+            else
+                echo "Option for -e MUST be a positive integer."
+                exit  1
+            fi
+            ;;
+        p)  if  [[ $OPTARG =~ ^[1-9][0-9]*$ ]]
+            then
+                MCCACHE_CACHE_PULSE=${OPTARG}
+            else
+                echo "Option for -p MUST be a positive integer."
                 exit  1
             fi
             ;;
@@ -131,40 +147,48 @@ while getopts "c:d:g:k:l:p:y:w" opt; do
             then
                 MCCACHE_CALLBACK_WIN=${OPTARG}
             else
-                echo "Option for -o MUST be a positive integer. 0-9999"
+                echo "Option for -w MUST be a positive integer. 0-9999"
                 exit  1
             fi
             ;;
         *)  echo  Invalid parameter value.  Try the following:
-            echo  $0  '[-c #] [-d #] [-g #] [-k #] [-l #] [-m #] [-p #] [-s #] [-y ##] [-w #]'
-            echo "-c #  Cluster size.          Default ${TEST_CLUSTER_SIZE}.  Max is 9."
-            echo "-d #  Run duration.          Default ${TEST_RUN_DURATION} minutes."
-            echo "-g #  Congestion trigger.    Default ${MCCACHE_CONGESTION}."
-            echo "-k #  Max entries.           Default ${TEST_MAX_ENTRIES}."
-            echo "-l #  Debug level.           Default ${TEST_DEBUG_LEVEL}.  0=Off ,1=Basic ,3=Extra ,5=Superfluous"
-            echo "-m #  Data size mix.         Default ${TEST_DATA_SIZE_MIX}.  1=Small ,2=Large ,3=Mixed."
-            echo "-p #  Sync pulse.            Default ${MCCACHE_SYNC_PULSE} minutes."
-            echo "-s #  Sleep aperture.        Default ${TEST_APERTURE} second.  1=1s ,0.1=100ms ,0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us"
-            echo "-y #  Monkey tantrum.        Default ${TEST_MONKEY_TANTRUM}."
-            echo "-w #  Callback window sec.   Default ${MCCACHE_CALLBACK_WIN}."
+            echo "$0  [-D ] [ -P] [-L #] [-C #] [-S #] [-M #] [-R #] [-T #]  [-t #] [-e #] [-s #] [-p #] [-w #]"
+            echo "       Test configuration:"
+            echo "-D     Use Docker container."
+            echo "-P     Use Podman container."
+            echo "-L #   Debug level.            Default ${TEST_DEBUG_LEVEL}.  0=Off ,1=Basic ,3=Extra ,5=Superfluous"
+            echo "-K #   Max key entries to use. Default ${TEST_KEY_ENTRIES}"
+            echo "-C #   Cluster size.           Default ${TEST_CLUSTER_SIZE}.  Max is 9."
+            echo "-A #   Sleep aperture.         Default ${TEST_APERTURE} second pause between operations.  1=1s ,0.1=100ms ,0.01=10ms ,0.001=1ms ,0.0005=0.5ms ,0.0001=0.1ms/100us"
+            echo "-M #   Data size mix.          Default ${TEST_DATA_SIZE_MIX}.  1=Small ,2=Big ,3=Mix."
+            echo "-R #   Run duration.           Default ${TEST_RUN_DURATION} minutes."
+            echo "-T #   Monkey tantrum.         Default ${TEST_MONKEY_TANTRUM} percent of dropped packets.  0=Disabled."
+            echo "       Test configuration:"
+            echo "-t #   Time-to-live.           Default ${MCCACHE_CACHE_TTL} seconds."
+            echo "-e #   Maximum cache entries.  Default ${MCCACHE_CACHE_MAX} entries."
+            echo "-s #   Maximum cache storage.  Default ${MCCACHE_CACHE_SIZE} bytes."
+            echo "-p #   Cache sync pulse.       Default ${MCCACHE_CACHE_PULSE} seconds."
+            echo "-w #   Callback spike window.  Default ${MCCACHE_CALLBACK_WIN} seconds."
             exit  1
             ;;
     esac
 done
-echo ${TEST_MAX_ENTRIES} ${TEST_RUN_DURATION}
 # End of CLI.
 
 echo Running McCache test with envar:
+echo    CONTAINER_EXE:          ${CONTAINER_EXE}
 echo    RUN_TIMESTAMP:          ${RUN_TIMESTAMP}
 echo    TEST_DEBUG_LEVEL:       ${TEST_DEBUG_LEVEL}
 echo    TEST_CLUSTER_SIZE:      ${TEST_CLUSTER_SIZE}
-echo    TEST_DATA_SIZE_MIX:     ${TEST_DATA_SIZE_MIX}
-echo    TEST_RUN_DURATION:      ${TEST_RUN_DURATION}
-echo    TEST_MAX_ENTRIES:       ${TEST_MAX_ENTRIES}
+echo    TEST_KEY_ENTRIES:       ${TEST_KEY_ENTRIES}
 echo    TEST_APERTURE:          ${TEST_APERTURE}
+echo    TEST_DATA_SIZE_MIX:     ${TEST_DATA_SIZE_MIX}
 echo    TEST_MONKEY_TANTRUM:    ${TEST_MONKEY_TANTRUM}
-echo    MCCACHE_CONGESTION:     ${MCCACHE_CONGESTION}
-echo    MCCACHE_SYNC_PULSE:     ${MCCACHE_SYNC_PULSE}
+echo    TEST_RUN_DURATION:      ${TEST_RUN_DURATION}
+echo    MCCACHE_CACHE_TTL:      ${MCCACHE_CACHE_TTL}
+echo    MCCACHE_CACHE_MAX:      ${MCCACHE_CACHE_MAX}
+echo    MCCACHE_CACHE_SIZE:     ${MCCACHE_CACHE_SIZE}
+echo    MCCACHE_CACHE_PULSE:    ${MCCACHE_CACHE_PULSE}
 echo    MCCACHE_CALLBACK_WIN:   ${MCCACHE_CALLBACK_WIN}
 echo
 
@@ -172,7 +196,8 @@ echo
 # echo ${0}
 
 # Change over to the project root directory no matter where this script is invoked.
-pushd ${0%*/*}
+_fp=$(readlink -f $0)
+pushd ${_fp%tests/*}
 
 # Create the log directory if it doesn't exist, else empty the directory before we start.
 #
@@ -186,12 +211,12 @@ fi
 NODE01=node01
 NODE02=node02
 
-for v in $(seq 1 ${TEST_CLUSTER_SIZE}); do  NODE0${v}=node0${v}; done
+for v in $(seq 1 ${TEST_CLUSTER_SIZE}); do  eval NODE0${v}\="node0${v}"; done
 
 # Bring up the cluster of containers and wait until we are done exercising the cache.
 #
 echo Starting the test cluster.
-# Keep in foregound with the maximum of 9 nodes as specified in "docker-compose.yml"
+# Keep in foreground with the maximum of 9 nodes as specified in "docker-compose.yml"
 ${CONTAINER_EXE} up  ${NODE01} ${NODE02} ${NODE03} ${NODE04} ${NODE05} ${NODE06} ${NODE07} ${NODE08} ${NODE09}
 
 

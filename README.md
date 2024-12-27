@@ -121,7 +121,7 @@ The following are environment variables you can tune to fit your production envi
     <td>The maximum size for the cache.</td>
   </tr>
   <tr>
-    <td><sub>MCCACHE_SYNC_PULSE</sub></td>
+    <td><sub>MCCACHE_CACHE_PULSE</sub></td>
     <td>300 sec</td>
     <td>The interval to send out a synchronization pulse operation to the other members in the cluster.</td>
   </tr>
@@ -134,7 +134,7 @@ The following are environment variables you can tune to fit your production envi
     <td><sub>MCCACHE_MULTICAST_IP</sub></td>
     <td>224.0.0.3 [ :4000 ]</td>
     <td>The multicast IP address and the optional port number for your group to multicast within.
-    <br><b>SEE</b>: https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml</td>
+    <br><b>SEE</b>: <a href="https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml">IANA multicast addresses</a>.</td>
   </tr>
   <tr>
     <td><sub>MCCACHE_MULTICAST_HOPS</sub></td>
@@ -160,7 +160,7 @@ The following are environment variables you can tune to fit your production envi
     <td><sub>MCCACHE_LOG_FORMAT</sub></td>
     <td></td>
     <td>The custom logging format for your project.
-    <br><b>SEE</b>: Line# <b>229</b> in __init__.py</td>
+    <br><b>SEE</b>: Variables <code>log_format</code> and <code>log_msgfmt</code> in <code>__init__.py</code></td>
   </tr>
   <tr>
     <td colspan=3><b>The following are parameters you can tune to fit your stress testing needs.</b></td>
@@ -241,9 +241,7 @@ Four daemon threads are started when this package is initialized.  They are:
 3. **Processor**. &nbsp;Whose job is to process the incoming changes.
 4. **Housekeeper**. &nbsp;Whose job is manage the acknowledgement of the messages.
 
-UDP is unreliable.  We have to implement a guaranteed message transfer protocol over it in `McCache`.  We did consider TCP but will have to implement management of peer-to-peer connection manager.  Multi-casting is implemented on top of UDP and we selected it.  Furthermore, the nature of `McCache` is to broadcast out changes and this align well with multicasting.  `McCache` prioritize operation that mutates the cache and only acknowledged these operations.  In the future as our knowledge expand, we can return to re-evaluate this decision.
-
-UDP is unreliable.  We  implemented a guaranteed message transfer protocol over UDP in `McCache`.
+UDP is unreliable.  We implemented a guaranteed message transfer protocol over UDP in `McCache`.
 The nature of `McCache` is to broadcast out changes and this align well with multicast service offered by UDP and we selected it.  Furthermore, `McCache` prioritize operation that mutates the cache and only acknowledged these operations.  We did consider TCP but will have to implement management of peer-to-peer connection manager.
 
 A message may be larger than the UDP payload size.  Regardless, we always chunk up the message into fragments plus a header that fully fit into the UDP payload.  Each UDP payload is made up of a fixed length header follow by a variable length message fragment.  The message is further broken up into the key and fragment section as depicted below:
@@ -272,7 +270,7 @@ Furthermore, we are experimenting with a lockless design.  Locks are needed when
 
 ## Load balancer
 * We recommend to use sticky session load balancer.
-* SEE https://www.youtube.com/watch?v=hTp4czOrvOY
+* <b>SEE</b>: <a href="https://www.youtube.com/watch?v=hTp4czOrvOY">Enabling Sticky Sessions</a>
 
 ## Limitation
 * Even though the latency is low, it will **eventually** be consistent.  There is a very micro chance that an event can slip in just after the cache is read with the old value.  You have the option to pass in callback function to `McCache` for it to invoke if a change to the value of your cached object have changed within one second ago.  The other possibility is to perform a manual check.  The following is a code snippet that illustrate both approaches:
