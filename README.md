@@ -48,7 +48,7 @@ print("At this point all the cache with namespace "demo" in the cluster are iden
 
 # Query the local cache metrics and checksum.
 mccache.get_local_metrics( 'demo' ).replace(')' ,')\n')
-pp( mccache.get_local_checksum( 'demo' ))
+pp.pprint( mccache.get_local_checksum( 'demo' ))
 ```
 
 In the above example, there is **nothing** different in the usage of `McCache` from a regular Python dictionary.  However, the benefit is in a clustered environment where the other member's cache are kept coherent with the changes to your local cache.
@@ -225,12 +225,12 @@ SET MCCACHE_MTU=1472
 ### Centralized implementation
 A centralize caching architecture shall be a remote server providing the caching service.
 ![Centralized Architecture](docs/Centralize%20Architecture.png)
-* This diagram is generated at https://www.eraser.io/diagramgpt.  I am in need of some help in the art department.
+* <sub>This diagram is generated at https://www.eraser.io/diagramgpt.  I am in need of some help in the art department</sub>.
 
 ### McCache implementation
 `McCache` attempt to keep the cache in the other members in the cluster in sync with each other.
 ![McCache Architecture](docs/McCache%20Architecture.png)
-* This diagram is generated at https://www.eraser.io/diagramgpt.  I am in need of some help in the art department.
+* <sub>This diagram is generated at https://www.eraser.io/diagramgpt.  I am in need of some help in the art department</sub>.
 
 ## Design Gist
 `McCache` overwrite both the `__setitem__()` and `__delitem__()` dunder methods of `OrderedDict` to shim in the communication sub-layer to sync-up the other members' cache in the cluster.  All changes to the local cache are captured and queued up to be multicast out.  The cache in all nodes will eventually be consistent.

@@ -5,6 +5,9 @@ authors = [
   { name="Edward Lau", email="elau1004@netscape.net" },
 # { name="Daniel Escobar", email="daniel.escobar1037@gmail.com" },
 ]
+maintainers = [
+  { name="Edward Lau", email="elau1004@netscape.net" },
+]
 description = "McCache-for-Python"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,7 +25,7 @@ keyword = [
   "udp",
 ]
 classifiers = [  #! Update me
-  "Development Status :: 2 - Pre-Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
   "Topic :: Software Development :: Libraries :: Python Modules",
@@ -48,36 +51,27 @@ Issues = "https://github.com/McCache/McCache-for-Python/issues"
 # SEE: https://pypa-build.readthedocs.io/en/stable/index.html
 # SEE: https://hatch.pypa.io/latest/config/build/
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [tool.mccache]
 # MUST be in lowercase.
 cache_ttl = 900
 packet_mtu = 1472
 
-[tool.hatch.version]
-path = "src/mccache/__about__.py"
-
-[tool.hatch.envs.types]
-extra-dependencies = [
-  "mypy>=1.0.0",
-]
-[tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:src/mccache tests}"
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.coverage.run]
-source_pkgs = ["mccache", "tests"]
+source_pkgs = ["mccache", "pycache", "tests"]
 branch = true
 parallel = true
 omit = [
   "src/mccache/__about__.py",
+  "src/pycache/__about__.py",
 ]
 
 [tool.coverage.paths]
-mccache = ["src/mccache", "*/mccache/src/mccache", "src/pycache", "*/mccache/src/pycache"]
-tests = ["tests", "*/mccache/tests"]
+mccache = ["src/mccache", "src/pycache"]
+tests = ["tests/unit", "tests/stress"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -86,16 +80,27 @@ exclude_lines = [
   "if TYPE_CHECKING:",
 ]
 
+[tool.hatch.version]
+path = "src/mccache/__about__.py"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/mccache tests}"
+
 [tool.hatch.build]
 include = [
   "LICENSE",
   "README.md",
+  "RELEASES.md",
+  "SECURITY.md",
   "*.py",
 ]
 exclude = [
   ".*",
-  ".gitignore",
-  "pyproject.toml",
   "CODE_OF_CONDUCT.md",
   "CONTRIBUTING.md",
   "tests/",
@@ -103,22 +108,25 @@ exclude = [
 
 [tool.hatch.build.sources]
 "src/mccache" = "mccache"
+"src/pycache" = "pycache"
 
 [[tool.hatch.envs.all.matrix]]
 python = [
   "3.10",
   "3.11",
-  "3.12"
+  "3.12",
+  "3.13"
 ]
 
 [tool.hatch.envs.lint]
 detached = true
 dependencies = [
 # "black>=23.1.0",
-  "blue>=0.9.1",
+# "blue>=0.9.1",
   "mypy>=1.12.1",
   "ruff>=0.0.287",
 ]
+
 [tool.hatch.envs.lint.scripts]
 typing = "mypy --install-types --non-interactive {args:src/mccache tests}"
 style = [
@@ -134,6 +142,14 @@ all = [
   "style",
   "typing",
 ]
+
+[tool.hatch.envs.test]
+dependencies = [
+  "coverage[toml]",
+  "pytest"
+]
+
+[tool.hatch.envs.test.scripts]
 
 [tool.bandit]
 skips = ["B101" ,"B301" ,"B311" ,"B324" ,"B403"]
@@ -211,6 +227,9 @@ ignore = [
   # raw-string-in-exception
   "EM101",
 
+  # Variable should be lowercase
+  "N806",
+
   # explicit-f-string-type-conversion
   "RUF010",
 
@@ -223,11 +242,11 @@ unfixable = [
 ]
 
 [tool.ruff.mccabe]
-max-complexity = 14
+max-complexity = 16
 
 [tool.ruff.pylint]
-max-args = 8
-max-branches = 14
+max-args = 10
+max-branches = 16
 
 [tool.ruff.isort]
 known-first-party = ["mccache"]
@@ -237,4 +256,5 @@ ban-relative-imports = "all"
 
 [tool.ruff.per-file-ignores]
 # Tests can use magic values, assertions, and relative imports
+"src/**/*"   = ["ARG001", "PLR0913", "PLR1730", "RUF019" ]
 "tests/**/*" = ["PLR2004", "S101", "TID252"]

@@ -28,7 +28,7 @@ To activate your `virtualenv` run the following command:
 ```bash
 pipenv  shell
 ```
-Yiu should work from within the virtual environment.
+You should work from within the virtual environment.
 
 We use `hatch` to build and publish this package to [PyPi](https://pypi.org).
 ```bash
@@ -37,7 +37,7 @@ hatch   ...
 ```
 
 ## Formatting Philosophy
-We are polygot developers and we bring non-pythonic best practice to this project.
+We are polyglot developers and we bring non-pythonic best practice to this project.
 We like [PEP8](https://peps.python.org/pep-0008/#a-foolish-consistency-is-the-hobgoblin-of-little-minds) as a starting guideline but will **not** adhere to it if it makes the code harder to read.  Explicitely called out in PEP8 is "**do not break backwards compatibility just to comply with this PEP!**".  The area where we will deviate the most are:
 * Max Line Length:
   * We are defaulting it to 160 but we trust that you exercise good judgement to keep it as short as possible around at 100.
@@ -49,7 +49,7 @@ We like [PEP8](https://peps.python.org/pep-0008/#a-foolish-consistency-is-the-ho
 * Vertical alignment:
   * We believe that vertical align make it easier on the eyes to pick out deltas.  A multi jagged lines require the eyes and brain to perform a lot of scans and processing creating mental fatigue.
 
-For this project, do use follow the project precedence.  We expect you to run your changes through the `ruff` linter before you commit your changes.
+For this project, do use follow the project precedence.  We expect you to run your changes through the `ruff` linter before you commit your changes.  The `ruff` configurations are in the `pyproject.toml` file under the `[tool.ruff]` section.
 
 ## Entrypoint
 We recommend that you read the script [`start_mccache.py`](https://github.com/McCache/McCache-for-Python/blob/main/tests/unit/start_mccache.py) to see how this library is used.  This script is used in the test harness to generate random cache activities in all the member in the test cluster.

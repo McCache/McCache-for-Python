@@ -32,23 +32,31 @@ $ grep  MET  ./log/mccache_debug*log  |  head -1
  extracted the following metric from my test run.
  ```python
 15:46:19.928452860 L#1535 Im:172.18.0.4  MET  15:46:19.917445670  N=  K=  C=
-{   '_process_': {
-         'avgload': (3.35546875 ,3.2646484375 ,3.109375)
-        ,'cputimes': scputimes(user=113111.88 ,nice=4.06 ,system=11364.92 ,idle=1635278.66 ,iowait=137.96 ,irq=0.0 ,softirq=9945.58 ,steal=0.0 ,guest=0.0 ,guest_nice=0.0)
-        ,'meminfo': pmem(rss=709353472 ,vms=949870592 ,shared=10891264 ,text=4096 ,lib=0 ,data=775802880 ,dirty=0)
-        ,'netioinfo': snetio(bytes_sent=56425244 ,bytes_recv=396178095 ,packets_sent=314250 ,packets_recv=2206571 ,errin=0 ,errout=0 ,dropin=0 ,dropout=0)
-    },
+{   'process': {
+        'avgload':  '(0.29345703125, 0.40478515625, 0.22216796875)',
+        'cputimes': 'scputimes(user=532.02, nice=1.07, system=556.2, idle=494926.47, iowait=53.06, irq=0.0, softirq=67.45, steal=0.0, guest=0.0, guest_nice=0.0)',
+        'meminfo':  'pmem(rss=30359552, vms=413962240, shared=10969088, text=4096, lib=0, data=63111168, dirty=0)',
+        'netioinfo':'snetio(bytes_sent=225880, bytes_recv=1130502, packets_sent=1247, packets_recv=6236, errin=0, errout=0, dropin=0, dropout=0)'
+    }
     'mccache': {
-         'count': 119
-        ,'size': 49520
-        ,'spikes': 99094
-        ,'spikeInt': 0.0727
-        ,'misses': 0
-        ,'lookups': 83114
-        ,'inserts': 12978
-        ,'updates': 73257
-        ,'deletes': 12684
-        ,'evicts': 175
+        'count':    227,
+        'deletes':  172,
+        'evicts':   0,
+        'inserts':  399,
+        'lookups':  664,
+        'misses':   0,
+        'size':     38264,
+        'spikeInt': 0.0484,
+        'spikes':   1239,
+        'updates':  668
+    },
+    'mqueue': {
+        'ibq': {'avgsize': 1.76 ,'count': 3095  ,'maxsize': 3,
+                'opc': {'ACK': 1002 ,'DEL': 133 ,'INS': 327 ,'REQ': 18 ,'SYC': 4 ,'UPD': 529}
+        },
+        'obq': {'avgsize': 5.30 ,'count': 33    ,'maxsize': 15,
+                'opc': {'ACK': 989  ,'DEL': 39  ,'INS': 75  ,'REQ': 3  ,'SYC': 1 ,'UPD': 157}
+        }
     }
 }
 ```
@@ -61,6 +69,13 @@ The above have been manually formatted for readability.  For stress testing purp
 | cputimes   | Return system CPU times as a named tuple.<br>Every attribute represents the seconds the CPU has spent in the given mode. |
 | meminfo    | Return memory information about the process as a named tuple. |
 | netioinfo  | Return system-wide network I/O statistics as a named tuple. |
+|**`mqueue`**||
+| ibq.count  | In-bound arrived message count.|
+| ibq.avgsize| In-bound average queue depth inferred from `queue.qsize()`.|
+| ibq.maxsize| In-bound deepest queue depth inferred from `queue.qsize()`.|
+| obq.count  | Out-bound arrived message count.|
+| obq.avgsize| Out-bound average queue depth inferred from `queue.qsize()`.|
+| obq.maxsize| Out-bound deepest queue depth inferred from `queue.qsize()`.|
 |**`mccache`**||
 | count      | The number of cache entries when the metrics was taken. |
 | lookups    | The number of cache lookups. |

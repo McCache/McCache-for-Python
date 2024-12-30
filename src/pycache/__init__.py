@@ -1,27 +1,27 @@
 # See MIT license at the bottom of this script.
 #
-import base64
-import hashlib
-import logging
-import os
-import queue
-import socket
-import sys
-import time
-#
-from collections import OrderedDict
-from collections.abc import Iterable
-from enum import Flag ,IntEnum
-from inspect import getframeinfo, stack
-from threading import Thread ,RLock #,Lock
-from types import ModuleType, FunctionType
-from typing import Any ,Callable
+import  base64
+import  hashlib
+import  logging
+import  os
+import  queue
+import  socket
+import  sys
+import  time
+from    collections     import OrderedDict
+from    collections.abc import Callable, Iterable
+from    enum            import Flag, IntEnum
+from    inspect         import getframeinfo, stack
+from    threading       import RLock, Thread  #,Lock
+from    types           import FunctionType, ModuleType
+from    typing          import Any  #,Callable
 
 # If you are using VS Code, make sure your "cwd" and "PYTHONPATH" is set correctly in `launch.json`:
 #   "cwd": "${workspaceFolder}",
 #   "env": {"PYTHONPATH": "${workspaceFolder}${pathSeparator}src;${env:PYTHONPATH}"},
 #
-from  pycache.__about__ import __app__, __version__ # noqa
+from pycache.__about__ import __app__, __version__  # noqa
+
 
 class EnableMultiCast( Flag ):
     YES = True      # Multicast out the change.
@@ -78,11 +78,11 @@ class Cache( OrderedDict ):
     IP4_ADDRESS = sorted(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET ))[0][4][0]
 
     @classmethod
-    def tsm_version( clz ) -> int:
+    def tsm_version( cls ) -> int:
         return  time.time_ns()
 
     @classmethod
-    def tsm_version_str( clz ,ver: int | None = None ) -> str:
+    def tsm_version_str( cls ,ver: int | None = None ) -> str:
         """
         Conversion the timestamp version from integer to displayable string.  If none is input, anew timestamp version is generated.
 
@@ -93,8 +93,7 @@ class Cache( OrderedDict ):
         """
         if  not ver:
             ver = Cache.tsm_version()
-        tsm = f"{time.strftime('%H:%M:%S' ,time.gmtime( (ver // Cache.ONE_NS_SEC) ))}.{ver % Cache.ONE_NS_SEC:0<9}"
-        return  tsm
+        return  f"{time.strftime('%H:%M:%S' ,time.gmtime( ver // Cache.ONE_NS_SEC))}.{ver % Cache.ONE_NS_SEC:0<9}"
 
     def __init__(self ,other=() ,/ ,**kwargs) -> None:  # NOTE: The / as an argument marks the end of arguments that are positional.
         """Cache constructor.
@@ -347,9 +346,11 @@ class Cache( OrderedDict ):
 
         if isinstance( obj ,dict ):
             size += sum( self._get_size( k ,seen ) + self._get_size( v ,seen ) for k, v in obj.items())
-        elif isinstance( obj ,(list ,tuple ,set ,frozenset)):
+#       elif isinstance( obj ,(list ,tuple ,set ,frozenset)):
+        elif isinstance( obj , list |tuple |set |frozenset ):
             size += sum( self._get_size( i ,seen ) for i in obj)
-        elif isinstance( obj ,(ModuleType ,FunctionType)):
+#       elif isinstance( obj ,(ModuleType ,FunctionType)):
+        elif isinstance( obj , ModuleType |FunctionType ):
             pass  # Ignore modules and functions
 
         return size
@@ -734,14 +735,15 @@ class Cache( OrderedDict ):
         if  self.__ttl > 0:
             _ = self._evict_items_by_ttl()
 
+        with  Cache.CACHE_LOCK: # TODO: Not working!
+            key ,val = super().popitem( last )
+
         if  self.__debug:
             crc = self.__meta[ key ]['crc'] if  key in self.__meta  and 'crc' in self.__meta[ key ] else None
             self._log_ops_msg( opc='POPI' ,tsm=None ,nms=self.__name ,key=key ,crc=crc ,msg='In popitem()')
 
-        with  Cache.CACHE_LOCK: # TODO: Not working!
-            key ,val = super().popitem( last )
-
         self._post_del( key=key ,eviction=False ,queue_out=True )
+
         return (key ,val)
 
     def setdefault(self,
