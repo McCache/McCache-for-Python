@@ -33,15 +33,17 @@ Removing an external dependency in your architecture reduces it's <strong>comple
       <table>
       <thead>
         <tr>
-          <th align="left"><sub>Instance Name</sub></th><th><sub>Term</sub></th><th><sub>Count</sub></th><th><sub>RAM</sub></th><th align="right"><sub>30 days</sub></th></tr>
+          <th align="left"><sub>Instance Name</sub></th><th><sub>Term</sub></th><th><sub>Servers</sub></th><th><sub>RAM</sub></th><th align="right"><sub>30 days</sub></th></tr>
       </thead>
       <tbody>
+        <tr><td colspan=5><sub>Compute instances with McCache</sub></td></tr>
         <tr><td><sub>t3a.small       </sub></td><td><sub>One Year</sub></td>   <td align="center"><sub> 4</sub></td><td><sub>8 Gb</sub></td><td align="right"><sub>    $31.68</sub></td></tr>
         <tr><td colspan=2 align="right"><sub><b>Total</b></sub></td><td align="center"><sub> 4</sub></td><td><sub>8 Gb</sub></td><td align="right"><sub><b>$31.68</b></sub></td></tr>
         <tr><td colspan=5/></tr>
         <tr><td><sub>t3a.medium      </sub></td><td><sub>One Year</sub></td>   <td align="center"><sub> 2</sub></td><td><sub>8 Gb</sub></td><td align="right"><sub>    $34.56</sub></td></tr>
         <tr><td colspan=2 align="right"><sub><b>Total</b></sub></td><td align="center"><sub> 2</sub></td><td><sub>8 Gb</sub></td><td align="right"><sub><b>$34.56</b></sub></td></tr>
         <tr><td colspan=5/></tr>
+        <tr><td colspan=5><sub>Compute instances with External Cache</sub></td></tr>
         <tr><td><sub>t3a.small       </sub></td><td><sub>One Year</sub></td>   <td align="center"><sub> 2</sub></td><td><sub>4 Gb</sub></td><td align="right"><sub>    $15.84</sub></td></tr>
         <tr><td><sub>cache.t4g.medium</sub></td><td><sub>One Year</sub></td>   <td align="center"><sub> 2</sub></td><td><sub>6 Gb</sub></td><td align="right"><sub>    $59.04</sub></td></tr>
         <tr><td colspan=2 align="right"><sub><b>Total</b></sub></td><td align="center"><sub> 4</sub></td><td><sub>10 Gb</sub></td><td align="right"><sub><b>$74.88</b></sub></td></tr>
