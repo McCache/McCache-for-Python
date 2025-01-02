@@ -28,27 +28,29 @@ pip install mccache
 ## Example
 ```python
 import  mccache
+import  datetime
 from    datetime  import  datetime  as  dt
 from    pprint    import  pprint    as  pp
 
 c = mccache.get_cache( 'demo' )
+k = 'k1'
 
-c['key'] = dt.utcnow()  # Insert a cache entry
-print(f"Started at {c['key']}")
+c[ k ] = dt.now( datetime.UTC )   # Insert a cache entry
+print(f"Started at {c[ k ]}")
 
-c['key'] = dt.utcnow()  # Update a cache entry
-print(f"Ended at {c['key']}")
-print(f"Metadata for key is {c.metadata['key']}")
+c[ k ] = dt.now( datetime.UTC )   # Update a cache entry
+print(f"Ended at {c[ k ]}")
+print(f"Metadata for key is {c.metadata[ k ]}")
 
-del c['key']  # Delete a cache entry
-if 'key' not in c:
-    print(f"'key' is not in the cache.")
+del c[ k ] # Delete a cache entry
+if  k  not in c:
+    print(f" {k}  is not in the cache.")
 
-print("At this point all the cache with namespace "demo" in the cluster are identical.")
+print("At this point all the cache with namespace 'demo' in the cluster are identical.")
 
-# Query the local cache metrics and checksum.
-mccache.get_local_metrics( 'demo' ).replace(')' ,')\n')
-pp.pprint( mccache.get_local_checksum( 'demo' ))
+# Query the local cache checksum and metrics.
+pp( mccache.get_local_checksum( 'demo' ))
+pp( mccache.get_local_metrics(  'demo' ))
 ```
 
 In the above example, there is **nothing** different in the usage of `McCache` from a regular Python dictionary.  However, the benefit is in a clustered environment where the other member's cache are kept coherent with the changes to your local cache.

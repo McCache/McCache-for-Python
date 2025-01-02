@@ -717,13 +717,12 @@ def _get_local_checksum( arg: object | None = None ,key: str | None = None ) -> 
 
     try:
         _lock.acquire()
-        cpy = mcc.copy()    # A shallow copy for keeping the keys stable pointing to the original sub-objects.
-        keys = [ key ] if key else sorted( cpy.keys() )
+        keys = [ key ] if key else sorted( mcc.keys() )
         # NOTE: Don't dump the raw data out for security reason.
-        crcs = { k:{'crc': base64.b64encode( cpy.metadata[k]['crc'] ).decode()[:-2], # NOTE: Without '==' padding.
-                    'tsm': f"{time.strftime('%H:%M:%S' ,time.gmtime( cpy.metadata[k]['tsm']//ONE_NS_SEC) )}.{cpy.metadata[k]['tsm']%ONE_NS_SEC:0<8}",
+        crcs = { k:{'crc': base64.b64encode( mcc.metadata[k]['crc'] ).decode()[:-2], # NOTE: Without '==' padding.
+                    'tsm': f"{time.strftime('%H:%M:%S' ,time.gmtime( mcc.metadata[k]['tsm']//ONE_NS_SEC) )}.{mcc.metadata[k]['tsm']%ONE_NS_SEC:0<8}",
                     }
-                    for k in keys if k in cpy.metadata}
+                    for k in keys if k in mcc.metadata}
     finally:
         _lock.release()
 

@@ -28,17 +28,11 @@ To activate your `virtualenv` run the following command:
 ```bash
 pipenv  shell
 ```
-You should work from within the virtual environment.
-
-We use `hatch` to build and publish this package to [PyPi](https://pypi.org).
-```bash
-hatch   build
-hatch   ...
-```
+You should work from within the virtual environment at the root directory of the project.
 
 ## Formatting Philosophy
 We are polyglot developers and we bring non-pythonic best practice to this project.
-We like [PEP8](https://peps.python.org/pep-0008/#a-foolish-consistency-is-the-hobgoblin-of-little-minds) as a starting guideline but will **not** adhere to it if it makes the code harder to read.  Explicitely called out in PEP8 is "**do not break backwards compatibility just to comply with this PEP!**".  The area where we will deviate the most are:
+We like [PEP8](https://peps.python.org/pep-0008/#a-foolish-consistency-is-the-hobgoblin-of-little-minds) as a starting guideline but will **not** adhere to it if it makes the code harder to read.  Explicitly called out in PEP8 is "**do not break backwards compatibility just to comply with this PEP!**".  The area where we will deviate the most are:
 * Max Line Length:
   * We are defaulting it to 160 but we trust that you exercise good judgement to keep it as short as possible around at 100.
 * Whitespaces:
@@ -78,9 +72,9 @@ vulture      ./src/mccache/*.py  # Dead code scanner.
 
 ### Tests
 
-You can run the following command to unit test the code.
+You can run the following command to stress test `McCache`.
 ```bash
-./tests/run_unit_test
+./tests/run_test
 ```
 
 ### Before submitting
@@ -94,8 +88,39 @@ Before submitting your code please do the following steps:
 1. Run the steps outline above from the **`Checks`** section to ensure that types, security and docstrings are okay.
 1. Run the steps outline above from the **`Tests`** section to ensure that we did not break functionality.
 
-## Other help
+## Deployment
+Once the code is tested, you can install `McCache` into your local environment with the following command:
+```bash
+pip uninstall  mccache
+pip   install -e  .
+```
 
+Check the local installation with the following command:
+```bash
+pip list | grep -iE "McCache|Version"
+```
+You should get an output similar to the following:
+```
+Package           Version     Editable project location
+McCache           0.4.0       C:\Work\Dev\McCache-for-Python
+```
+
+We use `hatch` to build and publish this package to [PyPi](https://pypi.org).  Run the following command from the root directory of the `McCache` project:
+```bash
+hatch   clean
+hatch   build
+```
+The above will create a sub-directory named `dist` under the project root directory.  Check the build with the following command:
+```bash
+ls -n ./dist
+```
+You should get an output similar to the following:
+```
+-rw-r--r-- 1 197609 197609 51643 Dec 30 15:04 mccache-0.4.0-py3-none-any.whl
+-rw-r--r-- 1 197609 197609 48103 Dec 30 15:04 mccache-0.4.0.tar.gz
+```
+
+## Other help
 You can contribute by spreading a word about this library.
 It would also be a huge contribution to write a short article on how you are using this project.
 You can also share your best practices with us.
