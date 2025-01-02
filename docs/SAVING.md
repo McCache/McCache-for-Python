@@ -42,25 +42,32 @@ Removing an external dependency in your architecture reduces it's <strong>comple
         <tr><td colspan=5/></tr>
         <tr><td><sub>t3a.medium      </sub></td><td><sub>One Year</sub></td>   <td align="center"><sub> 2</sub></td><td><sub>8 Gb</sub></td><td align="right"><sub>    $34.56</sub></td></tr>
         <tr><td colspan=2 align="right"><sub><b>Total</b></sub></td><td align="center"><sub> 2</sub></td><td><sub>8 Gb</sub></td><td align="right"><sub><b>$34.56</b></sub></td></tr>
-        <tr><td colspan=5/></tr>
         <tr><td colspan=5><sub>Compute instances with External Cache</sub></td></tr>
         <tr><td><sub>t3a.small       </sub></td><td><sub>One Year</sub></td>   <td align="center"><sub> 2</sub></td><td><sub>4 Gb</sub></td><td align="right"><sub>    $15.84</sub></td></tr>
         <tr><td><sub>cache.t4g.medium</sub></td><td><sub>One Year</sub></td>   <td align="center"><sub> 2</sub></td><td><sub>6 Gb</sub></td><td align="right"><sub>    $59.04</sub></td></tr>
         <tr><td colspan=2 align="right"><sub><b>Total</b></sub></td><td align="center"><sub> 4</sub></td><td><sub>10 Gb</sub></td><td align="right"><sub><b>$74.88</b></sub></td></tr>
-        <tr><td colspan=5/></tr>
-        <tr><td colspan=5><sub>Single Python 3.11 memory footprint while idling:<br><pre>
-$ python -c 'import time; time.sleep(60)' &
-$ sleep  20
-$ ps aux |grep python \
- |awk '{sum=sum+$6}; END {print sum/1024 " MB"}'
-192.978 MB
-        </pre></sub></td></tr>
       </tbody>
       </table>
     </sub></td>
   </tr>
-</tbody>
+  </tbody>
 </table>
 
+##### Single Python 3.12 memory footprint (RSS) while idling:
+```bash
+$ python -c 'import time; time.sleep(60)' &
+$ sleep  20
+$ ps aux |grep python \
+ |awk '{sum=sum+$6}; END {print "\n" sum/1024 " MB"}'
+
+10.054 MB
+```
+##### Single Python 3.12 memory footprint (RSS) while running the stress test caching `datetime` object:
+```
+$ ps aux |grep python \
+ |awk '{sum=sum+$6}; END {print "\n" sum/1024 " MB"}'
+
+37.445 MB
+```
 
 For example, a minimum small cluster of two `t3a.medium` instances, for your backend application, should have plenty of available memory for caching as compared to having an additional dedicated cluster of `cache.m6g.medium` instances for caching.
