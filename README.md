@@ -180,6 +180,15 @@ The following are environment variables you can tune to fit your production envi
         Tune this number down to add stress to the test.</td>
   </tr>
   <tr>
+    <td><sub>TEST_DATA_SIZE_MIX</sub></td>
+    <td>1</td>
+    <td>The data packet size mix.<br>
+    <b>1</b>: Cache small objects where size < 1Kb.<br>
+    <b>2</b>: Cache large 10K objects where size > 10Kb.<br>
+    <b>3</b>: Random mix of small and large objects.<br>
+    Tune this number to 2 to add stress to the test.</td>
+  </tr>
+  <tr>
     <td><sub>TEST_RUN_DURATION</sub></td>
     <td>5 min</td>
     <td>The duration in minutes of the testing run. <br>
