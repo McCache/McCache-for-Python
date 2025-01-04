@@ -119,7 +119,7 @@ The following are environment variables you can tune to fit your production envi
   </tr>
   <tr>
     <td><sub>MCCACHE_CACHE_SIZE</sub></td>
-    <td>1,048,576 bytes</td>
+    <td>8,388,608 bytes</td>
     <td>The maximum size for the cache.</td>
   </tr>
   <tr>
