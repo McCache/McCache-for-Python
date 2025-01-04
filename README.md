@@ -83,7 +83,7 @@ We suggest the following testing to collect metrics of your application running 
 3. Configure to enable the debug logging by providing a path for your log file.
 4. Run your application for an extended period and exit.
 5. Log the summary metric out to be analyze.
-5. Review the metrics to quantify the fit to your application and environment.  **SEE**: [Testing](https://github.com/McCache/McCache-for-Python/blob/main/TESTING.md#Container)
+5. Review the metrics to quantify the fit to your application and environment.  **SEE**: [Testing](https://github.com/McCache/McCache-for-Python/blob/main/docs/TESTING.md#container)
 
 ## Saving
 Removing an external dependency in your architecture reduces it's <strong>complexity</strong> and not to mention some cost saving.<br>
