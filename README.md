@@ -319,7 +319,7 @@ if 'k' in c.metadata:
 Different cloud provider uses different size.
 
 ## Background Story
-* SEE: [Background story](https://github.com/McCache/McCache-for-Python/blob/main/BACKGROUND.md).
+* SEE: [Background story](https://github.com/McCache/McCache-for-Python/blob/main/docs/BACKGROUND.md).
 
 ## Releases
 Releases are recorded [here](https://github.com/McCache/McCache-for-Python/issues).
