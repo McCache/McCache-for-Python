@@ -109,11 +109,11 @@ The machine is rebooted before each set of test runs and is dedicated to run the
 #### Command used
 Bash shell:
 ```bash
-$ tests/run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 10 -T 4
+$ tests/run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 10 -T 4 -s 1048576
 ```
 Windows Command Prompt:
 ```cmd
-$ tests\run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 10 -T 4
+$ tests\run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 10 -T 4 -s 1048576
 ```
 The CLI parameters are:
 |Flag  |Description             |Default|Unit   |Comment    |
@@ -129,7 +129,7 @@ The CLI parameters are:
 |`-T #`|Monkey tantrum.         |      0|Percent|Percent of dropped packets. 0=Disabled.|
 |`-t #`|Time-to-live.           |   3600|Second |           |
 |`-e #`|Maximum cache entries.  |    256|Entries|           |
-|`-s #`|Maximum cache storage.  |1048576|Bytes  |           |
+|`-s #`|Maximum cache storage.  |8388608|Bytes  |           |
 |`-p #`|Cache sync pulse.       |      5|Second |           |
 |`-w #`|Callback spike window.  |      0|Second |           |
 * The test script that is used to pound the cache can be viewed [here](https://github.com/McCache/McCache-for-Python/blob/main/tests/unit/start_mccache.py).
@@ -205,7 +205,7 @@ The results below are collected from testing output `result.txt` file and the `d
 
 ### Duration Stress Test Result
 ```bash
-$ tests/run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 480 -T 4
+$ tests/run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 480 -T 4 -s 1048576
 ```
 |<sub><br>Run</sub>|<sub>-C #<br>Nodes</sub>|<sub>-K #<br>Keys</sub>|<sub>-A #<br>Aperture</sub>|<sub>-R #<br>Duration</sub>|<sub><br>Result</sub>|<sub>Avg<br>Snooze</sub>|<sub>Avg<br>SpikeHits</sub>|<sub>Avg<br>SpikeInt</sub>|<sub>Avg&nbsp;InQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg&nbsp;OutQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg<br>LookUps</sub>|<sub>Avg<br>Inserts</sub>|<sub>Avg<br>Updates</sub>|<sub>Avg<br>Deletes</sub>|<sub>Avg<br>Evicts</sub>|<sub><br>Comment</sub>|
 |:------|---:|---:| ----:|---:|:----------------------------:|-----:|------:|-----:|:---------:|:---------:|--------:|----------:|----------:|----------:|---:|:-|

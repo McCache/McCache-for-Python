@@ -216,7 +216,7 @@ class McCacheConfig:
     cache_ttl: int      = 3600          # Total Time to Live in seconds for a cached entry.
                                         # SEE: https://dev.acquia.com/blog/how-choose-right-cache-expiry-lifetime
     cache_max: int      = 256           # Max entries threshold for triggering entries eviction.
-    cache_size: int     = 256*4096      # Max size in bytes threshold for triggering entries eviction.
+    cache_size: int     = 256*4096*8    # Max size in bytes threshold for triggering entries eviction.
     cache_pulse:int     = 5             # Cache synchronization heartbeat pulse in minutes.
     cache_sync_mode: int= 1             # Cache consistent syncing mode.  0=Partial sync ,1=Full sync.
     cache_sync_on: float= 0.0           # Cache last synchronized time from this node to the members.
