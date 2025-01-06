@@ -21,9 +21,9 @@ It took so long because there was slew of very subtle bugs in both the cache imp
 * Memory leak.
 * Race condition.
 
-It is a very satisfactory project for we came up with our original implementation before we found articles through Google search.
+It is a very satisfying project for we came up with our original design and implementation before we found suggestions through Google search.
 
-Peeking into the future, we may consider porting this to other languages.  If we do, we do not want to  re-writing the core `McCache` for every language we are interested in.  Therefore, we have to consider building the core `McCache` with a memory safe system language and provide the bindings to the other languages.  The following are some candidate system language to consider:
+Peeking into the future, we may consider porting this to other languages.  If we ever decide to, we **do not** want to  re-writing the core `McCache` for every language we are interested in.  Therefore, we have to consider building the core `McCache` with a memory safe system language and provide the bindings to the other languages.  The following are some candidate system language to consider:
 * [C/C++](https://www.boost.org/) - The Boost library is great.
 * [Rust](https://www.rust-lang.org/) - Trending upwards in the Python world.
 * [V](https://vlang.io/) - Nice readable syntax with co-routines that compile fast.

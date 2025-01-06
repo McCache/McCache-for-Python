@@ -126,8 +126,8 @@ BIG_DATA = {
     'key': None,
     'name': fake.name(),
     'address': fake.address(),
-    'text': fake.text( max_nb_chars=10240 ),    # 10K
-    'dates':[ {time.time_ns() : datetime.datetime.now(datetime.UTC)} for _ in range(128) ], # List of dicts.
+    'text': fake.text( max_nb_chars=9216 ), # 9K
+    'dates':[ {time.time_ns() : datetime.datetime.now(datetime.UTC)} for _ in range(8) ], # List of dicts.
     'updated_on': None,
     'counter': None
 }
@@ -155,13 +155,12 @@ frg = '{'+'frg:0{l}'.format( l=len(str( entries )))+'}'
 
 # Random test section.
 #
-msg = f"Config: Seed={rndseed:3}  ,Cluster={cluster} ,Entries={entries} ,Pulse={syncpulse}m ,Aperture={aperture}s ,Duration={duration}m ,CBackWin={callbackw}s"
+msg = f"Config: Seed={rndseed:3}  ,Cluster={cluster} ,Entries={entries} ,DataMix={datamix} ,Pulse={syncpulse}m ,Aperture={aperture}s ,Duration={duration}m ,CBackWin={callbackw}s"
 if  mc._mcConfig.debug_level < mc.McCacheDebugLevel.BASIC:
     mc.logger.info( f'Im:{mc.SRC_IP_ADD:11} {msg}' )
 else:
     mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.FYI ,tsm=cache.tsm_version() ,nms=cache.name ,msg=msg )
 
-#debug
 dg1:int = datetime.datetime.now().minute
 
 scl = 1 # The number of digits to the right of the decimal.

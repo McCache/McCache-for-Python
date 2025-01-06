@@ -362,7 +362,7 @@ def clear_cache( name: str | None = None ) -> None:
     _mcOBQueue.put((OpCode.RST ,PyCache.tsm_version() ,name ,None ,None ,None ,None))
     _mcOBQueue.put((OpCode.INQ ,PyCache.tsm_version() ,name ,None ,None ,None ,None))
 
-def get_cluster_metrics( node: str | None = None ) -> None:
+def get_cluster_metrics( name: str | None = None ,node: str | None = None ) -> None:
     """Inquire the metrics for all the distributed caches.
 
     Queue the `MET` operation into the cluster.
@@ -376,10 +376,10 @@ def get_cluster_metrics( node: str | None = None ) -> None:
     """
     # TODO: Rethink querying local and all nodes.
     if  node and node not in _mcMember and node not in _mySelf:
-        logger.error(f"Input node: {node} does not exist in the cluster.")
+        logger.error(f"Node: {node} does not exist in the cluster.")
         return
 
-    _mcOBQueue.put((OpCode.MET ,PyCache.tsm_version() ,None ,None ,None ,None ,node))
+    _mcOBQueue.put((OpCode.MET ,PyCache.tsm_version() ,name ,None ,None ,None ,node))
 
 def get_local_metrics( name: str | None = None ) -> dict:
     """Inquire the local cache metrics.
@@ -820,6 +820,7 @@ def _make_pending_ack( key_t: tuple ,val_t: tuple ,members: dict | str ,frame_si
         }
     Raise:
         BufferError:    When the serialized key or value size is greater than unsigned two bytes.
+        OverflowError:  When the serialized key or value resulted in more than 255 fragments.
     """
     tsm: int = key_t[ 2 ]                   # 8 bytes unsigned nanoseconds for timestamp.
     key_b: bytes = pickle.dumps( key_t )    # Serialized the key.
@@ -841,6 +842,24 @@ def _make_pending_ack( key_t: tuple ,val_t: tuple ,members: dict | str ,frame_si
     pay_s: int = len( pay_b )
     frg_m: int = frame_size - HEADER_SIZE # Max frame size.
     frg_c: int = int( pay_s / frg_m) +1
+
+    if  frg_c > 255:
+        # NOTE: Message too large resulted in more than 255 fragments.
+        nms: str    = key_t[0] # Namespace
+        key: object = key_t[1] # Key
+        mcc: dict   = get_cache( nms )
+        # Delete it locally and multicast it out.
+        try:
+            mcc.__delitem__( key ,tsm ,EnableMultiCast.YES )
+        except  KeyError:
+            #   Deep Tracing
+            if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
+                opc: str = val_t[0] # Op Code
+                crc: str = val_t[1] # Checksum
+                _log_ops_msg( logging.DEBUG ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc
+                                            ,msg=f">   {key} no longer exist to be fragmented out for transmission!" )
+
+        raise OverflowError(f"Message too large. {pay_b} bytes in {frg_c} fragments.")
 
     ack = { 'tsm': tsm,
             'opc': val_t[0],
@@ -1451,7 +1470,7 @@ def process_UPD( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,
                         del   _mcPending[ pky_t ]
                 except  KeyError:   # NOTE: Got deleted in another thread.
                     #   Deep Tracing
-                    if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLUOUS and lts:
+                    if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA and lts:
                         crccmp = __get_msgcomp( lcs ,crc )
                         tsmcmp = __get_msgcomp( lts ,tsm )
                         _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,prvcrc=lcs ,tsmcmp=tsmcmp ,crccmp=crccmp
