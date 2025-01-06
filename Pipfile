@@ -44,8 +44,9 @@ pytest = ">=7.4.3"              # Unit testing framework.
 pytest-bdd = ">=7.0.1"          # Subset of Gherkin language for Behavioral Driven Development.
 pytest-docker = ">=2.0.1"       # Docker based image testing.
 py-spy = ">=0.3.14"             # Sampling profiler for Python programs.
+twine = ">=6.0.1"               # Package uploader for PyPI/TestPyPi.
 coverage = ">=7.3.1"            # Measure code coverage.
-hatch = ">=1.13"               # The build tool.
+hatch = ">=1.13"                # The build tool.
 
 [requires]
 python_version = ">=3.12.5"     # McCache uses Structured Pattern Matching.

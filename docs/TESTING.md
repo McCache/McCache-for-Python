@@ -243,6 +243,7 @@ The following is a snapshot of the Docker containers running a stress test.  SEE
 ### Observations
 * As more stress is applied to the cache, the outbound queue starts to back up.  This is by designed as long as it is not too deep and only you can decided how deep is acceptable.
     * Stress is generated from the increased number of nodes plus a high frequency (snooze < **0.05** second, **50** ms).
+* The larger the object to cache, the higher the latency to sync the other members in the cluster.  Many more packets need to be transmitted plus the processing overhead.
 * More detail logging will require more processing.  The tests disable logging with the `-L 0` CLI option.
 * The more nodes, the longer it takes to for the other nodes to receive message.  **5** nodes have about **8** seconds latency when tested with very high frequency updates (<= `0.005` ms snooze).
 * Anecdotally, it does **not** look like `time.sleep( 0.0001 )` can yield accurate precision.
