@@ -187,7 +187,7 @@ The following are environment variables you can tune to fit your production envi
     <td>1</td>
     <td>The data packet size mix.<br>
     <b>1</b>: Cache small objects where size < 1Kb.<br>
-    <b>2</b>: Cache large 10K objects where size > 10Kb.<br>
+    <b>2</b>: Cache large objects where size > 9Kb.<br>
     <b>3</b>: Random mix of small and large objects.<br>
     Tune this number to 2 to add stress to the test.</td>
   </tr>
