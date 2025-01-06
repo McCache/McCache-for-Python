@@ -234,6 +234,7 @@ export MCCACHE_MTU=1472
 SET MCCACHE_TTL=900
 SET MCCACHE_MTU=1472
 ```
+Environment variables supersede the setting in the `pyproject.toml` file.
 
 ## Design
 * SEE: [Design gist](https://github.com/McCache/McCache-for-Python/blob/main/docs/DESIGN.md).
