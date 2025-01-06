@@ -235,6 +235,9 @@ SET MCCACHE_TTL=900
 SET MCCACHE_MTU=1472
 ```
 
+## Design
+* SEE: [Design gist](https://github.com/McCache/McCache-for-Python/blob/main/docs/DESIGN.md).
+
 ## Background Story
 * SEE: [Background story](https://github.com/McCache/McCache-for-Python/blob/main/docs/BACKGROUND.md).
 
