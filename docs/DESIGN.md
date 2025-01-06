@@ -46,10 +46,6 @@ Furthermore, we are experimenting with a lockless design.  Locks are needed when
   3. Cache **time-to-live** expiration will eventually flush the entire cache down to empty is an inactive environment.
   4. Sync heart beat to check for cache consistency.  In an edge case, a race condition could result in a new inconsistent just after a sync up but the latest entry should have been multicast out tho the members in cluster.
 
-## Load balancer
-* We recommend to use sticky session load balancer.
-* <b>SEE</b>: <a href="https://www.youtube.com/watch?v=hTp4czOrvOY">Enabling Sticky Sessions</a>
-
 ## Limitation
 * Even though the latency is low, it will **eventually** be consistent.  There is a very micro chance that an event can slip in just after the cache is read with the old value.  You have the option to pass in callback function to `McCache` for it to invoke if a change to the value of your cached object have changed within one second ago.  The other possibility is to perform a manual check.  The following is a code snippet that illustrate both approaches:
 
@@ -77,3 +73,7 @@ if 'k' in c.metadata:
 * The clocks in a distributed environment is never as accurate (due to clock drift) as we want it to be in a high update environment.  On a Local Area Network, the accuracy could go down to 1ms but 10ms is a safer assumption.  SEE: [NTP](https://timetoolsltd.com/ntp/ntp-timing-accuracy/) and [PTP](https://en.wikipedia.org/wiki/Precision_Time_Protocol)
 
 * The maximum size of your message shall be **255** multiple by the `packet_mtu` size set in the configuration.  If your object to be cached span more than 255 fragments, it will be evicted from your local cache and the eviction shall be propagated to the rest of the members in the cluster.
+
+## Load balancer
+* We recommend to use sticky session load balancer.
+* <b>SEE</b>: <a href="https://www.youtube.com/watch?v=hTp4czOrvOY">Enabling Sticky Sessions</a>
