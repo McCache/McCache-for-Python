@@ -2,12 +2,12 @@
 ## Architecture Diagram
 ### Centralized implementation
 A centralize caching architecture shall be a remote server providing the caching service.
-![Centralized Architecture](docs/Centralize%20Architecture.png)
+![Centralized Architecture](Centralize%20Architecture.png)
 * <sub>This diagram is generated at https://www.eraser.io/diagramgpt.  I am in need of some help in the art department</sub>.
 
 ### McCache implementation
 `McCache` attempt to keep the cache in the other members in the cluster in sync with each other.
-![McCache Architecture](docs/McCache%20Architecture.png)
+![McCache Architecture](McCache%20Architecture.png)
 * <sub>This diagram is generated at https://www.eraser.io/diagramgpt.  I am in need of some help in the art department</sub>.
 
 ## Design Gist
