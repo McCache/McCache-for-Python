@@ -1,4 +1,4 @@
-<h1><a href="https://github.com/McCache/McCache-for-Python/blob/main/README.md"><img src="https://github.com/McCache/McCache-for-Python/blob/main/docs/McCache%20Logo.png" width="200" height="200" alt="McCache for Python"></a>
+<h1><a href="https://github.com/McCache/McCache-for-Python/blob/main/README.md"><img src="https://github.com/McCache/McCache-for-Python/blob/main/docs/McCache%20Logo.png?raw=true" width="200" height="200" alt="McCache for Python"></a>
 <br><sub>This package is still under development.</sub>
 </h1>
 <!--  Not working in GitHub
