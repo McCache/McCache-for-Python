@@ -23,10 +23,10 @@ It took so long because there was slew of very subtle bugs in both the cache imp
 
 It is a very satisfying project for we came up with our original design and implementation before we found suggestions through Google search.
 
-Peeking into the future, we may consider porting this to other languages.  If we ever decide to, we **do not** want to  re-writing the core `McCache` for every language we are interested in.  Therefore, we have to consider building the core `McCache` with a memory safe system language and provide the bindings to the other languages.  The following are some candidate system language to consider:
-* [C/C++](https://www.boost.org/) - The Boost library is great.
-* [Rust](https://www.rust-lang.org/) - Trending upwards in the Python world.
-* [V](https://vlang.io/) - Nice readable syntax with co-routines that compile fast.
+Peeking into the future, we may consider porting this to other languages.  If we ever decide to, we **do not** want to  re-writing the core `McCache` for every language we are interested in.  Therefore, we have to consider building the core `McCache` with a memory safe system language and provide the bindings to the other languages.  Furthermore, having the core written is a system language should also give us some performance gain.  The following are some candidate system language to consider:
+* [C/C++](https://www.boost.org/) - The Boost library is great.  The old faithful.
+* [Rust](https://www.rust-lang.org/) - Trending upwards in the Python world.  The current champ.
+* [V](https://vlang.io/) - Nice readable syntax with co-routines that compile fast.  The new contender.
 
 [Swig](https://www.swig.org/) is a candidate tool to generate the bindings for the popular languages such as:
 * C#
