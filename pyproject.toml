@@ -8,7 +8,7 @@ authors = [
 maintainers = [
   { name="Edward Lau", email="elau1004@netscape.net" },
 ]
-description = "McCache-for-Python"
+description = "McCache is a, write through cluster aware, local in-memory caching library."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
