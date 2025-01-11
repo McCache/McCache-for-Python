@@ -120,6 +120,23 @@ You should get an output similar to the following:
 -rw-r--r-- 1 197609 197609 48103 Dec 30 15:04 mccache-0.4.0.tar.gz
 ```
 
+Once everything is checked out, you can manually deploy this `McCache` package to the `PyPi` repository.  First you should test the deploy to `TestPyPi` before you deploy it  to `PyPi`.
+The following configuration is in the `pyproject.toml` file.
+```toml
+[tool.hatch.publish.testpypi]
+repository = "https://test.pypi.org/legacy/"
+username = "__token__"
+password = "Ask the maintainer for the API code for the McCache package."
+```
+
+Run the following command to publish the package.
+```Unix
+# Publish to PyPi production repository
+twine  upload --repository-url https://upload.pypi.org/legacy/  dist/*
+```
+
+
+
 ## Other help
 You can contribute by spreading a word about this library.
 It would also be a huge contribution to write a short article on how you are using this project.

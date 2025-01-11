@@ -1,4 +1,6 @@
-# McCache for Python<br><sub>This package is still under development.</sub>
+<h1><a href="https://github.com/McCache/McCache-for-Python/blob/main/README.md"><img src="https://github.com/McCache/McCache-for-Python/blob/main/docs/McCache%20Logo.png" width="200" height="200" alt="McCache for Python"></a>
+<br><sub>This package is still under development.</sub>
+</h1>
 <!--  Not working in GitHub
 <style scoped>
 table {
@@ -6,6 +8,7 @@ table {
 }
 </style>
 -->
+
 ## Overview
 `McCache` is a, write through cluster aware, local in-memory caching library that is build on Python's [`OrderedDict`](https://docs.python.org/3/library/collections.html#collections.OrderedDict) package.  A local cache lookup is faster than retrieving it across a network.
 It uses **UDP** multicast as the transport hence the name "Multi-Cast Cache", playfully abbreviated to "`McCache`".
@@ -62,7 +65,7 @@ In the above example, there is **nothing** different in the usage of `McCache` f
 The following are some loose guidelines to help you assess if the `McCache` library is right for your project.
 
 * You have a need to **not** depend on external caching service.
-* You want to keep the programming **consistency** of Python.
+* You want to keep the programming **consistency** of a Python dictionary.
 * You have a **small** cluster of identically configured nodes.
 * You have a **medium** size set of objects to cache.
 * Your cached objects do not mutate **frequently**.
@@ -73,9 +76,8 @@ The following are some loose guidelines to help you assess if the `McCache` libr
 The adjectives used above have been intended to be loose and should be quantified to your environment and needs.<br>
 **SEE**: [Testing](https://github.com/McCache/McCache-for-Python/blob/main/docs/TESTING.md)
 
-## Not convince yet?
 You can review the script used in the stress test.<br>
-**SEE**: [Test script](https://github.com/McCache/McCache-for-Python/blob/main/tests/unit/start_mccache.py)<br>
+**SEE**: [Test script](https://github.com/McCache/McCache-for-Python/blob/main/tests/unit/start_mccache.py)
 
 You should clone this repo down and run the test in a local `docker`/`podman` cluster.<br>
 **SEE**: [Contributing](https://github.com/McCache/McCache-for-Python/blob/main/CONTRIBUTING.md#Tests)
@@ -89,7 +91,7 @@ We suggest the following testing to collect metrics of your application running 
 5. Review the metrics to quantify the fit to your application and environment.  **SEE**: [Testing](https://github.com/McCache/McCache-for-Python/blob/main/docs/TESTING.md#container)
 
 ## Saving
-Removing an external dependency in your architecture reduces it's <strong>complexity</strong> and not to mention some cost saving.<br>
+Removing an external dependency in your architecture reduces it's <strong>complexity</strong> and not to mention some capital cost saving.<br>
 **SEE**: [Cloud Savings](https://github.com/McCache/McCache-for-Python/blob/main/docs/SAVING.md)
 
 ## Configuration
