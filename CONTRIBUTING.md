@@ -154,6 +154,7 @@ hatch  publish -r test   dist/
 # Publish ONLY the wheel file to Pypi using Hatch.
 hatch  publish -r main   dist/
 ```
+Make sure you do **ONLY** publish the `wheel` file up to the repository.
 
 SEE: https://hatch.pypa.io/1.9/publish/
 
