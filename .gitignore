@@ -124,6 +124,7 @@ fabric.properties
 __pycache__/
 *.py[cod]
 *$py.class
+pyproject.toml
 
 # C extensions
 *.so
