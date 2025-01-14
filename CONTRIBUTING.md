@@ -78,11 +78,12 @@ vulture ./src/mccache/*.py  # Dead code scanner.
 ### Tests
 You can run the following command to **unit** test `PyCache`.
 ```bash
-pytest  ./tests/unit/test_cache.py
+pytest  ./tests/unit/test_pycache.py
 ```
+
 You may need to set your `PYTHONPATH` to pick up the packages to test.  Try setting it as follows:
 ```bash
-PYTHONPATH="Path/to/our/source/root/directory"
+PYTHONPATH="Path/to/your/source/root/directory"
 ```
 
 You can run the following script to **stress** test `McCache`.
