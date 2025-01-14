@@ -12,16 +12,18 @@ description = "McCache is a, write through cluster aware, local in-memory cachin
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-keyword = [
+keywords = [
   "cache",
   "cluster",
   "distributed",
   "eventual",
+  "local",
   "mccache",
   "multicast",
   "optimistic",
   "performance",
   "scale-out",
+  "scale-up",
   "udp",
 ]
 classifiers = [  #! Update me
@@ -40,45 +42,18 @@ classifiers = [  #! Update me
 dependencies = [
   "psutil>=5.9.5"
 ]
-
-
 [project.urls]
 Homepage = "https://github.com/McCache/McCache-for-Python"
 Source = "https://github.com/McCache/McCache-for-Python"
 Issues = "https://github.com/McCache/McCache-for-Python/issues"
 
-
 # SEE: https://pypa-build.readthedocs.io/en/stable/index.html
 # SEE: https://hatch.pypa.io/latest/config/build/
 
-[tool.mccache]
-# MUST be in lowercase.
-cache_ttl = 900
-packet_mtu = 1472
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.coverage.run]
-source_pkgs = ["mccache", "pycache", "tests"]
-branch = true
-parallel = true
-omit = [
-  "src/mccache/__about__.py",
-  "src/pycache/__about__.py",
-]
-
-[tool.coverage.paths]
-mccache = ["src/mccache", "src/pycache"]
-tests = ["tests/unit", "tests/stress"]
-
-[tool.coverage.report]
-exclude_lines = [
-  "no cov",
-  "if __name__ == .__main__.:",
-  "if TYPE_CHECKING:",
-]
 
 [tool.hatch.version]
 path = "src/mccache/__about__.py"
@@ -104,11 +79,43 @@ exclude = [
   "CODE_OF_CONDUCT.md",
   "CONTRIBUTING.md",
   "tests/",
+  "pyproject.toml"
 ]
 
 [tool.hatch.build.sources]
 "src/mccache" = "mccache"
 "src/pycache" = "pycache"
+
+[tool.hatch.build.targets.sdist]
+ignore-vcs = true
+include = [
+  "docs/",
+  "src/",
+  "tests/",
+  "pyproject.toml.sample",
+]
+exclude = [
+  "pyproject.toml"
+]
+
+# SEE: https://hatch.pypa.io/latest/how-to/publish/repo/
+# Set  HATCH_INDEX_REPO envar.
+# Set  HATCH_INDEX_USER envar.
+# Set  HATCH_INDEX_AUTH envar.
+#
+[tool.hatch.publish]
+test = { url = "https://test.pypi.org/legacy/"  , username = "mccache", password = "Ask the test maintainer." }
+main = { url = "https://upload.pypi.org/legacy/", username = "mccache", password = "Ask the main maintainer." }
+
+[tool.hatch.publish.testpypi]
+repository = "https://test.pypi.org/legacy/"
+username = "__token__"
+password = "pypi-Ask the maintainer for the test token!"
+
+[tool.hatch.publish.mainpypi]
+repository = "https://upload.pypi.org/legacy/"
+username = "__token__"
+password = "pypi-Ask the maintainer for the main token!"
 
 [[tool.hatch.envs.all.matrix]]
 python = [
@@ -150,6 +157,27 @@ dependencies = [
 ]
 
 [tool.hatch.envs.test.scripts]
+
+[tool.coverage.run]
+source_pkgs = ["mccache", "pycache", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/mccache/__about__.py",
+  "src/pycache/__about__.py",
+]
+
+[tool.coverage.paths]
+mccache = ["src/mccache", "src/pycache"]
+tests = ["tests/unit", "tests/stress"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
+
 
 [tool.bandit]
 skips = ["B101" ,"B301" ,"B311" ,"B324" ,"B403"]

@@ -12,7 +12,7 @@ import pytest
 
 from collections import OrderedDict
 from datetime import datetime
-from mccache.pycache import Cache
+from pycache import Cache
 
 # SEE: https://docs.python.org/3/library/stdtypes.html#dict
 #
