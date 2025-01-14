@@ -11,7 +11,7 @@ import time
 import pytest
 
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime ,timezone
 from pycache import Cache
 
 # SEE: https://docs.python.org/3/library/stdtypes.html#dict
@@ -30,14 +30,14 @@ class   TestCache:
         """Test basic initialization
         """
         c = Cache()
-        assert  c.name  == 'default'    ,f"Expect   'name'      should be 'default' ,but actual is {c.name}"
-        assert  c.maxlen    == 256      ,f"Expect   'max'       should be 256       ,but actual is {c.maxlen}"
-        assert  c.maxsize   == 256*1024 ,f"Expect   'size'      should be 65536     ,but actual is {c.maxsize}"
-        assert  c.ttl       == 0        ,f"Expect   'ttl'       should be 0         ,but actual is {c.ttl}"
-        assert  c.msgbdy    is not None ,f"Expect   'msgbdy'    should NOT be None  ,but actual is {c.msgbdy}"
-        assert  c.logger    is not None ,f"Expect   'logger'    should NOT be None  ,but actual is {c.logger}"
-        assert  c.queue     is None     ,f"Expect   'queue'     should be None      ,but actual is {c.queue}"
-        assert  c.metadata  == {}       ,f"Expect   'metadata'  should be dict      ,but actual is {c.metadata}"
+        assert  c.name      == 'default'    ,f"Expect   'name'      should be 'default' ,but actual is {c.name}"
+        assert  c.maxlen    == 512          ,f"Expect   'max'       should be 256       ,but actual is {c.maxlen}"
+        assert  c.maxsize   == 512*1024     ,f"Expect   'size'      should be 524288    ,but actual is {c.maxsize}"
+        assert  c.ttl       == 0            ,f"Expect   'ttl'       should be 0         ,but actual is {c.ttl}"
+        assert  c.msgbdy    is not None     ,f"Expect   'msgbdy'    should NOT be None  ,but actual is {c.msgbdy}"
+        assert  c.logger    is not None     ,f"Expect   'logger'    should NOT be None  ,but actual is {c.logger}"
+        assert  c.queue     is None         ,f"Expect   'queue'     should be None      ,but actual is {c.queue}"
+        assert  c.metadata  == {}           ,f"Expect   'metadata'  should be dict      ,but actual is {c.metadata}"
 
     def test_init_01(self):
         """Test parameterized initialization
@@ -75,10 +75,10 @@ class   TestCache:
         assert  e == c5                 ,f"Expect   {e} ,but actual is {c5}"
 
     def test_init_exception_01(self):
-        with pytest.raises(Exception ,match=r'An instance of "logging.Logger" is required!'):
+        with pytest.raises(Exception ,match=r'An instance of "logging.Logger" is required as a logger!'):
             c = Cache( logger=datetime.now() )
 
-        with pytest.raises(Exception ,match=r'An instance of "queue.Queue" is required!'):
+        with pytest.raises(Exception ,match=r'An instance of "queue.Queue" is required as a queue!'):
             c = Cache( queue=datetime.now() )
 
     def test_setgetitem_01(self):   # NOTE: Dunder __setitem__() and __getitem__()
@@ -377,10 +377,10 @@ class   TestCache:
         assert  v == 2      ,f"Expect   2       ,but actual is {v}"
 
     def test_eviction_01(self):
-        c = Cache( max=3 )
-        c['k1'] = 1
-        c['k2'] = 2
-        c['k3'] = 3
+        c = Cache( max=3 )  # By entries.
+        c['k1'] = datetime.now(timezone.utc)
+        c['k2'] = datetime.now(timezone.utc)
+        c['k3'] = datetime.now(timezone.utc)
 
         a = len(c)
         assert  a == 3      ,f"Expect   3       ,but actual is {a}"
@@ -392,13 +392,13 @@ class   TestCache:
         with pytest.raises(KeyError ,match=r'k1'):
             _ = c['k1'] # Should be evicted.
 
-        c = Cache( size=360 )
-        c['k1'] = 1
-        c['k2'] = 2
+        c = Cache( size=256 )   # By Size.
+        c['k1'] = datetime.now(timezone.utc)
+        c['k2'] = datetime.now(timezone.utc)
         a = len(c)
         assert  a == 2      ,f"Expect   2       ,but actual is {a}"
 
-        c['k3'] = 3
+        c['k3'] = datetime.now(timezone.utc)
         a = len(c)
         assert  a == 2      ,f"Expect   2       ,but actual is {a}"
 
@@ -409,14 +409,14 @@ class   TestCache:
         a = c.ttl
         assert  a == 1      ,f"Expect   2       ,but actual is {a}"
 
-        c['k1'] = 1
-        c['k2'] = 2
-        c['k3'] = 3
+        c['k1'] = datetime.now(timezone.utc)
+        c['k2'] = datetime.now(timezone.utc)
+        c['k3'] = datetime.now(timezone.utc)
         a = len(c)
         assert  a == 3      ,f"Expect   3       ,but actual is {a}"
 
         time.sleep(3)       # 3 seconds
-        c['k4'] = 4
+        c['k4'] = datetime.now(timezone.utc)
         a = len(c)
         assert  1 == a      ,f"Expect   1       ,but actual is {a}"
 
