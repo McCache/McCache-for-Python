@@ -1,11 +1,15 @@
 # How to contribute
 
-## Dependencies
+First you need to clone this project down to your local drive with the following command:
+```bash
+git    clone  https://github.com/McCache/McCache-for-Python.git
+```
+Next, make a copy of `pyproject.toml.sample` to `pyproject.toml`.  You may add additional configuration into  `pyproject.toml` to suite your needs.
 
-You need either `podman` or `docker` to be installed for testing.
+You need either `podman` or `docker` to be installed for stress testing.
 
-We use `pipenv` to manage the [dependencies](https://realpython.com/pipenv-guide/).  It is a slow resolving dependencies but we hope it is a one time activity that you as a developer have to perform.  We are considering other tools like in the future.
-If you dont have `pipenv` installed, you should install it with the following command outside of your virtual environment:
+We use `pipenv` to manage the [dependencies](https://realpython.com/pipenv-guide/).  It is a slow resolving dependencies but we hope it is a one time activity that you as a developer have to perform.  `pipenv` can load your local `.env` file to set your custom environment variables.  We are considering other tools like `hatch` or `uv` in the future.
+If you don't have `pipenv` installed, you should install it with the following command outside of your virtual environment:
 ```bash
 pip    install -U  pip
 pip    install     wheel
@@ -13,13 +17,14 @@ pip    install     pipenv
 ```
 
 Once you have installed `pipenv`, the next step is to install all the project dependencies in the `Pipfile` using `pipenv`.  Use the following command to install all Python project dependencies:
-```
+```bash
 pipenv sync
+pipenv graph
 ```
 It may take a few minutes to rebuild the `Pipenv.lock` file, so be a little patient.
 
 Install `pre-commit` to with the following command:
-```
+```bash
 pre-commit install
 ```
 `pre-commit` hook into `git` to auto check for your code for project requirements before it is committed into your local `git` repo.
@@ -35,6 +40,7 @@ We are polyglot developers and we bring non-pythonic best practice to this proje
 We like [PEP8](https://peps.python.org/pep-0008/#a-foolish-consistency-is-the-hobgoblin-of-little-minds) as a starting guideline but will **not** adhere to it if it makes the code harder to read.  Explicitly called out in PEP8 is "**do not break backwards compatibility just to comply with this PEP!**".  The area where we will deviate the most are:
 * Max Line Length:
   * We are defaulting it to 160 but we trust that you exercise good judgement to keep it as short as possible around at 100.
+  * For string messages, you don't need to game this limit by concatenating a bunch of individual lines to keep the string length at a reasonable length.
 * Whitespaces:
   * We love it for we believe it makes the code more readable and we do not live in the 90s with small monitors.  Characters that are butted together is harder to read.
 * Commas:
@@ -62,23 +68,29 @@ ruff  linter
 ```
 
 ### Checks
-
 You can run the following command to further check the code.  `bandit` and `vulture` are automatic when you commit your code.
 ```bash
-mypy         ./src/mccache/*.py  # Static type checker for Python.
-bandit       ./src/mccache/*.py  # Security issues scanner.
-vulture      ./src/mccache/*.py  # Dead code scanner.
+mypy  --disable-error-code "arg-type"  ./src/mccache/*.py  # Static type checker for Python.
+bandit  ./src/mccache/*.py  # Security issues scanner.
+vulture ./src/mccache/*.py  # Dead code scanner.
 ```
 
 ### Tests
+You can run the following command to **unit** test `PyCache`.
+```bash
+pytest  ./tests/unit/test_cache.py
+```
+You may need to set your `PYTHONPATH` to pick up the packages to test.  Try setting it as follows:
+```bash
+PYTHONPATH="Path/to/our/source/root/directory"
+```
 
-You can run the following command to stress test `McCache`.
+You can run the following script to **stress** test `McCache`.
 ```bash
 ./tests/run_test
 ```
 
 ### Before submitting
-
 Before submitting your code please do the following steps:
 
 1. Add any changes you want.
@@ -102,40 +114,51 @@ pip list | grep -iE "McCache|Version"
 You should get an output similar to the following:
 ```
 Package           Version     Editable project location
-McCache           0.4.0       C:\Work\Dev\McCache-for-Python
+McCache           0.0.0       C:\Work\Dev\McCache-for-Python
 ```
 
-We use `hatch` to build and publish this package to [PyPi](https://pypi.org).  Run the following command from the root directory of the `McCache` project:
+We use `hatch` to build and publish this package to [PyPi](https://pypi.org).  For each publish to the repository, you **must** increment the version number in the `src/mccache/__about__.py` file. Run the following command from the root directory of the `McCache` project:
 ```bash
-hatch   clean
-hatch   build
+hatch   env   show      # Show your environment(s) to build for.
+hatch   clean           # Clean out the content  in the ./dist folder.
+hatch   build -t wheel  # Build the wheel file into the ./dist folder.
 ```
-The above will create a sub-directory named `dist` under the project root directory.  Check the build with the following command:
+The above will create a sub-directory named `dist` under the project root directory.  Check the build with the following commands:
 ```bash
-ls -n ./dist
+# Test the wheel file using Twine.
+twine   check   dist/mccache*.whl
+ls -sh  dist            # Show the build artifacts in the ./dist folder.
 ```
 You should get an output similar to the following:
 ```
--rw-r--r-- 1 197609 197609 51643 Dec 30 15:04 mccache-0.4.0-py3-none-any.whl
--rw-r--r-- 1 197609 197609 48103 Dec 30 15:04 mccache-0.4.0.tar.gz
+total 48K
+48K mccache-0.0.0-py3-none-any.whl
 ```
 
-Once everything is checked out, you can manually deploy this `McCache` package to the `PyPi` repository.  First you should test the deploy to `TestPyPi` before you deploy it  to `PyPi`.
-The following configuration is in the `pyproject.toml` file.
-```toml
-[tool.hatch.publish.testpypi]
-repository = "https://test.pypi.org/legacy/"
-username = "__token__"
-password = "Ask the maintainer for the API code for the McCache package."
+Once everything is checked out, you can manually deploy this `McCache` package to the `PyPi` repository.  First you should test the deploy to `TestPyPi` before you deploy it to the main `PyPi`.  Run the following command to publish the package.
+
+Using **Twine** to publish `McCache` to the repository.
+```bash
+# Publish ONLY the wheel file to TestPypi using Twine.
+twine  upload  -r testpypi  dist/mccache*.whl
+
+# Publish ONLY the wheel file to Pypi using Twine.
+twine  upload  -r pypi      dist/mccache*.whl
+```
+Using **Hatch** to publish `McCache` to the repository.
+```bash
+# Publish ONLY the wheel file to TestPypi using Hatch.
+hatch  publish -r test   dist/
+
+# Publish ONLY the wheel file to Pypi using Hatch.
+hatch  publish -r main   dist/
 ```
 
-Run the following command to publish the package.
-```Unix
-# Publish to PyPi production repository
-twine  upload --repository-url https://upload.pypi.org/legacy/  dist/*
-```
+SEE: https://hatch.pypa.io/1.9/publish/
 
-
+## TODOs
+* We need to automate the unit test using the `pre-commit` hook.
+* We need to automate the build using GitHub Actions.
 
 ## Other help
 You can contribute by spreading a word about this library.
