@@ -266,3 +266,4 @@ For any inquiries, bug reports, or feature requests, please open an issue in the
 * SEE: [Setting MTU size for jumbo frames on OCI instance interfaces](https://support.checkpoint.com/results/sk/sk167534)
 Different cloud provider uses different size.
 * SEE: [Enabling Sticky Sessions](https://www.youtube.com/watch?v=hTp4czOrvOY")
+* SEE: [In-Process vs Distributed](https://dzone.com/articles/process-caching-vs-distributed)
