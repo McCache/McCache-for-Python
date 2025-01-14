@@ -9,7 +9,7 @@ import  socket
 import  sys
 import  time
 from    collections     import OrderedDict
-from    collections.abc import Callable, Iterable
+from    collections.abc import Callable, Iterable, Iterator, ItemsView, KeysView ,ValuesView
 from    enum            import Flag, IntEnum
 from    inspect         import getframeinfo, stack
 from    threading       import RLock, Thread  #,Lock
@@ -100,8 +100,8 @@ class Cache( OrderedDict ):
         other:      SEE:    OrderedDict( dict ).__init__()
         kwargs:
             name    :str        Name for this instance of the cache.
-            max     :int        Max entries threshold for triggering entries eviction. Default to `256`.
-            size    :int        Max size in bytes threshold for triggering entries eviction. Default to `64K`.
+            max     :int        Max entries threshold for triggering entries eviction. Default to `512`.
+            size    :int        Max size in bytes threshold for triggering entries eviction. Default to `512K`.
             ttl     :int        Time to live in seconds. Default to `0`.
             msgbdy  :str        Custom log message format to log out.
             logger  :Logger     Custom logger to use internally.
@@ -124,12 +124,12 @@ class Cache( OrderedDict ):
         # Private instance control.
         self.__name     :str    = 'default'
         self.__maxlen   :int    = 512       # Max entries threshold for triggering entries eviction.
-        self.__maxsize  :int    = 512*1024  # Max size in bytes threshold for triggering entries eviction. Default= 256K.
+        self.__maxsize  :int    = 512*1024  # Max size in bytes threshold for triggering entries eviction. Default= 512K.
         self.__ttl      :int    = 0         # Time to live in minutes.
         self.__msgbdy   :str    = 'L#{lno:>4}\tIm:{iam}\tOp:{opc}\tTs:{tsm:<18}\tNm:{nms}\tKy:{key}\tCk:{crc}\tMg:{msg}'
-        self.__logger   :logging.Logger = None
-        self.__queue    :queue.Queue    = None
-        self.__callback :Callable       = None
+        self.__logger   :logging.Logger     = None
+        self.__queue    :queue.Queue        = None
+        self.__callback :Callable           = None
         self.__cbwindow :int    = 3         # Callback window, in seconds, for changes in the cache since last looked up.
         self.__debug    :bool   = False     # Internal debug is disabled.
         self.__oldest   :int    = Cache.tsm_version()  # Oldest entry in the cache.
@@ -365,7 +365,9 @@ class Cache( OrderedDict ):
         now = Cache.tsm_version()
         with  Cache.CACHE_LOCK: # TODO: Not working!
             try:
-                key ,_ = super().popitem( last=False )  # FIFO
+                key ,value = super().popitem( last=False )  # FIFO
+                self.ttlSize -= self._get_size( value )
+
                 self._post_del(  key=key ,tsm=now ,eviction=True ,queue_out=True )
             except  KeyError:
                 # Someone else deleted the last item.  We are good.
@@ -545,8 +547,9 @@ class Cache( OrderedDict ):
         with  Cache.CACHE_LOCK: # TODO: Not working!
             if  self.__contains__( key ):
                 size = self._get_size(super().__getitem__( key ))
-                super().__delitem__( key )
-                self.ttlSize -= size
+
+            super().__delitem__( key )
+            self.ttlSize -= size
         self._post_del( key=key ,tsm=tsm ,eviction=False ,queue_out=queue_out )
 
     def __getitem__(self,
@@ -572,7 +575,7 @@ class Cache( OrderedDict ):
         self._post_get( key )
         return val
 
-    def __iter__(self) -> Iterable:
+    def __iter__(self) -> Iterator: #Iterable:
         """Dict __iter__() dunder overwrite.
         Check for ttl evict then call the parent method.
 
@@ -581,7 +584,7 @@ class Cache( OrderedDict ):
         if  self.__ttl > 0:
             _ = self._evict_items_by_ttl()
 
-        return super().__iter__()
+        return super().__iter__()   # Type: odict_iterator
 
     def __setitem__(self,
             key: Any,
@@ -647,7 +650,7 @@ class Cache( OrderedDict ):
             _ = self._evict_items_by_ttl()
 
         with Cache.CACHE_LOCK:
-            return super().copy()
+            return super().copy()   # Type: pycache.Cache
 
 #   @classmethod
 #   def fromkeys(cls, iterable, value=None):
@@ -673,7 +676,7 @@ class Cache( OrderedDict ):
         self.lookups += 1
         return val
 
-    def items(self) -> dict:
+    def items(self) -> ItemsView[Any]:
         """Return a set-like object providing a view on cache's items.
         Check for ttl evict then call the parent method.
 
@@ -683,9 +686,9 @@ class Cache( OrderedDict ):
             _ = self._evict_items_by_ttl()
 
         with Cache.CACHE_LOCK:
-            return super().items()
+            return super().items()  # Type: odict_items
 
-    def keys(self) -> dict:
+    def keys(self) -> KeysView[Any]:
         """Return a set-like object providing a view on cache's keys.
 
         SEE:    OrderedDict.keys()
@@ -694,7 +697,7 @@ class Cache( OrderedDict ):
             _ = self._evict_items_by_ttl()
 
         with Cache.CACHE_LOCK:
-            return super().keys()
+            return super().keys()   # TYPE: odict_keys
 
     def pop(self,
             key: Any,
@@ -722,7 +725,7 @@ class Cache( OrderedDict ):
         return val
 
     def popitem(self,
-            last: bool | None = False ) -> tuple:
+            last: bool = False ) -> tuple[Any ,Any]:
         """Remove and return a (key, value) pair from the dictionary.
         Pairs are returned in LIFO order if last is true or FIFO order if false.
         Check for ttl evict then call the parent method and then do some house keeping.
@@ -769,7 +772,7 @@ class Cache( OrderedDict ):
             return super().setdefault( key ,default )
 
     def update(self,
-            iterable: Iterable ) -> None:
+            iterable: Iterable[Any] ) -> None:
         """Update the cache with new values.
         Check for ttl evict then call the parent method and then do some house keeping.
 
@@ -780,6 +783,8 @@ class Cache( OrderedDict ):
         if  self.__ttl > 0:
             _ = self._evict_items_by_ttl()
 
+        #debug
+        print(type(iterable))
         with  Cache.CACHE_LOCK: # TODO: Not working!
             updates = {}
             for key ,val in iterable.items():
@@ -792,7 +797,7 @@ class Cache( OrderedDict ):
             for key ,val in updates.items():
                 self._post_set( key ,val['val'] ,update=val['upd'] ,queue_out=True )
 
-    def values(self) -> dict:
+    def values(self) -> ValuesView[Any]:
         """Return an object providing a view on cache's values.
         Check for ttl evict then call the parent method.
 
@@ -802,8 +807,12 @@ class Cache( OrderedDict ):
             _ = self._evict_items_by_ttl()
 
         with Cache.CACHE_LOCK:
-            return super().values()
+            r = super().values()
+            print( type(r))
+            return super().values() # TYPE: odict_values
 
+
+#from datetime import datetime ,timezone
 
 # The MIT License (MIT)
 # Copyright (c) 2023 McCache authors.
