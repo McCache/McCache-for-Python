@@ -104,18 +104,12 @@ exclude = [
 # Set  HATCH_INDEX_AUTH envar.
 #
 [tool.hatch.publish]
-test = { url = "https://test.pypi.org/legacy/"  , username = "mccache", password = "Ask the test maintainer." }
-main = { url = "https://upload.pypi.org/legacy/", username = "mccache", password = "Ask the main maintainer." }
+default = "testpypi"  # Default repository if none is specified.
+environments = ["pypi", "testpypi"]
 
-[tool.hatch.publish.testpypi]
-repository = "https://test.pypi.org/legacy/"
-username = "__token__"
-password = "pypi-Ask the maintainer for the test token!"
-
-[tool.hatch.publish.mainpypi]
-repository = "https://upload.pypi.org/legacy/"
-username = "__token__"
-password = "pypi-Ask the maintainer for the main token!"
+[tool.hatch.publish.repositories]
+pypi    = { url="https://upload.pypi.org/legacy/" ,username="__token__" ,password={env = "PYPI_MAIN_API_TOKEN"} }
+testpypi= { url="https://test.pypi.org/legacy/"   ,username="__token__" ,password={env = "PYPI_TEST_API_TOKEN"} }
 
 [[tool.hatch.envs.all.matrix]]
 python = [
