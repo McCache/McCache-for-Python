@@ -1,5 +1,7 @@
 <h1><a href="https://github.com/McCache/McCache-for-Python/blob/main/README.md"><img src="https://github.com/McCache/McCache-for-Python/blob/main/docs/McCache%20Logo.png?raw=true" width="200" height="200" alt="McCache for Python"></a>
+<!--
 <br><sub>This package is still under development.</sub>
+-->
 </h1>
 <!--  Not working in GitHub
 <style scoped>
@@ -21,7 +23,7 @@ The goals of this package are:
 3. Performant
     * Need to handle rapid updates that are 0.01sec (10 ms) or faster.
 
-`McCache` is **not** a replacement for your persistent or search data.  It is intended to be used to cache your most expensive work.  You can consider the Pareto Principle [**80/20**](https://en.wikipedia.org/wiki/Pareto_principle) rule, which states that caching **20%** of the most frequently accessed **80%** data can improve performance for most requests.
+`McCache` is **not** a replacement for your persistent or search data.  It is intended to be used to cache your most expensive work.  You can consider the Pareto Principle [**80/20**](https://en.wikipedia.org/wiki/Pareto_principle) rule, which states that caching **20%** of the most frequently accessed **80%** data can improve performance for most requests.  This principle offers you the option to reduce your hardware requirement.  Only you can decide how much to cache.
 
 ## Installation
 ```console
@@ -80,7 +82,7 @@ You can review the script used in the stress test.<br>
 **SEE**: [Test script](https://github.com/McCache/McCache-for-Python/blob/main/tests/unit/start_mccache.py)
 
 You should clone this repo down and run the test in a local `docker`/`podman` cluster.<br>
-**SEE**: [Contributing](https://github.com/McCache/McCache-for-Python/blob/main/CONTRIBUTING.md#Tests)
+**SEE**: [Contributing](https://github.com/McCache/McCache-for-Python/blob/main/docs/CONTRIBUTING.md#Tests)
 
 We suggest the following testing to collect metrics of your application running in your environment.
 1. Import the `McCache` library into your project.
@@ -107,7 +109,7 @@ The following are environment variables you can tune to fit your production envi
 <tbody>
   <tr>
     <td><sub>MCCACHE_CACHE_TTL</sub></td>
-    <td>3600 sec</td>
+    <td>3600 secs</td>
     <td>Maximum number of seconds a cached entry can live before eviction.  Update operations shall reset the timer.</td>
   </tr>
   <tr>
@@ -129,7 +131,7 @@ The following are environment variables you can tune to fit your production envi
   </tr>
   <tr>
     <td><sub>MCCACHE_CACHE_PULSE</sub></td>
-    <td>300 sec</td>
+    <td>300 secs</td>
     <td>The interval to send out a synchronization pulse operation to the other members in the cluster.</td>
   </tr>
   <tr>
@@ -145,12 +147,12 @@ The following are environment variables you can tune to fit your production envi
   </tr>
   <tr>
     <td><sub>MCCACHE_MULTICAST_HOPS</sub></td>
-    <td>3 hop</td>
-    <td>The maximum network hops. 1 is just within the same router. [1-9]</td>
+    <td>3 hops</td>
+    <td>The maximum network hops. 1 is just within the same switch/router. [>=1]</td>
   </tr>
   <tr>
     <td><sub>MCCACHE_CALLBACK_WIN</sub></td>
-    <td>5 sec</td>
+    <td>5 secs</td>
     <td>The window, in seconds, where the last lookup and the current change falls in to trigger a callback to a function provided by you. </td>
   </tr>
   <tr>
@@ -195,7 +197,7 @@ The following are environment variables you can tune to fit your production envi
   </tr>
   <tr>
     <td><sub>TEST_RUN_DURATION</sub></td>
-    <td>5 min</td>
+    <td>5 mins</td>
     <td>The duration in minutes of the testing run. <br>
         The larger the number, the longer the test run/duration.
         Tune this number up to add stress to the test.</td>
@@ -251,13 +253,15 @@ Releases are recorded [here](https://github.com/McCache/McCache-for-Python/issue
 `McCache` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
 
 ## Contribute
-We welcome your contribution.  Please read [contributing](https://github.com/McCache/McCache-for-Python/blob/main/CONTRIBUTING.md) to learn how to get setup to contribute to this project.
+We welcome your contribution.  Please read [contributing](https://github.com/McCache/McCache-for-Python/blob/main/docs/CONTRIBUTING.md) to learn how to get setup to contribute to this project.
+
+`McCache` is still a young project. With that said, please try it out in your applications: We need your feedback to fix the bugs and file down the rough edges.
 
 Issues and feature request can be posted [here](https://github.com/McCache/McCache-for-Python/issues). Help us port this library to other languages.  The repos are setup under the [GitHub `McCache` organization](https://github.com/mccache).
 You can reach our administrator at `elau1004@netscape.net`.
 
 ## Support
-For any inquiries, bug reports, or feature requests, please open an issue in the [GitHub repository](https://github.com/McCache/McCache-for-Python/issues). See the McCache contributor guide for guidelines on filing good bugs.
+For any inquiries, bug reports, or feature requests, please open an issue in the [GitHub repository](https://github.com/McCache/McCache-for-Python/issues).
 
 ## Miscellaneous
 * SEE: [Latency Numbers](https://gist.github.com/hellerbarde/2843375)
