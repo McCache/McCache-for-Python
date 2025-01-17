@@ -145,8 +145,8 @@ The following are environment variables you can tune to fit your production envi
   </tr>
   <tr>
     <td><sub>MCCACHE_MULTICAST_HOPS</sub></td>
-    <td>1 hop</td>
-    <td>The maxinum network hop. 1 is just within the local subnet. [1-9]</td>
+    <td>3 hop</td>
+    <td>The maximum network hops. 1 is just within the same router. [1-9]</td>
   </tr>
   <tr>
     <td><sub>MCCACHE_CALLBACK_WIN</sub></td>

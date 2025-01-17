@@ -1,3 +1,14 @@
+"""
+Pycache package provide the Cache class to support the parent McCache package.
+
+Cache is inherited from Python's `OrderedDict` class.
+Functionality:
+    - LRU (Least Recently Updated) cache.
+    - Maintain usage metrics.
+    - Maintain spike metrics.  Rapid updates within the default 3 seconds.
+    - Support time-to-live (ttl) eviction.  Updated item will have its ttl reset.
+    - Support telemetry communication with external via queue.
+"""
 # See MIT license at the bottom of this script.
 #
 import  base64
@@ -258,7 +269,7 @@ class Cache( OrderedDict ):
 
     def _log_ops_msg(self,
             opc: str    | None = None,    # Op Code
-            tsm: str    | None = None,    # Timestamp
+            tsm: int    | None = None,    # Timestamp
             nms: str    | None = None,    # Namespace
             key: object | None = None,    # Key
             crc: bytes  | None = None,    # Checksum (md5)
@@ -346,10 +357,8 @@ class Cache( OrderedDict ):
 
         if isinstance( obj ,dict ):
             size += sum( self._get_size( k ,seen ) + self._get_size( v ,seen ) for k, v in obj.items())
-#       elif isinstance( obj ,(list ,tuple ,set ,frozenset)):
         elif isinstance( obj , list |tuple |set |frozenset ):
             size += sum( self._get_size( i ,seen ) for i in obj)
-#       elif isinstance( obj ,(ModuleType ,FunctionType)):
         elif isinstance( obj , ModuleType |FunctionType ):
             pass  # Ignore modules and functions
 
@@ -807,8 +816,6 @@ class Cache( OrderedDict ):
             _ = self._evict_items_by_ttl()
 
         with Cache.CACHE_LOCK:
-            r = super().values()
-            print( type(r))
             return super().values() # TYPE: odict_values
 
 

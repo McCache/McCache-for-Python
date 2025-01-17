@@ -229,7 +229,7 @@ class McCacheConfig:
                                         # OS quanta: Windows ~ 120ms and *nix ~ 100ms.
     multicast_ip: str   ='224.0.0.3'    # Unassigned multi-cast IP.
     multicast_port: int = 4000          # Unofficial port.  Was for Diablo II game.
-    multicast_hops: int = 1             # Only local subnet.
+    multicast_hops: int = 3             # 1 is only local subnet on the same switch/router.
 #   queue_ib_size: int  = 65536         # Internal  in-bound queue size to prevent run away memory consumption.  Set it large but no infinite.
 #   queue_ob_size: int  = 65536         # Internal out-bound queue size to prevent run away memory consumption.  Set it large but no infinite.
     callback_win: int   = 5             # Change callback window size seconds (1-999).
@@ -555,7 +555,7 @@ def _get_mccache_logger( debug_log: str | None = None ) -> logging.Logger:
     qhdlr = logging.handlers.QueueHandler( logQ )
     logger.addHandler( qhdlr )
     if  shdlr and fhdlr:
-        logLstnr= logging.handlers.QueueListener( logQ ,shdlr ,fhdlr )
+        logLstnr = logging.handlers.QueueListener( logQ ,shdlr ,fhdlr )
     elif  shdlr:
         logLstnr = logging.handlers.QueueListener( logQ ,shdlr )
     elif fhdlr:
@@ -578,33 +578,33 @@ def _log_ops_msg(
         lvl: int,                   # Logging level
         opc: str,                   # Op Code
         sdr: str    | None = None,  # Sender
-        tsm: str    | None = None,  # Timestamp
+        tsm: int    | None = None,  # Timestamp
         nms: str    | None = None,  # Namespace
         key: object | None = None,  # Key
-        crc: str    | None = None,  # Checksum (md5)
-        msg: object | None = None,  # Message to log.
+        crc: bytes  | None = None,  # Checksum (md5)
+        msg: str    |   None = None,  # Message to log.
         # In message replacement tokens.
         prvtsm: int | None = None,  # Previous Timestamp
-        prvcrc: str | None = None,  # Previous Checksum (md5)
+        prvcrc: bytes|None = None,  # Previous Checksum (md5)
         tsmcmp: str | None = None,  # Timestamp comparator.
         crccmp: str | None = None,  # Checksum  comparator.
     ) -> None:  # Message
     """A standardize format to log out McCache operation messages making them easier to parse in the test.
 
     Args:
-        lvl: int    Log level.
-        opc: str    The operation code.
-        sdr: str    Optional sender.
-        tsm: int    Optional timestamp in nano seconds.
-        nms: str    Optional cache namespace.
-        key: object Optional key object.
-        crc: str    Optional checksum for the value.
-        msg: str    Optional comment or description.
+        lvl: int        Log level.
+        opc: str        The operation code.
+        sdr: str        Optional sender.
+        tsm: int        Optional timestamp in nano seconds.
+        nms: str        Optional cache namespace.
+        key: object     Optional key object.
+        crc: bytes      Optional checksum for the value.
+        msg: str        Optional comment or description.
         #
-        prvtsm: int Optional previous Timestamp
-        prvcrc: str Optional previous Checksum (md5)
-        tsmcmp: str Optional Timestamp comparator.
-        crccmp: str Optional Checksum  comparator.
+        prvtsm: int     Optional previous Timestamp
+        prvcrc: bytes   Optional previous Checksum (md5)
+        tsmcmp: str     Optional Timestamp comparator.
+        crccmp: str     Optional Checksum  comparator.
     Return:
         None
     """
@@ -1909,13 +1909,6 @@ t3 = threading.Thread( target=_processor   ,daemon=True ,name="McCache processor
 t3.start()
 t4 = threading.Thread( target=_housekeeper ,daemon=True ,name="McCache housekeeper" )
 t4.start()
-
-if __name__ == "__main__":
-    # ONLY used during development testing.
-    import sys
-    sys.path.append(__file__[:__file__.find('src')-1])
-    sys.path.append(__file__[:__file__.find('src')+3])
-    import tests.unit.start_mccache # noqa: F401 I001
 
 
 # The MIT License (MIT)
