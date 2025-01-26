@@ -301,13 +301,13 @@ def _default_callback(ctx: dict) -> bool:
         match ctx['typ']:
             case 1: # Deletion
                 _log_ops_msg( logging.DEBUG ,opc=OpCode.WRN ,tsm=PyCache.tsm_version() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
-                                            ,msg=f"^   WRN {ctx['key']} got deleted     within {ctx['elp']:0.5f} sec in the background." )
+                                            ,msg=f"^   WRN {ctx['key']} got deleted     within {ctx['elp']:6} sec in the background." )
             case 2: # Updates
                 _log_ops_msg( logging.DEBUG ,opc=OpCode.WRN ,tsm=PyCache.tsm_version() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
-                                            ,msg=f"^   WRN {ctx['key']} got updated     within {ctx['elp']:0.5f} sec in the background." )
+                                            ,msg=f"^   WRN {ctx['key']} got updated     within {ctx['elp']:6} sec in the background." )
             case 3: # Incoherence
                 _log_ops_msg( logging.DEBUG ,opc=OpCode.WRN ,tsm=PyCache.tsm_version() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
-                                            ,msg=f"^   WRN {ctx['key']} got incoherent  within {ctx['elp']:0.5f} sec in the background." )
+                                            ,msg=f"^   WRN {ctx['key']} got incoherent  within {ctx['elp']:6} sec in the background." )
     return  True
 
 def get_cache( name: str | None=None ,callback: FunctionType = _default_callback ) -> PyCache:
@@ -822,6 +822,10 @@ def _make_pending_ack( key_t: tuple ,val_t: tuple ,members: dict | str ,frame_si
         BufferError:    When the serialized key or value size is greater than unsigned two bytes.
         OverflowError:  When the serialized key or value resulted in more than 255 fragments.
     """
+    # NOTE: An informal test of "pickling" out a large dictionary of 5000 patient objects
+    #       to a file took less that 1.5 seconds.
+    #       The output file size was 9,820,708 bytes.
+
     tsm: int = key_t[ 2 ]                   # 8 bytes unsigned nanoseconds for timestamp.
     key_b: bytes = pickle.dumps( key_t )    # Serialized the key.
     key_s: int = len( key_b )
@@ -1041,11 +1045,12 @@ def _check_expr_pending() -> None:
     prv_nms: str    = None
     prv_key: object = None
     prv_tsm: int    = None
-    for pky_t in sorted(_mcPending.keys() ,reverse=True ):  # Key for this message pending acknowledgement.
+    for pky_t in sorted(_mcPending.keys() ,reverse=True ):  # Descending key(nms ,key ,tsm) for this message pending acknowledgement.
         if  prv_nms and prv_nms == pky_t[0] and \
             prv_key and prv_key == pky_t[1] and \
             prv_tsm and(prv_tsm >  pky_t[2] or ((PyCache.tsm_version() - pky_t[2]) > (5*PyCache.ONE_NS_SEC))) and \
             pky_t   in _mcPending:
+            # Will skip the first entry.
             #   1)  Same namespace.
             #   2)  Same key.
             #   3)  Previous timestamp is older than current timestamp OR current timestamp is older than 5 seconds.
@@ -1054,7 +1059,7 @@ def _check_expr_pending() -> None:
             # DEBUG trace.
             if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
                 _log_ops_msg( logging.DEBUG ,opc=OpCode.WRN ,tsm=pky_t[2] ,nms=pky_t[0] ,key=pky_t[1] ,crc=_mcPending[ pky_t ]['crc']
-                                            ,msg=">   Delete expired change that is pending acknowledgement." )
+                                            ,msg=">   Newer acknowledgement is pending.  Delete expired change that is pending acknowledgement." )
             try:
                 del _mcPending[ pky_t ]
                 prv_tsm = None
@@ -1448,18 +1453,19 @@ def process_UPD( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,
             if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
                 tsmcmp = __get_msgcomp( lts ,tsm )
                 _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc ,prvtsm=lts ,tsmcmp=tsmcmp
-                                            ,msg=">   Local tsm: {prvtsm} {tsmcmp} {tsm}" )
+                                            ,msg=">   Local tsm: {prvtsm} {tsmcmp} {tsm}. Updating local cache." )
 
                 if  _mcConfig.debug_level >= McCacheDebugLevel.SUPERFLUOUS:
                     _log_ops_msg( logging.DEBUG ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
                                                 ,msg=">>  Calling: cache.__setitem__( {key} ,{crc} ,None ,{tsm} )" )
 
             # Update it locally and DONT multicast it out.
+            # TODO: Implement "cache_sync_mode" == 0 to ONLY update existing local entry.
             mcc.__setitem__( key ,val ,tsm ,EnableMultiCast.NO )
 
             # NOTE: Invalidate pending acks for this key.  We got a newer entry.
             for pky_t in list(_mcPending.keys()):
-                # pky_t = (nms ,key ,tsm) # Key for this message pending acknowledgement.
+                # pky_t(nms ,key ,tsm) is the Key for this message pending acknowledgement.
                 try:
                     if  pky_t in _mcPending and pky_t[0] == nms and pky_t[1] == key and pky_t[2] < tsm:
                         lcs: bytes = '' # Local cache key's crc.
