@@ -246,9 +246,9 @@ class McCacheConfig:
 # Module initialization.
 #
 _lock = threading.RLock()               # Module-level lock for serializing access to shared data.
-_mySelf:    dict[str]                   # All my IP address.
-_mcConfig:  McCacheConfig               # Private McCache configuration.
-_mcCrypto:  Fernet                      # Private encryption/decryption function.
+_mySelf:    dict[str]         = {}      # All my IP address.
+_mcConfig:  McCacheConfig     = None    # Private McCache configuration.
+_mcCrypto:  Fernet            = None    # Private encryption/decryption function.
 _mcCache:   dict[str   ,dict] = {}      # Private dictionary to segregate the cache namespace.
 _mcArrived: dict[tuple ,dict] = {}      # Private dictionary to manage arriving fragments to be assemble into a value message.
 _mcPending: dict[tuple ,dict] = {}      # Private dictionary to manage send fragment needing acknowledgements.
@@ -1906,7 +1906,7 @@ else:
     logger.setLevel( logging.INFO )
 logger.debug( _mcConfig )
 
-if  len( _mcConfig.crypto_key.strip() ) > 0:
+if  _mcConfig.crypto_key and len( _mcConfig.crypto_key.strip() ) > 0:
     _mcCrypto = Fernet( str(_mcConfig.crypto_key) )
 
 # TODO: Need a better way to seperate out testing and production code.
