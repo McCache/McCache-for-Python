@@ -11,14 +11,15 @@ Lenovo P14s laptop
 ```
 
 ### Container
-**Podman** v4.5.1.  The cluster was spun up via `docker-compose.yml` with the following command:
+**Docker** version `27.0.3`, build `7d4bcd8` was used.  The cluster was spun up via `docker-compose.yml` with the following command:
 ```bash
 #  Bash shell
 $  pipenv   shell
-$  podman-compose  up  --build  -d
+$  docker-compose  up  --build  -d
 ```
 or the test script with the following CLI parameters:
 ```bash
+#  Bash shell
 $  pipenv   shell
 $  tests/run_test  -C 9 -R 10 -L 1
 ```
@@ -28,7 +29,7 @@ $  pipenv   shell
 $  tests\run_test.bat  -C 9 -R 10 -L 1
 ```
 
-Since the test is running locally on my laptop in a container environment, there is no physical wired network between the nodes.  We almost have a near zero communication latency between the nodes.  Lost packets does occur when the cache is highly stress.
+Since the test is running locally on my laptop in a container environment, there is no physical wired network between the nodes.  We almost have a near zero media latency between the nodes.  Lost packets does occur when the cache is highly stress.  Both out-bound and in-bound queues can back up thus you will observe processing congestion.
 
 ### Logs
 The log file was deposited in `./log/` sub-directory.  The following command:
@@ -96,7 +97,8 @@ The above have been manually formatted for readability.  For stress testing purp
 ### Stress Testing
 This stress test is intended to find the breaking point for `McCache` on a given class of machine.  This is an edge case where in a normal usage the probability of two or more nodes updating the same key/value at the very same time is extremely low.
 
-The test script run for a certain duration pausing a faction of a second in each iteration in a loop.  Based on the sleep aperture, a snooze value is calculated to keep the value within the aperture precision up to ten times the aperture value.  e.g. If the aperture value is `0.01`, the snooze value shall be between `0.01` and `0.1`.
+The test script run for a certain duration pausing a faction of a second in each iteration in a loop.  The sleep aperture is the centerpoint where a range of random value is generated around it.
+e.g. If the aperture value is `0.01`s (`10`ms),  the snooze value shall be between `0.0065`s (`6.5`ms) and `0.0135`s (`13.5`ms).
 Next, a random operation, lookup, insert, update and delete, to be applied to the cache.  Currently, the distributions are:
 * 55% are lookups.
 * 05% are deletes.
@@ -106,7 +108,7 @@ Next, a random operation, lookup, insert, update and delete, to be applied to th
 
 Cache in-coherence is when at least two nodes have different values for the same key.  To stress `McCache`, the following is some guidelines to keep it realistic:
 * Keep the number of docker/podman containers to total number of cores on your machine minus one.
-    * Our official stress test ran in **9** docker/podman containers cluster for **10** minutes.
+    * Our official stress test ran in **9** docker/podman containers cluster for **10** minutes, **8** hours and **24** hours.
 * Missing cache entries is **not** bad.  The node that do not have the entry will need to re-process the work and insert it into its local cache.  This will trigger a multicast out to the other members in the cluster.
 * Entries that are different must be validated against test done timestamp.  If the test done timestamp is older, this is **not** bad.
 
@@ -118,7 +120,7 @@ Bash shell:
 #  Bash shell
 $  tests/run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 10 -T 4 -s 1048576
 ```
-Windows Command Prompt:
+Windows terminal:
 ```cmd
 :: Windows terminal
 $  tests\run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 10 -T 4 -s 1048576
@@ -140,7 +142,7 @@ The CLI parameters are:
 |`-s #`|Maximum cache storage.  |8388608|Bytes  |           |
 |`-p #`|Cache sync pulse.       |      5|Second |           |
 |`-w #`|Callback spike window.  |      0|Second |           |
-* The test script that is used to pound the cache can be viewed [here](https://github.com/McCache/McCache-for-Python/blob/main/tests/unit/start_mccache.py).
+* The test script that is used to stress the cache can be viewed [here](https://github.com/McCache/McCache-for-Python/blob/main/tests/unit/start_mccache.py).
 
 #### Container network latency
 The following was obtain by login into a container and `ping` the another.
