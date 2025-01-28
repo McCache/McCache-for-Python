@@ -33,3 +33,5 @@ Peeking into the future, we may consider porting this to other languages.  If we
 * Java
 * Python
 * Ruby
+
+SEE: [Hash Benchmark](https://github.com/andremedeiros/hash_benchmark) as the starting point to select a good hash table implementation.
