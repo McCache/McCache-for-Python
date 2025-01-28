@@ -13,13 +13,19 @@ Lenovo P14s laptop
 ### Container
 **Podman** v4.5.1.  The cluster was spun up via `docker-compose.yml` with the following command:
 ```bash
-$ pipenv   shell
-$ podman-compose  up  --build  -d
+#  Bash shell
+$  pipenv   shell
+$  podman-compose  up  --build  -d
 ```
-or the default test script located `.\tests\run_test.bat` with the following CLI parameters:
+or the test script with the following CLI parameters:
 ```bash
-$ pipenv   shell
-$ tests/run_test  -c 9 -d 10 -l 1
+$  pipenv   shell
+$  tests/run_test  -C 9 -R 10 -L 1
+```
+```cmd
+:: Windows terminal
+$  pipenv   shell
+$  tests\run_test.bat  -C 9 -R 10 -L 1
 ```
 
 Since the test is running locally on my laptop in a container environment, there is no physical wired network between the nodes.  We almost have a near zero communication latency between the nodes.  Lost packets does occur when the cache is highly stress.
@@ -27,7 +33,7 @@ Since the test is running locally on my laptop in a container environment, there
 ### Logs
 The log file was deposited in `./log/` sub-directory.  The following command:
 ```bash
-$ grep  MET  ./log/mccache_debug*log  |  head -1
+$ grep  MET ./log/mccache_debug*log  |  head -1
 ```
  extracted the following metric from my test run.
  ```python
@@ -109,14 +115,16 @@ The machine is rebooted before each set of test runs and is dedicated to run the
 #### Command used
 Bash shell:
 ```bash
-$ tests/run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 10 -T 4 -s 1048576
+#  Bash shell
+$  tests/run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 10 -T 4 -s 1048576
 ```
 Windows Command Prompt:
 ```cmd
-$ tests\run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 10 -T 4 -s 1048576
+:: Windows terminal
+$  tests\run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 10 -T 4 -s 1048576
 ```
 The CLI parameters are:
-|Flag  |Description             |Default|Unit   |Comment    |
+|Flag&nbsp;&nbsp;&nbsp;|Description             |Default|Unit   |Comment    |
 |:-----|:-----------------------|------:|-------|:----------|
 |`-D`  |Use Docker container.   |       |       |           |
 |`-P`  |Use Podman container.   |       |       |           |
@@ -154,6 +162,7 @@ The following was obtain by login into a container and `ping` the another.
     rtt min/avg/max/mdev = 0.049/0.082/0.186/0.044 ms
 ```
 * The average round trip for a packet is `0.082`ms or `0.041`ms latency for single packet one way transmission.
+* You need to take this into consideration interpreting the stress test result.
 
 #### Results of basic stress test
 The results below are collected from testing output `result.txt` file and the `detail_xxx.log` files under the `.\log` sib-directory.
