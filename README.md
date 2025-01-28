@@ -1,8 +1,11 @@
-<h1><a href="https://github.com/McCache/McCache-for-Python/blob/main/README.md"><img src="https://github.com/McCache/McCache-for-Python/blob/main/docs/McCache%20Logo.png?raw=true" width="200" height="200" alt="McCache for Python"></a>
+<h1><a href="https://github.com/McCache/McCache-for-Python/blob/main/README.md">
 <!--
-<br><sub>This package is still under development.</sub>
+<img src="https://github.com/McCache/McCache-for-Python/blob/main/docs/McCache%20Logo.png?raw=true" width="200" height="200" alt="McCache for Python">
 -->
+<img src="https://github.com/McCache/McCache-for-Python/blob/main/docs/McCache%20Logo%20-%20Rectangle.png?raw=true" width="200" height="150" alt="McCache for Python">
+</a>
 </h1>
+
 <!--  Not working in GitHub
 <style scoped>
 table {
