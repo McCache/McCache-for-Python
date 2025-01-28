@@ -175,15 +175,15 @@ The results below are collected from testing output `result.txt` file and the `d
 |:------|---:|---:|-----:|---:|:----------------------------:|-----:|-----:|-----:|:-----------:|:-----------:|------:|------:|------:|------:|---:|:--|
 |3.1    |   3| 100|   0.1|  10|<font color="cyan">Pass</font>|0.1419|  2802|0.2142|    1 / 2    |   1 / 2     |   5154|    607|   1758|    437|   0|   |
 |3.2    |   3| 100|  0.01|  10|<font color="cyan">Pass</font>|0.0146| 27316|0.0220|    1 / 5    |   1 / 5     |  50064|   4872|  17819|   4505| 120|   |
-|3.2.1  |   3| 100| 0.005|  10|<font color="cyan">Pass</font>|0.0052| 72131|0.0083|    1 / 7    | 333 / 834   | 135213|  12888|  46599|  12083| 563|   |
-|3.3    |   3| 100| 0.001|  10|<font color="cyan">Pass</font>|0.0017|198865|0.0030|    1 / 9    | 967 / 7207  | 379863|  35167| 128785|  33886|1027|   |
+|3.2.1  |   3| 100| 0.005|  10|<font color="cyan">Pass</font>|0.0052| 72131|0.0083|    1 / 7    | 333 / 834   | 135213|  12888|  46599|  12083| 563|5 ms aperture.|
+|3.3    |   3| 100| 0.001|  10|<font color="cyan">Pass</font>|0.0017|198865|0.0030|    1 / 9    | 967 / 7207  | 379863|  35167| 128785|  33886|1027|1 ms aperture.|
 |3.3.1  |   3| 100|0.0005|  10|<font color="cyan">Pass</font>|0.0010|341951|0.0018|    2 / 22   | 488 / 16383 | 640322|  60186| 221833|  58510|1424|   |
 |3.3.2  |   3| 100|0.0001|  10|<font color="cyan">Pass</font>|0.0009|336611|0.0018|    5 / 57   | 312 / 15699 | 568502|  59249| 218371|  57333|1667|   |
 |       |    |    |      |    |                              |      |      |      |             |             |       |       |       |       |    |   |
 |5.1    |   5| 100|   0.1|  10|<font color="cyan">Pass</font>|0.1439|  4534|0.1323|    2 / 11   |    3 / 10   |   7925|    949|   2846|    739|   0|   |
 |5.2    |   5| 100|  0.01|  10|<font color="cyan">Pass</font>|0.0145| 44875|0.0134|    2 / 13   |    1 / 9    |  78551|   8230|  28659|   7927|  59|   |
-|5.2.1  |   5| 100| 0.005|  10|<font color="cyan">Pass</font>|0.0053|114206|0.0053|    2 / 40   |  831 / 2763 | 201024|  21428|  71603|  20613| 564|   |
-|5.3    |   5| 100| 0.001|  10|<font color="cyan">Pass</font>|0.0017|337663|0.0018|    2 / 24   | 1216 /10716 | 611913|  62652| 212611|  60213|2190|   |
+|5.2.1  |   5| 100| 0.005|  10|<font color="cyan">Pass</font>|0.0053|114206|0.0053|    2 / 40   |  831 / 2763 | 201024|  21428|  71603|  20613| 564|5 ms aperture.|
+|5.3    |   5| 100| 0.001|  10|<font color="cyan">Pass</font>|0.0017|337663|0.0018|    2 / 24   | 1216 /10716 | 611913|  62652| 212611|  60213|2190|1 ms aperture.|
 |5.3.1  |   5| 100|0.0005|  10|<font color="cyan">Pass</font>|0.0012|522466|0.0011|  113 / 11710|  357 /16383 | 853127|  96983| 328757|  92861|3877|Took an average of ` 3.5` minutes to dequeue after the testing have stop.|
 |5.3.2  |   5| 100|0.0001|  10|<font color="cyan">Pass</font>|0.0007|625592|0.0010|  114 / 32767|   454 / 16383|1387929| 148397| 328811|  84700|5540|Took an average of ` 4.5` minutes to dequeue after the testing have stop.|
 |       |    |    |      |    |                              |      |      |      |             |             |       |       |       |       |    |   |
@@ -242,12 +242,14 @@ The following is a snapshot of the Docker containers running a stress test.  SEE
 
 ### Observations
 * As more stress is applied to the cache, the outbound queue starts to back up.  This is by designed as long as it is not too deep and only you can decided how deep is acceptable.
-    * Stress is generated from the increased number of nodes plus a high frequency (snooze < **0.05** second, **50** ms).
+    * Stress is generated from the increased number of nodes plus a higher update frequency (aperture < **0.01** seconds, **10** ms).
+    * The local outbound queue starts backing up as we pound the local cache at a frequency with an aperture of < **0.005** seconds or **5** ms.  Anecdotally, this suggested that the current implementation or Python is not able to keep.
 * The larger the object to cache, the higher the latency to sync the other members in the cluster.  Many more packets need to be transmitted plus the processing overhead.
 * More detail logging will require more processing.  The tests disable logging with the `-L 0` CLI option.
 * The more nodes, the longer it takes to for the other nodes to receive message.  **5** nodes have about **8** seconds latency when tested with very high frequency updates (<= `0.005` ms snooze).
-* Anecdotally, it does **not** look like `time.sleep( 0.0001 )` can yield accurate precision.
-* `McCache` can handle very heavy update/delete against it.
+* Anecdotally, it does **not** look like `time.sleep( 0.0001 )` can yield accurate precision for the stress test.
+* Python is not known for it performance and we should **not** expect `McCache` to out performance Python's inherent limitation.
+* `McCache` can handle heavy update/delete against it.
     * If you do **not** have an use case where the cache is pounded **less** than once every **10**ms, sustained for **10** minutes, `McCache` may be suitable for you.
 
 

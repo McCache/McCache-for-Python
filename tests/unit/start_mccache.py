@@ -39,13 +39,13 @@ def test_callback(ctx: dict) -> None:
         match ctx['typ']:
             case 1: # Deletion
                 mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.WRN ,tsm=cache.tsm_version() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
-                                                ,msg=f"^   WRN {ctx['key']} got deleted     within {ctx['elp']:0.5f} sec in the background." )
+                                                ,msg=f"^   WRN {ctx['key']} got deleted     within {ctx['elp']:6} sec ({ctx['tsm']} - {ctx['lkp']}) in the background." )
             case 2: # Updates
                 mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.WRN ,tsm=cache.tsm_version() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
-                                                ,msg=f"^   WRN {ctx['key']} got updated     within {ctx['elp']:0.5f} sec in the background." )
+                                                ,msg=f"^   WRN {ctx['key']} got updated     within {ctx['elp']:6} sec ({ctx['tsm']} - {ctx['lkp']}) in the background." )
             case 3: # Incoherence
                 mc._log_ops_msg( logging.DEBUG  ,opc=mc.OpCode.WRN ,tsm=cache.tsm_version() ,nms=ctx['nms'] ,key=ctx['key'] ,crc=ctx['newcrc']
-                                                ,msg=f"^   WRN {ctx['key']} got incoherent  within {ctx['elp']:0.5f} sec in the background." )
+                                                ,msg=f"^   WRN {ctx['key']} got incoherent  within {ctx['elp']:6} sec ({ctx['tsm']} - {ctx['lkp']}) in the background." )
     return  True
 
 def get_data( doBig: bool = False ) -> dict:
@@ -62,36 +62,34 @@ def get_data( doBig: bool = False ) -> dict:
     return  val
 
 def get_snooze( aperture: float ,scl: int | None=None) -> float:
-    # NOTE: Keep it within 1 stddev of the aperture.
-    #       Aperture                Scale
-    #       --------    -------     -----
-    #       5              5 s      1
-    #       1              1 s      1
-    #       0.5          500 ms     10
-    #       0.1          100 ms     10
-    #       0.05          50 ms     100
-    #       0.01          10 ms     100
-    #       0.005          5 ms     1000
-    #       0.001          1 ms     1000
-    #       0.0005       0.5 ms     10000
-    #       0.0001       0.1 ms     10000
-    #       0.00005     0.05 ms     100000
+    # Get a snooze time that is narrow around the aperture.
+    #
+    #       Aperture                Scale   Aperture range
+    #       --------    -------     -----   --------------
+    #       5              5 s      1       
+    #       1              1 s      1       0.65        >= 1.00     >= 1.35
+    #       0.5          500 ms     10      
+    #       0.1          100 ms     10      0.065       >= 0.10     >= 0.135
+    #       0.05          50 ms     100     
+    #       0.01          10 ms     100     0.0065      >= 0.01     >= 0.0135
+    #       0.005          5 ms     1000    
+    #       0.001          1 ms     1000    0.00065     >= 0.001    >= 0.002
+    #       0.0005       0.5 ms     10000   
+    #       0.0001       0.1 ms     10000   0.000065    >= 0.0001   >= 0.0002   
+    #       0.00005     0.05 ms     100000  
     if  scl is  None:
         scl =   1    # The number of digits to the right of the decimal.
         while (aperture * scl) < 1:
             scl *= 10
 
-    skew: int   =  random.randrange( 0 ,35 ,5 ) # Approx one stddev.
-    match  random.randrange( 0 ,3 ):
+    skew: int =  random.randrange( 0 ,35 ,5 )   # Approx 1 stddev.
+    match  random.randrange( -1 ,2 ):
+        case -1: # Skew down.
+            aperture -= (skew/(scl*100))
         case 0: # No skew.
             pass
         case 1: # Skew up.
-            aperture += (skew/scl/10)
-        case _: # Skew down.
-            if  aperture -  (skew/scl/10) > 0:
-                aperture -= (skew/scl/10)
-            else:
-                aperture -= (skew/scl/100)
+            aperture += (skew/(scl*100))  if scl <= 100 else (skew/(scl*35))
 
     return  round( aperture ,6 )
 
@@ -216,14 +214,13 @@ while (end - bgn) < (duration*60):  # Seconds.
 
     match   opc:
         case 0:
-            #debug
             if  dg1 != datetime.datetime.now().minute:
                 dg1  = datetime.datetime.now().minute
                 if  len(mc._mcPending) > 9 or len(mc._mcArrived) > 9:
                     mc.logger.warning(f"{cache.tsm_version_str()} Pending:{len(mc._mcPending):5} {sorted(mc._mcPending.keys() ,reverse=True )}")
                     mc.logger.warning(f"{cache.tsm_version_str()} Arrive: {len(mc._mcArrived):5} {sorted(mc._mcArrived.keys() ,reverse=True )}")
-            #debug
-            pass
+
+            time.sleep( 0.25 )  # A breather pause.  DONT delete this line or it could congest.
 #       case 1|2|3|4:   # NOTE: 20% are inserts.    This has lots of hot spots.
         case 1|3|5|7:   # NOTE: 20% are inserts.
             if  key not in cache:
