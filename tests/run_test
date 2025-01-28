@@ -32,12 +32,13 @@ export  MCCACHE_CACHE_MAX=256
 export  MCCACHE_CACHE_SIZE=8388608
 export  MCCACHE_CACHE_PULSE=5
 export  MCCACHE_CALLBACK_WIN=0
+export  MCCACHE_CRYPTO_KEY=
 
 # Start of CLI.
 # Parse the command line parameters with the following format:
 # run_test  [ key1 val1 [key2 val2 [key3 val3 [...]]]]
 # where the keys are case sensitive:
-while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
+while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:k:" opt; do
     case  $opt  in
         D)  which docker-compose    2> /dev/null
             if  (($? == 0)) then
@@ -55,7 +56,7 @@ while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
                 exit 1
             fi
             ;;
-        L)  if  [[ $OPTARG =~ ^[0-5]$ ]]
+        L)  if  [[ ${OPTARG} =~ ^[0-5]$ ]]
             then
                 TEST_DEBUG_LEVEL=${OPTARG}
             else
@@ -63,7 +64,7 @@ while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
                 exit  1
             fi
             ;;
-        K)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+        K)  if  [[ ${OPTARG} =~ ^[0-9]+$ ]]
             then
                 TEST_KEY_ENTRIES=${OPTARG}
             else
@@ -71,7 +72,7 @@ while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
                 exit  1
             fi
             ;;
-        C)  if  [[ $OPTARG =~ ^[2-9]$ ]]
+        C)  if  [[ ${OPTARG} =~ ^[2-9]$ ]]
             then
                 TEST_CLUSTER_SIZE=${OPTARG}
             else
@@ -79,7 +80,7 @@ while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
                 exit  1
             fi
             ;;
-        A)  if  [[ $OPTARG =~ ^0.[0-9]+$ ]]
+        A)  if  [[ ${OPTARG} =~ ^0.[0-9]+$ ]]
             then
                 TEST_APERTURE=${OPTARG}
             else
@@ -87,7 +88,7 @@ while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
                 exit  1
             fi
             ;;
-        M)  if  [[ $OPTARG =~ ^[123]$ ]]
+        M)  if  [[ ${OPTARG} =~ ^[123]$ ]]
             then
                 TEST_DATA_SIZE_MIX=${OPTARG}
             else
@@ -95,7 +96,7 @@ while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
                 exit  1
             fi
             ;;
-        R)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+        R)  if  [[ ${OPTARG} =~ ^[0-9]+$ ]]
             then
                 TEST_RUN_DURATION=${OPTARG}
             else
@@ -103,7 +104,7 @@ while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
                 exit  1
             fi
             ;;
-        T)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+        T)  if  [[ ${OPTARG} =~ ^[0-9]+$ ]]
             then
                 TEST_MONKEY_TANTRUM=${OPTARG}
             else
@@ -111,7 +112,7 @@ while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
                 exit  1
             fi
             ;;
-        t)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+        t)  if  [[ ${OPTARG} =~ ^[0-9]+$ ]]
             then
                 MCCACHE_CACHE_TTL=${OPTARG}
             else
@@ -119,7 +120,7 @@ while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
                 exit  1
             fi
             ;;
-        e)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+        e)  if  [[ ${OPTARG} =~ ^[0-9]+$ ]]
             then
                 MCCACHE_CACHE_MAX=${OPTARG}
             else
@@ -127,7 +128,7 @@ while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
                 exit  1
             fi
             ;;
-        s)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+        s)  if  [[ ${OPTARG} =~ ^[0-9]+$ ]]
             then
                 MCCACHE_CACHE_SIZE=${OPTARG}
             else
@@ -135,7 +136,7 @@ while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
                 exit  1
             fi
             ;;
-        p)  if  [[ $OPTARG =~ ^[1-9][0-9]*$ ]]
+        p)  if  [[ ${OPTARG} =~ ^[1-9][0-9]*$ ]]
             then
                 MCCACHE_CACHE_PULSE=${OPTARG}
             else
@@ -143,11 +144,19 @@ while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
                 exit  1
             fi
             ;;
-        w)  if  [[ $OPTARG =~ ^[0-9]+$ ]]
+        w)  if  [[ ${OPTARG} =~ ^[0-9]+$ ]]
             then
                 MCCACHE_CALLBACK_WIN=${OPTARG}
             else
                 echo "Option for -w MUST be a positive integer. 0-9999"
+                exit  1
+            fi
+            ;;
+        k)  if  [[ ${OPTARG: -1} == "=" ]]
+            then
+                MCCACHE_CRYPTO_KEY=${OPTARG}
+            else
+                echo "Option for -k MUST be a well form base64 string.  For testing, try: sjQNjXGt_AygJrrFUu7C5hN6voq9a9WBBorVXkuD3Xc="
                 exit  1
             fi
             ;;
@@ -169,7 +178,7 @@ while getopts "DPL:K:C:A:M:R:T:t:e:s:p:w:" opt; do
             echo "-s #   Maximum cache storage.  Default ${MCCACHE_CACHE_SIZE} bytes."
             echo "-p #   Cache sync pulse.       Default ${MCCACHE_CACHE_PULSE} seconds."
             echo "-w #   Callback spike window.  Default ${MCCACHE_CALLBACK_WIN} seconds."
-            exit  1
+            echo "-k #   Cryptography key.       Default is none."
             ;;
     esac
 done
@@ -190,6 +199,7 @@ echo    MCCACHE_CACHE_MAX:      ${MCCACHE_CACHE_MAX}
 echo    MCCACHE_CACHE_SIZE:     ${MCCACHE_CACHE_SIZE}
 echo    MCCACHE_CACHE_PULSE:    ${MCCACHE_CACHE_PULSE}
 echo    MCCACHE_CALLBACK_WIN:   ${MCCACHE_CALLBACK_WIN}
+echo    MCCACHE_CRYPTO_KEY:     ${MCCACHE_CRYPTO_KEY}
 echo
 
 # The following are CLI input parameter you can use to parse out the script name information.

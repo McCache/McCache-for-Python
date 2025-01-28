@@ -67,21 +67,21 @@ import sys
 import threading
 import time
 import traceback
-from dataclasses import dataclass, fields
-from enum import Enum, Flag, IntEnum, StrEnum
-from inspect import getframeinfo, stack
-from logging.handlers import QueueListener  #,RotatingFileHandler
-from types import FunctionType
+from cryptography.fernet    import Fernet
+from dataclasses            import dataclass, fields
+from enum                   import Enum, Flag, IntEnum, StrEnum
+from inspect                import getframeinfo, stack
+from logging.handlers       import QueueListener  #,RotatingFileHandler
+from types                  import FunctionType
 
 import psutil
-
-from mccache.__about__ import __app__, __version__  # noqa
-from pycache import Cache as PyCache
 
 # If you are using VS Code, make sure your "cwd" and "PYTHONPATH" is set correctly in `launch.json`:
 #   "cwd": "${workspaceFolder}",
 #   "env": {"PYTHONPATH": "${workspaceFolder}${pathSeparator}src;${env:PYTHONPATH}"},
 #
+from mccache.__about__ import __app__, __version__  # noqa
+from pycache import Cache as PyCache
 from pycache import CallbackType
 
 # McCache Section.
@@ -159,6 +159,7 @@ class McCacheOption( StrEnum ):
     MCCACHE_CACHE_SIZE      = 'MCCACHE_CACHE_SIZE'
     MCCACHE_CACHE_PULSE     = 'MCCACHE_CACHE_PULSE'
     MCCACHE_CONGESTION      = 'MCCACHE_CONGESTION'
+    MCCACHE_CRYPTO_KEY      = 'MCCACHE_CRYPTO_KEY'
     MCCACHE_PACKET_MTU      = 'MCCACHE_PACKET_MTU'
     MCCACHE_MULTICAST_IP    = 'MCCACHE_MULTICAST_IP'
     MCCACHE_MULTICAST_PORT  = 'MCCACHE_MULTICAST_PORT'
@@ -221,6 +222,7 @@ class McCacheConfig:
     cache_sync_mode: int= 1             # Cache consistent syncing mode.  0=Partial sync ,1=Full sync.
     cache_sync_on: float= 0.0           # Cache last synchronized time from this node to the members.
     congestion: int     = 25            # The maximum cutoff to start congestion control.
+    crypto_key: str     = None          # The encryption/decryption key.
     packet_mtu: int     = 1472          # Maximum Transmission Unit of your network packet payload.
                                         # Ethernet frame is 1500 without the static 20 bytes IP and 8 bytes ICMP headers.  Jumbo frame is 9000.
                                         # SEE: https://www.youtube.com/watch?v=Od5SEHEZnVU and https://www.youtube.com/watch?v=GjiDmU6cqyA
@@ -246,6 +248,7 @@ class McCacheConfig:
 _lock = threading.RLock()               # Module-level lock for serializing access to shared data.
 _mySelf:    dict[str]                   # All my IP address.
 _mcConfig:  McCacheConfig               # Private McCache configuration.
+_mcCrypto:  Fernet                      # Private encryption/decryption function.
 _mcCache:   dict[str   ,dict] = {}      # Private dictionary to segregate the cache namespace.
 _mcArrived: dict[tuple ,dict] = {}      # Private dictionary to manage arriving fragments to be assemble into a value message.
 _mcPending: dict[tuple ,dict] = {}      # Private dictionary to manage send fragment needing acknowledgements.
@@ -825,6 +828,7 @@ def _make_pending_ack( key_t: tuple ,val_t: tuple ,members: dict | str ,frame_si
     # NOTE: An informal test of "pickling" out a large dictionary of 5000 patient objects
     #       to a file took less that 1.5 seconds.
     #       The output file size was 9,820,708 bytes.
+    #       Encrypting this pickled object took approx 1.2 seconds of size of 13,094,372 approx 33% larger.
 
     tsm: int = key_t[ 2 ]                   # 8 bytes unsigned nanoseconds for timestamp.
     key_b: bytes = pickle.dumps( key_t )    # Serialized the key.
@@ -833,6 +837,9 @@ def _make_pending_ack( key_t: tuple ,val_t: tuple ,members: dict | str ,frame_si
         raise BufferError(f"Pickled key for {key_t} size is {key_s}") # noqa: EM102
 
     val_b: bytes = pickle.dumps( val_t )    # Serialized the message.
+    if  _mcCrypto:  # Cryptography is enabled.
+        val_b = _mcCrypto.encrypt( val_b )
+
     val_s: int = len( val_b )
     if  val_s > UINT2:   # 2 bytes unsigned.
         raise BufferError(f"Pickled val for {key_t} size is {val_s}") # noqa: EM102
@@ -999,11 +1006,16 @@ def _assemble_message( aky_t: tuple ) -> tuple[tuple ,object]:  # (tuple ,object
                 key_t =  pickle.loads(bytes( key_b ))    # noqa: S301    De-Serialized the key.
 
         if  key_t and bgn < frg_s:
-            val_b +=  frg_b[ bgn : ]
+#           val_b +=  frg_b[ bgn : ]
+            val_b.extend( frg_b[ bgn : ] )
 
     if  val_s == len( val_b ):
-        val_o =  pickle.loads(bytes( val_b ))    # noqa: S301    De-Serialized the value.
+        # All fragments assembled back to the original message length.
+        if  _mcCrypto:
+            val_b = _mcCrypto.decrypt(bytes( val_b ))
 
+        val_o =  pickle.loads(bytes( val_b ))   # noqa: S301    De-Serialized the value.
+    
     # Delete the completely received message.
     del _mcArrived[ aky_t ]
 
@@ -1893,6 +1905,9 @@ if  _mcConfig.debug_level >= McCacheDebugLevel.BASIC:
 else:
     logger.setLevel( logging.INFO )
 logger.debug( _mcConfig )
+
+if  len( _mcConfig.crypto_key.strip() ) > 0:
+    _mcCrypto = Fernet( str(_mcConfig.crypto_key) )
 
 # TODO: Need a better way to seperate out testing and production code.
 if 'TEST_APERTURE'  in  os.environ:
