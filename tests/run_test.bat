@@ -50,6 +50,8 @@ SET MCCACHE_CACHE_MAX=256
 SET MCCACHE_CACHE_SIZE=8388608
 SET MCCACHE_CACHE_PULSE=5
 SET MCCACHE_CALLBACK_WIN=0
+SET MCCACHE_CRYPTO_KEY=
+
 
 :: Start of CLI.
 :: Parse the command line parameters with the following format:
@@ -72,13 +74,14 @@ IF  "%~1"=="-s"  GOTO :SET_MCCACHE_CACHE_SIZE
 IF  "%~1"=="-p"  GOTO :SET_MCCACHE_CACHE_PULSE
 IF  "%~1"=="-t"  GOTO :SET_MCCACHE_CACHE_TTL
 IF  "%~1"=="-w"  GOTO :SET_MCCACHE_CALLBACK_WIN
+IF  "%~1"=="-k"  GOTO :SET_MCCACHE_CRYPTO_KEY
 
 
 IF  "%~1"==""    GOTO :EOF_CLI
 
 :HELP_SCREEN
 ECHO Invalid parameter %~1 value.  Try the following:
-ECHO %SCRIPT_NAME%  [-D ] [ -P] [-L #] [-C #] [-S #] [-M #] [-R #] [-T #]  [-t #] [-e #] [-s #] [-p #] [-w #]
+ECHO %SCRIPT_NAME%  [-D ] [ -P] [-L #] [-C #] [-S #] [-M #] [-R #] [-T #]  [-t #] [-e #] [-s #] [-p #] [-w #] [-k #]
 ECHO        Test configuration:
 ECHO -D     Use Docker container.
 ECHO -P     Use Podman container.
@@ -95,6 +98,7 @@ ECHO -e #   Maximum cache entries.  Default %MCCACHE_CACHE_MAX% entries.
 ECHO -s #   Maximum cache storage.  Default %MCCACHE_CACHE_SIZE% bytes.
 ECHO -p #   Cache sync pulse.       Default %MCCACHE_CACHE_PULSE% seconds.
 ECHO -w #   Callback spike window.  Default %MCCACHE_CALLBACK_WIN% seconds.
+ECHO -k #   Cryptography key.       Default is none.  For testing, try:  "sjQNjXGt_AygJrrFUu7C5hN6voq9a9WBBorVXkuD3Xc="
 GOTO :EOF_SCRIPT
 
 :SET_DOCKER_CONTAINER
@@ -189,6 +193,12 @@ SHIFT
 SHIFT
 GOTO :SOF_CLI
 
+:SET_MCCACHE_CRYPTO_KEY
+SET  MCCACHE_CRYPTO_KEY=%2
+SHIFT
+SHIFT
+GOTO :SOF_CLI
+
 :: End of CLI.
 :EOF_CLI
 
@@ -208,6 +218,7 @@ ECHO    MCCACHE_CACHE_MAX:      %MCCACHE_CACHE_MAX%
 ECHO    MCCACHE_CACHE_SIZE:     %MCCACHE_CACHE_SIZE%
 ECHO    MCCACHE_CACHE_PULSE:    %MCCACHE_CACHE_PULSE%
 ECHO    MCCACHE_CALLBACK_WIN:   %MCCACHE_CALLBACK_WIN%
+ECHO    MCCACHE_CRYPTO_KEY:     %MCCACHE_CRYPTO_KEY%
 ECHO:
 
 :: The following are CLI input parameter you can use to parse out the script name information.

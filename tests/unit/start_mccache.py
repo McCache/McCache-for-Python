@@ -220,7 +220,7 @@ while (end - bgn) < (duration*60):  # Seconds.
                     mc.logger.warning(f"{cache.tsm_version_str()} Pending:{len(mc._mcPending):5} {sorted(mc._mcPending.keys() ,reverse=True )}")
                     mc.logger.warning(f"{cache.tsm_version_str()} Arrive: {len(mc._mcArrived):5} {sorted(mc._mcArrived.keys() ,reverse=True )}")
 
-            time.sleep( 0.25 )  # A breather pause.  DONT delete this line or it could congest.
+            time.sleep( 0.15 if scl <= 100 else 0.3 )  # A breather pause.  DONT delete this line or it could congest.
 #       case 1|2|3|4:   # NOTE: 20% are inserts.    This has lots of hot spots.
         case 1|3|5|7:   # NOTE: 20% are inserts.
             if  key not in cache:

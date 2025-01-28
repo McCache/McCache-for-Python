@@ -10,6 +10,8 @@ name = "testpypi"
 
 [packages]
 psutil = ">=5.9.5"
+cryptography = ">=44.0.0"
+
 #
 # Optional production cloud specific packages.
 # Install using:  pipenv install [package] --catgeories "cloud_logger cloud_secret"

@@ -18,10 +18,12 @@ It uses **UDP** multicast as the transport hence the name "Multi-Cast Cache", pl
 The goals of this package are:
 1. Reduce complexity by **not** be dependent on any external caching service such as `memcached`, `redis` or the likes.  SEE: [Distributed Cache](https://en.wikipedia.org/wiki/Distributed_cache)
     * We are guided by the principal of first scaling up before scaling out.
-2. Keep the programming interface consistent with Python's dictionary.  The distributed nature of the cache is transparent to you.
+2. Keep the same Python programming experience.  It is the same Python's dictionary interface.  The distributed nature of the cache is transparent to you.
     * This is an in process cache.
 3. Performant
     * Need to handle rapid updates that are 0.01sec (10 ms) or faster.
+4. Secure
+    * All transmissions across the network are encrypted.
 
 `McCache` is **not** a replacement for your persistent or search data.  It is intended to be used to cache your most expensive work.  You can consider the Pareto Principle [**80/20**](https://en.wikipedia.org/wiki/Pareto_principle) rule, which states that caching **20%** of the most frequently accessed **80%** data can improve performance for most requests.  This principle offers you the option to reduce your hardware requirement.  Only you can decide how much to cache.
 
@@ -51,7 +53,11 @@ del c[ k ] # Delete a cache entry
 if  k  not in c:
     print(f" {k}  is not in the cache.")
 
-print("At this point all the cache with namespace 'demo' in the cluster are identical.")
+k = 'k2'
+c[ k ] = dt.now( datetime.UTC )   # Insert another cache entry
+print(f"Started at {c[ k ]}")
+
+# At this point all the cache with namespace 'demo' in the cluster are identical with just one entry with key 'k2'.
 
 # Query the local cache checksum and metrics.
 pp( mccache.get_local_checksum( 'demo' ))
@@ -126,13 +132,23 @@ The following are environment variables you can tune to fit your production envi
   </tr>
   <tr>
     <td><sub>MCCACHE_CACHE_SIZE</sub></td>
-    <td>8,388,608 bytes</td>
+    <td>8,388,608 bytes (8Mb)</td>
     <td>The maximum size for the cache.</td>
   </tr>
   <tr>
     <td><sub>MCCACHE_CACHE_PULSE</sub></td>
     <td>300 secs</td>
     <td>The interval to send out a synchronization pulse operation to the other members in the cluster.</td>
+  </tr>
+  <tr>
+    <td><sub>MCCACHE_CRYPTO_KEY</sub></td>
+    <td></td>
+    <td>The encryption/decryption key.  Enabling this will increase the payload size my at least 30% and also increase CPU processing.  Cryptography shall be enabled if presence of a key value.  Generate the key as follows:
+    <code><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;from  cryptography.fernet  import  Fernet<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;print( Fernet.generate_key() )
+    </code>
+    </td>
   </tr>
   <tr>
     <td><sub>MCCACHE_PACKET_MTU</sub></td>
@@ -205,8 +221,8 @@ The following are environment variables you can tune to fit your production envi
   <tr>
     <td><sub>TEST_APERTURE</sub></td>
     <td>0.01 sec</td>
-    <td>The time scale to keep the randomly generated value to snooze within.
-        The value of 0.01, 10ms, a random snooze shall be between 6.5ms and 45ms.
+    <td>The centerpoint of a range of durations to snooze within.
+        e.g. For the value of 0.01, 10ms, the snooze range shall be between 6.5ms and 13.5ms.
         Tune this number down to add stress to the test.</td>
   </tr>
   <tr>
