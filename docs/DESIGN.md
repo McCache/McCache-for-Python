@@ -2,11 +2,13 @@
 ## Architecture Diagram
 ### Centralized implementation
 A centralize caching architecture shall be a remote server providing the caching service.
+
 ![Centralized Architecture](Centralize%20Architecture.png)
 * <sub>This diagram is generated at https://www.eraser.io/diagramgpt.  I am in need of some help in the art department</sub>.
 
 ### McCache implementation
 `McCache` attempt to keep the cache in the other members in the cluster in sync with each other.
+
 ![McCache Architecture](McCache%20Architecture.png)
 * <sub>This diagram is generated at https://www.eraser.io/diagramgpt.  I am in need of some help in the art department</sub>.
 
@@ -72,8 +74,8 @@ if 'k' in c.metadata:
 
 * The clocks in a distributed environment is never as accurate (due to clock drift) as we want it to be in a high update environment.  On a Local Area Network, the accuracy could go down to 1ms but 10ms is a safer assumption.  SEE: [NTP](https://timetoolsltd.com/ntp/ntp-timing-accuracy/) and [PTP](https://en.wikipedia.org/wiki/Precision_Time_Protocol)
 
-* The maximum size of your message shall be **255** multiple by the `packet_mtu` size set in the configuration.  If your object to be cached span more than 255 fragments, it will be evicted from your local cache and the eviction shall be propagated to the rest of the members in the cluster.
+* The maximum size of your message shall be **255** multiple by the `packet_mtu` size set in the configuration.  e.g. 255 * 1472 = **375,360** bytes.  If your object to be cached span more than 255 fragments, it will be evicted from your local cache and the eviction shall be propagated to the rest of the members in the cluster.  Furthermore, if encryption is enabled, the object binary size will increase by at least 30%.  Given this constrain, do keep the size of the object to cache to less than **280,000** bytes.
 
 ## Load balancer
-* We recommend to use sticky session load balancer.
+* We recommend to use sticky session load balancer.  Keep the context of your work within the same server.
 * <b>SEE</b>: <a href="https://www.youtube.com/watch?v=hTp4czOrvOY">Enabling Sticky Sessions</a>
