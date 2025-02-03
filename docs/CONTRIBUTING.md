@@ -79,9 +79,19 @@ vulture ./src/mccache/*.py  # Dead code scanner.
 You can run the following command to **unit** test `PyCache`.
 ```bash
 pytest  ./tests/unit/test_pycache.py
+pytest  ./tests/unit/test_mccache.py
 ```
 
-You may need to set your `PYTHONPATH` to pick up the packages to test.  Try setting it as follows:
+### Coverage
+You can run the following command to the coverage of `PyCache`.
+```
+coverage  erase
+coverage  run -m  pytest  ./tests/unit/test_pycache.py
+coverage  report  --skip-empty --include                __init__.py
+coverage  report  --skip-empty --include --show-missing __init__.py
+ ```
+
+You may need to set your `PYTHONPATH` to pick up the packages to test.  `.env` should be loaded by `pipenv` on invocation.  If not try setting it as follows:
 ```bash
 PYTHONPATH="Path/to/your/source/root/directory"
 ```

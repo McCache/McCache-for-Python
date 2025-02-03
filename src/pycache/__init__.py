@@ -315,7 +315,7 @@ class Cache( OrderedDict ):
         ttl = self.__ttl * Cache.ONE_NS_SEC     # Convert seconds in nanosecond.
         evt: int = 0
 
-        if  ttl > now - self.__oldest:
+        if  ttl > (now - self.__oldest):
             return  0   # NOTE: Nothing is old enough to evict.
 
         if  self.__debug:
@@ -792,8 +792,6 @@ class Cache( OrderedDict ):
         if  self.__ttl > 0:
             _ = self._evict_items_by_ttl()
 
-        #debug
-        print(type(iterable))
         with  Cache.CACHE_LOCK: # TODO: Not working!
             updates = {}
             for key ,val in iterable.items():
@@ -818,8 +816,6 @@ class Cache( OrderedDict ):
         with Cache.CACHE_LOCK:
             return super().values() # TYPE: odict_values
 
-
-#from datetime import datetime ,timezone
 
 # The MIT License (MIT)
 # Copyright (c) 2023 McCache authors.

@@ -32,33 +32,33 @@ The goals of this package are:
 
 ## Installation
 ```console
-pip install mccache
+pip  install  mccache
 ```
 
 ## Example
 ```python
 import  mccache
-import  datetime
 from    datetime  import  datetime  as  dt
+from    datetime  import  UTC
 from    pprint    import  pprint    as  pp
 
 c = mccache.get_cache( 'demo' )
 k = 'k1'
 
-c[ k ] = dt.now( datetime.UTC )   # Insert a cache entry
-print(f"Started at {c[ k ]}")
+c[ k ] = dt.now( UTC )   # Insert a cache entry
+print(f"Inserted on {c[ k ]}")
 
-c[ k ] = dt.now( datetime.UTC )   # Update a cache entry
-print(f"Ended at {c[ k ]}")
-print(f"Metadata for key is {c.metadata[ k ]}")
+c[ k ] = dt.now( UTC )   # Update a cache entry
+print(f"Updated  on {c[ k ]}")
+print(f"Metadata for key '{k}' is {c.metadata[ k ]}")
 
 del c[ k ] # Delete a cache entry
 if  k  not in c:
     print(f" {k}  is not in the cache.")
 
 k = 'k2'
-c[ k ] = dt.now( datetime.UTC )   # Insert another cache entry
-print(f"Started at {c[ k ]}")
+c[ k ] = dt.now( UTC )   # Insert another cache entry
+print(f"Inserted on {c[ k ]}")
 
 # At this point all the cache with namespace 'demo' in the cluster are identical with just one entry with key 'k2'.
 
@@ -97,9 +97,10 @@ We suggest the following testing to collect metrics of your application running 
 1. Import the `McCache` library into your project.
 2. Use it in your data access layer by populating and updating the cache but **don't** use the cached values.
 3. Configure to enable the debug logging by providing a path for your log file.
-4. Run your application for an extended period and exit.
-5. Log the summary metric out to be analyze.
-5. Review the metrics to quantify the fit to your application and environment.  **SEE**: [Testing](https://github.com/McCache/McCache-for-Python/blob/main/docs/TESTING.md#container)
+4. Compare the retrieved values between your existing cache and from `McCache`.
+5. Run your application for an extended period and exit.
+6. Log the summary metric out for more extended analysis.
+7. Review the metrics to quantify the fit to your application and environment.  **SEE**: [Testing](https://github.com/McCache/McCache-for-Python/blob/main/docs/TESTING.md#container)
 
 ## Saving
 Removing an external dependency in your architecture reduces it's <strong>complexity</strong> and not to mention some capital cost saving.<br>
@@ -118,7 +119,7 @@ The following are environment variables you can tune to fit your production envi
 <tbody>
   <tr>
     <td><sub>MCCACHE_CACHE_TTL</sub></td>
-    <td>3600 secs</td>
+    <td>3600 secs (1 hour)</td>
     <td>Maximum number of seconds a cached entry can live before eviction.  Update operations shall reset the timer.</td>
   </tr>
   <tr>
@@ -135,28 +136,28 @@ The following are environment variables you can tune to fit your production envi
   </tr>
   <tr>
     <td><sub>MCCACHE_CACHE_SIZE</sub></td>
-    <td>8,388,608 bytes (8Mb)</td>
-    <td>The maximum size for the cache.</td>
+    <td>8,388,608&nbsp;bytes&nbsp;(8Mb)</td>
+    <td>The maximum in-memory size per cache.</td>
   </tr>
   <tr>
     <td><sub>MCCACHE_CACHE_PULSE</sub></td>
-    <td>300 secs</td>
+    <td>300 secs (5 min)</td>
     <td>The interval to send out a synchronization pulse operation to the other members in the cluster.</td>
   </tr>
   <tr>
     <td><sub>MCCACHE_CRYPTO_KEY</sub></td>
     <td></td>
-    <td>The encryption/decryption key.  Enabling this will increase the payload size my at least 30% and also increase CPU processing.  Cryptography shall be enabled if presence of a key value.  Generate the key as follows:
+    <td>The encryption/decryption key.  Cryptography shall be enabled if presence of a key value.  Generate the key as follows:
     <code><br>
-    &nbsp;&nbsp;&nbsp;&nbsp;from  cryptography.fernet  import  Fernet<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;print( Fernet.generate_key() )
-    </code>
+    &nbsp;&nbsp;from  cryptography.fernet  import  Fernet<br>
+    &nbsp;&nbsp;print( Fernet.generate_key() )
+    </code><br>Enabling this will increase the payload size by at least 30% and also increase CPU processing.  
     </td>
   </tr>
   <tr>
     <td><sub>MCCACHE_PACKET_MTU</sub></td>
     <td>1472 bytes</td>
-    <td>The size of the smallest transfer unit of the network packet between all the network interfaces.</td>
+    <td>The size of the smallest transfer unit of the network packet between all the network interfaces.<br>Generally, ethernet frame is <b>1500</b> without the static <b>20</b> bytes IP and <b>8</b> bytes ICMP headers.</td>
   </tr>
   <tr>
     <td><sub>MCCACHE_MULTICAST_IP</sub></td>
@@ -180,8 +181,8 @@ The following are environment variables you can tune to fit your production envi
     <td>The snooze duration for the daemon housekeeper before waking up to check the state of the cache.</td>
   </tr>
   <tr>
-    <td><sub>MCCACHE_DEBUG_LOGFILE</sub></td>
-    <td>./log/debug.log</td>
+    <td><sub>MCCACHE_LOG_FILENAME</sub></td>
+    <td>./log/mccache.log</td>
     <td>The local filename where output log messages are appended to.</td>
   </tr>
   <tr>

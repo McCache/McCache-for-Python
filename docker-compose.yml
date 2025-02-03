@@ -31,7 +31,7 @@ services:
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug01${RUN_TIMESTAMP}.log
+      - MCCACHE_LOG_FILENAME=/home/mccache/log/mccache_debug01${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -70,7 +70,7 @@ services:
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug02${RUN_TIMESTAMP}.log
+      - MCCACHE_LOG_FILENAME=/home/mccache/log/mccache_debug02${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -109,7 +109,7 @@ services:
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug03${RUN_TIMESTAMP}.log
+      - MCCACHE_LOG_FILENAME=/home/mccache/log/mccache_debug03${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -148,7 +148,7 @@ services:
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug04${RUN_TIMESTAMP}.log
+      - MCCACHE_LOG_FILENAME=/home/mccache/log/mccache_debug04${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -187,7 +187,7 @@ services:
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug05${RUN_TIMESTAMP}.log
+      - MCCACHE_LOG_FILENAME=/home/mccache/log/mccache_debug05${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -226,7 +226,7 @@ services:
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug06${RUN_TIMESTAMP}.log
+      - MCCACHE_LOG_FILENAME=/home/mccache/log/mccache_debug06${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -265,7 +265,7 @@ services:
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug07${RUN_TIMESTAMP}.log
+      - MCCACHE_LOG_FILENAME=/home/mccache/log/mccache_debug07${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -304,7 +304,7 @@ services:
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug08${RUN_TIMESTAMP}.log
+      - MCCACHE_LOG_FILENAME=/home/mccache/log/mccache_debug08${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
@@ -343,7 +343,7 @@ services:
 #     - MCCACHE_LOG_FORMAT=%(created)f %(message)s
       - MCCACHE_LOG_FORMAT=%(message)s
 #     - MCCACHE_LOG_MSGFMT={now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}
-      - MCCACHE_DEBUG_LOGFILE=/home/mccache/log/mccache_debug09${RUN_TIMESTAMP}.log
+      - MCCACHE_LOG_FILENAME=/home/mccache/log/mccache_debug09${RUN_TIMESTAMP}.log
       #
       - PYTHONUNBUFFERED=1  # Ensures that the python output streams are sent straight to terminal.
     volumes:
