@@ -23,9 +23,9 @@ def database():
 #   @pytest.mark.xfail( sys.platform == "win32", reason="bug in a 3rd party library" )
 #
 
-#   Use marker to annotate groups to allow specific test run.  This one is mark as 'change'.
+#   Use marker to annotate groups to allow specific test run.  This one is mark as 'unit'.
 #   Your can run this specific group of test as follows:
-#       $ py.test -m unit
+#       $ pytest -m unit
 @pytest.mark.unit
 #   Use Python class to group similar tests together.
 class   TestClass:

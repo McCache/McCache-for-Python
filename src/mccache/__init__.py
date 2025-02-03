@@ -161,12 +161,13 @@ class McCacheOption( StrEnum ):
     MCCACHE_CONGESTION      = 'MCCACHE_CONGESTION'
     MCCACHE_CRYPTO_KEY      = 'MCCACHE_CRYPTO_KEY'
     MCCACHE_PACKET_MTU      = 'MCCACHE_PACKET_MTU'
+#   MCCACHE_QUORUM_MEMBER   = 'MCCACHE_QUORUM_MEMBER'
     MCCACHE_MULTICAST_IP    = 'MCCACHE_MULTICAST_IP'
     MCCACHE_MULTICAST_PORT  = 'MCCACHE_MULTICAST_PORT'
     MCCACHE_MULTICAST_HOPS  = 'MCCACHE_MULTICAST_HOPS'
     MCCACHE_CALLBACK_WIN    = 'MCCACHE_CALLBACK_WIN'
     MCCACHE_DAEMON_SLEEP    = 'MCCACHE_DAEMON_SLEEP'
-    MCCACHE_DEBUG_LOGFILE   = 'MCCACHE_DEBUG_LOGFILE'
+    MCCACHE_LOG_FILENAME    = 'MCCACHE_LOG_FILENAME'
     MCCACHE_LOG_FORMAT      = 'MCCACHE_LOG_FORMAT'
     MCCACHE_LOG_MSGFMT      = 'MCCACHE_LOG_MSGFMT'
     # Test Env Variables.
@@ -219,7 +220,7 @@ class McCacheConfig:
     cache_max: int      = 256           # Max entries threshold for triggering entries eviction.
     cache_size: int     = 256*4096*8    # Max size in bytes threshold for triggering entries eviction.
     cache_pulse:int     = 5             # Cache synchronization heartbeat pulse in minutes.
-    cache_sync_mode: int= 1             # Cache consistent syncing mode.  0=Partial sync ,1=Full sync.
+    cache_mode: int     = 1             # Cache consistent syncing mode.  0=Partial sync ,1=Full sync.
     cache_sync_on: float= 0.0           # Cache last synchronized time from this node to the members.
     congestion: int     = 25            # The maximum cutoff to start congestion control.
     crypto_key: str     = None          # The encryption/decryption key.
@@ -229,6 +230,7 @@ class McCacheConfig:
     packet_pace: float  = 0.1           # 100ms for congestion control.
                                         # SEE: https://cdn.ttgtmedia.com/rms/onlineimages/split_seconds-h.png
                                         # OS quanta: Windows ~ 120ms and *nix ~ 100ms.
+#   quorum_member: int  = 0             # A flag to designate if this node is a member of the quorum.  Quorum member have extra duty.
     multicast_ip: str   ='224.0.0.3'    # Unassigned multi-cast IP.
     multicast_port: int = 4000          # Unofficial port.  Was for Diablo II game.
     multicast_hops: int = 3             # 1 is only local subnet on the same switch/router.
@@ -238,10 +240,10 @@ class McCacheConfig:
     monkey_tantrum: int = 0             # Chaos monkey tantrum % level (0 - 99).
     daemon_sleep: float = SEASON_TIME   # House keeping snooze seconds (0.33 - 3.0).
     random_seed: int    = int(str(socket.getaddrinfo(socket.gethostname() ,0 ,socket.AF_INET )[0][4][0]).split(".")[3])
+    log_filename: str   = 'log/mccache.log'
     log_format: str     = f"%(asctime)s.%(msecs)03d (%(ipV4)s.%(process)d.%(thread)05d)[%(levelname)s {__app__}@%(lineno)d] %(message)s"
     log_msgfmt: str     = '{now} L#{lno:>4} Im:{iam}\t{sdr}\t{opc}\t{tsm:<18}\t{nms}\t{key}\t{crc}\t{msg}'
     debug_level: int    = 0             # Debug tracing is default to off/false. 0=off ,1=basic ,3=extra ,5=superfluous
-    debug_logfile: str  = 'log/mccachedebug.log'
 
 # Module initialization.
 #
@@ -351,19 +353,26 @@ def get_cache( name: str | None=None ,callback: FunctionType = _default_callback
         _mcCache[ name ] = cache
     return cache
 
-def clear_cache( name: str | None = None ) -> None:
+def clear_cache( name: str | None = None ,node: str | None = None ) -> None:
     """Clear all the distributed caches.
 
     Request all the members in the cluster to clear their cache without rebooting their instance.
     This method is intended to be used from a node that is not participating in the cluster.
 
     Args:
-        name:   Name of the cache.  If none is provided, all caches shall be cleared.
+        name:   Name of the cache.  If none is provided, all caches checksum shall be produced.
+        node:   IP address for a specific member to query.
+                If none is provided, all members in the cluster shall be queried.
     Return:
         None
     """
-    _mcOBQueue.put((OpCode.RST ,PyCache.tsm_version() ,name ,None ,None ,None ,None))
-    _mcOBQueue.put((OpCode.INQ ,PyCache.tsm_version() ,name ,None ,None ,None ,None))
+    # TODO: Rethink querying local and all nodes.
+    if  node and node not in _mcMember and node not in _mySelf:
+        logger.error(f"Node: {node} does not exist in the cluster.")
+        return
+
+    _mcOBQueue.put((OpCode.RST ,PyCache.tsm_version() ,name ,None ,None ,None ,node))
+    _mcOBQueue.put((OpCode.INQ ,PyCache.tsm_version() ,name ,None ,None ,None ,node))
 
 def get_cluster_metrics( name: str | None = None ,node: str | None = None ) -> None:
     """Inquire the metrics for all the distributed caches.
@@ -464,7 +473,7 @@ def _is_valid_multicast_ip( ip: str ) -> bool:
                 sgm[3] in mcips[ sgm[0]][ sgm[1]][ sgm[2]]
             )
 
-def _load_config():
+def _load_config( project_config: str = 'pyproject.toml' ):
     """Load the McCache configuration.
 
     Configuration will loaded in the following order over writing the previously set values.
@@ -474,6 +483,7 @@ def _load_config():
     Data type validation is performed.
 
     Args:
+        project_config: Path to the configuration 'pyproject.toml' file.
     Return:
         Dataclass   A new configuration.
     """
@@ -482,7 +492,7 @@ def _load_config():
 
     try:
         import tomllib  # Introduced in Python 3.11.
-        with open("pyproject.toml" ,encoding="utf-8") as fp:
+        with open( project_config ,encoding="utf-8" ) as fp:
             tmlcfg = tomllib.loads( fp.read() )
     except  FileNotFoundError:
         pass
@@ -585,7 +595,7 @@ def _log_ops_msg(
         nms: str    | None = None,  # Namespace
         key: object | None = None,  # Key
         crc: bytes  | None = None,  # Checksum (md5)
-        msg: str    |   None = None,  # Message to log.
+        msg: str    | None = None,  # Message to log.
         # In message replacement tokens.
         prvtsm: int | None = None,  # Previous Timestamp
         prvcrc: bytes|None = None,  # Previous Checksum (md5)
@@ -1006,8 +1016,7 @@ def _assemble_message( aky_t: tuple ) -> tuple[tuple ,object]:  # (tuple ,object
                 key_t =  pickle.loads(bytes( key_b ))    # noqa: S301    De-Serialized the key.
 
         if  key_t and bgn < frg_s:
-#           val_b +=  frg_b[ bgn : ]
-            val_b.extend( frg_b[ bgn : ] )
+            val_b +=  frg_b[ bgn : ]
 
     if  val_s == len( val_b ):
         # All fragments assembled back to the original message length.
@@ -1281,7 +1290,9 @@ def _get_local_value( key: object ,mcc: dict ) -> tuple:
 
     return (val ,crc ,tsm)
 
-def process_ACK( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+def _process_ACK( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+    """Process ACK message.
+    """
     pky: tuple  = (nms ,key ,tsm)
 
     if  pky in _mcPending:
@@ -1305,7 +1316,9 @@ def process_ACK( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,
         _log_ops_msg( logging.WARNING   ,opc=opc ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
                                         ,msg=f">   {pky} NOT found for acknowledgment from {sdr}." )
 
-def process_BYE( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+def _process_BYE( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+    """Process BYE message.
+    """
     if  sdr in _mcMember:
         del _mcMember[ sdr ]
         if  _mcConfig.debug_level >= McCacheDebugLevel.EXTRA:
@@ -1323,7 +1336,9 @@ def process_BYE( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,
                     _log_ops_msg( logging.DEBUG ,opc=opc ,tsm=tsm ,nms=nms ,key=key ,crc=crc
                                                 ,msg=f">>  Delete tracking entry {pky_t}." )
 
-def process_DEL( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+def _process_DEL( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+    """Process DEL message.
+    """
     mcc: dict = get_cache( nms )
 
     if  key in mcc:
@@ -1358,11 +1373,15 @@ def process_DEL( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,
             _log_ops_msg( logging.DEBUG ,opc=OpCode.DEL ,sdr=sdr ,tsm=tsm ,nms=nms ,key=key ,crc=crc
                                         ,msg=f">>  ERR:{key} NOT deleted from local." )
 
-def process_NEW( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+def _process_NEW( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+    """Process NEW message.
+    """
     if  sdr not in _mySelf and sdr not in _mcMember:
         _mcMember[ sdr ] = tsm   # Timestamp
 
-def process_RAK( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ,aky_t: tuple ):  # noqa: N802
+def _process_RAK( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ,aky_t: tuple ):  # noqa: N802
+    """Process RAK message.
+    """
     mcc: dict = get_cache( nms )
 
      #   Deep Tracing
@@ -1392,7 +1411,9 @@ def process_RAK( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,
         # Didn't receive message fragment and need sender to resend it.
         _mcOBQueue.put((OpCode.NAK ,tsm ,nms ,key ,crc ,None ,sdr))
 
-def process_REQ( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+def _process_REQ( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+    """Process REQ message.
+    """
     mcc: dict = get_cache( nms )
 
     # TODO: Refactor this block into def process_REQ()
@@ -1415,13 +1436,17 @@ def process_REQ( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,
                                             ,msg=f">   Requested key {key} is no longer in local cache." )
             # TODO: NEG it.
 
-def process_RST( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+def _process_RST( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+    """Process RST message.
+    """
     # TODO: Refactor this block into def process_RST()
     for n in filter( lambda nk: nk == nms or nms is None ,_mcCache.keys() ):            # Namespace
         for k in filter( lambda kk: kk == key or key is None ,_mcCache[ n ].keys() ):   # Keys within namespace.
             _mcCache[ n ].__delitem__( k ,EnableMultiCast.NO )
 
-def process_SYC( nms: str ,_ky: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+def _process_SYC( nms: str ,_ky: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+    """Process SYC message.
+    """
     mcc: dict = get_cache( nms )
 
     for key in  val:
@@ -1456,7 +1481,9 @@ def process_SYC( nms: str ,_ky: object ,tsm: int ,lts: int ,opc: str ,crc: str ,
             # Not in local cache therefore request the syncing sender to resend this key/value.
             _mcOBQueue.put((OpCode.REQ ,PyCache.tsm_version() ,nms ,key ,None ,None ,sdr))
 
-def process_UPD( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+def _process_UPD( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
+    """Process UPD message.
+    """
     mcc: dict = get_cache( nms )
 
     try:
@@ -1586,13 +1613,13 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
     # TODO: Deal with the concurrent deletion of the house keeping dictionaries.
     match opc:
         case OpCode.ACK:    # Acknowledgment.
-            process_ACK(    nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
+            _process_ACK(   nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
 
         case OpCode.BYE:    # Goodbye from member.
-            process_BYE(    nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
+            _process_BYE(   nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
 
         case OpCode.DEL | OpCode.EVT:   # Delete/Eviction.
-            process_DEL(    nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
+            _process_DEL(   nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
             val = None
 
         case OpCode.ERR:    # Error.
@@ -1605,22 +1632,22 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
             val = _get_local_metrics(   nms )
 
         case OpCode.NEW:    # New member.
-            process_NEW(    nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
+            _process_NEW(   nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
 
         case OpCode.RAK:    # Re-Acknowledgement.
-            process_RAK(    nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr ,aky_t )
+            _process_RAK(   nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr ,aky_t )
 
         case OpCode.REQ:    # Request resend.
-            process_REQ(    nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
+            _process_REQ(   nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
 
         case OpCode.RST:    # Reset.
-            process_RST(    nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
+            _process_RST(   nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
 
         case OpCode.SYC:    # Sync heart beat.
-            process_SYC(    nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
+            _process_SYC(   nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
 
         case OpCode.UPD | OpCode.INS:   # Insert and Update.
-            process_UPD(    nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
+            _process_UPD(   nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
             val = None
 
         case _:
@@ -1899,7 +1926,7 @@ def  _processor() -> None:
 logger: logging.Logger = logging.getLogger()    # Initially use the root logger.
 _mcConfig = _load_config()
 
-logger ,_mcLgLsnr = _get_mccache_logger( _mcConfig.debug_logfile ) # Replace with the McCache logger.
+logger ,_mcLgLsnr = _get_mccache_logger( _mcConfig.log_filename ) # Replace with the McCache logger.
 if  _mcConfig.debug_level >= McCacheDebugLevel.BASIC:
     logger.setLevel( logging.DEBUG )
 else:
