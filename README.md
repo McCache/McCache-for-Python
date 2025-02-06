@@ -84,7 +84,8 @@ The following are some loose guidelines to help you assess if the `McCache` libr
 * Your cluster environment is secured by **other** means.
 * Your nodes clock in the cluster are **well** synchronized.
 
-The adjectives used above have been intended to be loose and should be quantified to your environment and needs.<br>
+The adjectives used above have been intended to be loose and should be quantified to your environment and needs.
+W recommend that you verify first if `McCache` is the right fit for you.<br>
 **SEE**: [Testing](https://github.com/McCache/McCache-for-Python/blob/main/docs/TESTING.md)
 
 You can review the script used in the stress test.<br>

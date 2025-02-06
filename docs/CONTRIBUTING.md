@@ -1,14 +1,22 @@
 # How to contribute
 
-First you need to clone this project down to your local drive with the following command:
+First, You need either `podman` or `docker` to be installed for stress testing.<br>
+SEE: [Docker Install](https://docs.docker.com/engine/install/) or<br>
+SEE: [Podman Install](https://podman.io/docs/installation)
+
+Next, you need to clone this project down to your local drive with the following command:
 ```bash
-git    clone  https://github.com/McCache/McCache-for-Python.git
+git  clone  https://github.com/McCache/McCache-for-Python.git
 ```
 Next, make a copy of `pyproject.toml.sample` to `pyproject.toml`.  You may add additional configuration into  `pyproject.toml` to suite your needs.
 
-You need either `podman` or `docker` to be installed for stress testing.
+Next, you create a `.env` file with the following a similar text as follows:
+```bash
+PYTHONPATH="Path/to/McCache-for-Python/src"
+```
+`.env` should be loaded by `pipenv` on invocation.  This will make the `McCache` packages available to test.
 
-We use `pipenv` to manage the [dependencies](https://realpython.com/pipenv-guide/).  It is a slow resolving dependencies but we hope it is a one time activity that you as a developer have to perform.  `pipenv` can load your local `.env` file to set your custom environment variables.  We are considering other tools like `hatch` or `uv` in the future.
+We use `pipenv` to manage the [dependencies](https://realpython.com/pipenv-guide/).  It is slow at resolving dependencies but we hope it is a infrequent activity that you as a developer have to perform.  `pipenv` can load your local `.env` file to set your custom environment variables.  We are considering other tools like `hatch` or `uv` in the future.
 If you don't have `pipenv` installed, you should install it with the following command outside of your virtual environment:
 ```bash
 pip    install -U  pip
@@ -46,6 +54,11 @@ We like [PEP8](https://peps.python.org/pep-0008/#a-foolish-consistency-is-the-ho
 * Commas:
   * This is **not** English literature writing.  A comma is use to introduce the next term.  Therefore we have a space before the comma but no space after the comma.  If there is no next term, you will not need a comma to separate the terms as depicted by the following railroad diagram:
     * WIP: Waiting for [`mermaid`](https://mermaid.js.org/intro/) railroad diagram support.
+      ```
+      |-.->( term )-+->
+        |           |
+        +--<( , )<--+
+      ```
 * Vertical alignment:
   * We believe that vertical align make it easier on the eyes to pick out deltas.  A multi jagged lines require the eyes and brain to perform a lot of scans and processing creating mental fatigue.
 
@@ -67,7 +80,7 @@ Execute the following command to display all the `ruff` supported linters:
 ruff  linter
 ```
 
-### Checks
+## Checks
 You can run the following command to further check the code.  `bandit` and `vulture` are automatic when you commit your code.
 ```bash
 mypy  --disable-error-code "arg-type"  ./src/mccache/*.py  # Static type checker for Python.
@@ -75,14 +88,14 @@ bandit  ./src/mccache/*.py  # Security issues scanner.
 vulture ./src/mccache/*.py  # Dead code scanner.
 ```
 
-### Tests
+## Tests
 You can run the following command to **unit** test `PyCache`.
 ```bash
 pytest  ./tests/unit/test_pycache.py
 pytest  ./tests/unit/test_mccache.py
 ```
 
-### Coverage
+## Coverage
 You can run the following command to the coverage of `PyCache`.
 ```
 coverage  erase
@@ -91,17 +104,13 @@ coverage  report  --skip-empty --include                __init__.py
 coverage  report  --skip-empty --include --show-missing __init__.py
  ```
 
-You may need to set your `PYTHONPATH` to pick up the packages to test.  `.env` should be loaded by `pipenv` on invocation.  If not try setting it as follows:
-```bash
-PYTHONPATH="Path/to/your/source/root/directory"
-```
-
 You can run the following script to **stress** test `McCache`.
 ```bash
-./tests/run_test
+./tests/run_test  --help  # Get the help screen.
+./tests/run_test          # Run a basic stress test.
 ```
 
-### Before submitting
+## Before submitting
 Before submitting your code please do the following steps:
 
 1. Add any changes you want.

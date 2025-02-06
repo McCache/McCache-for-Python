@@ -223,6 +223,11 @@ class   TestClass:
     def test_private_methods_01(self):
         """Test private methods.
         """
+        pass
+
+    def test_make_pending_ack(self):
+        """Test private method _make_pending_ack.
+        """
         os.environ['MCCACHE_CRYPTO_KEY'] = 'sjQNjXGt_AygJrrFUu7C5hN6voq9a9WBBorVXkuD3Xc='
         os.environ['MCCACHE_PACKET_MTU'] = '1489'   # Arbitrary
         import  mccache
@@ -282,6 +287,42 @@ class   TestClass:
 #       val_b = mccache._mcCrypto.decrypt( bytes( val_b ))
 #       key_b = pickle.loads(bytes( val_b[ 0 : key_s ]  ))
 #       val_o = pickle.loads(bytes( val_b[ key_s :   ]  ))
+
+    def test_collect_fragment(self):
+        """Test private method _collect_fragment().
+        """
+        pass
+
+    def test_assemble_message(self):
+        """Test private method _assemble_message().
+        """
+        pass
+
+    def test_check_expr_pending(self):
+        """Test private method _check_expr_pending().
+        """
+        pass
+
+    def test_check_sent_pending(self):
+        """Test private method _check_sent_pending().
+        """
+        pass
+
+    def test_check_recv_assembly(self):
+        """Test private method _check_recv_assembly().
+        """
+        pass
+
+    def test_check_sync_metadata(self):
+        """Test private method _check_sync_metadata().
+        """
+        pass
+
+    def test_get_local_value(self):
+        """Test private method _get_local_value().
+        """
+        pass
+
 
 
     def test_private_opcode_01(self):
