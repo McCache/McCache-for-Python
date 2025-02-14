@@ -265,7 +265,12 @@ cat     log/*debug0*.log |grep -E "	INQ	|process|Done|Exiting" |grep -Ev "Fr:|Ou
 pytest  tests\stress\test_stress.py log/result.txt
 
 :: Sort the logs in chronological order.
-sort    log/*.log   >log/chronological.txt
+sort    log/*debug0*.log >log/chronological.txt > NUL 2>&1
+
+IF %ERRORLEVEL% EQU 0 GOTO :EOF_CHRONOLOGICAL
+::  Use the Windows sort.
+cat     log/*debug0*.log |SORT /REC 65535   >log/chronological.txt
+:EOF_CHRONOLOGICAL
 
 :: Extract details.
 grep -iE  "after lookup|in the background"          log/chronological.txt   >log/detail_expire.log

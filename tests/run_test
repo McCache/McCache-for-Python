@@ -241,7 +241,7 @@ cat     log/*debug0*.log |grep -E "	INQ	|	MET	|Done|Exiting" |grep -Ev "Fr:|Out 
 pytest  tests/stress/test_stress.py log/result.txt
 
 # Sort the logs in chronological order.
-sort    log/*.log   >log/chronological.txt
+sort    log/*debug0*.log >log/chronological.txt
 
 # Extract details.
 grep -iE  "after lookup|in the background"          log/chronological.txt   >log/detail_expire.log
