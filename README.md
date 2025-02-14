@@ -260,6 +260,44 @@ SET MCCACHE_MTU=1472
 ```
 Environment variables supersede the setting in the `pyproject.toml` file.
 
+## Environment check
+Two utility methods are provided to assist you to determined the size of the MTU in your network and the number of network hops to the other members in the cluster.  The following is an example to invoke these methods:
+```python
+import  mccache
+
+# Get the maximum MTU between here to another cluster member.
+mccache.get_mtu(  '142.251.32.36' )
+
+# Get the number of network hops between here to another cluster member.
+mccache.get_hops( '142.251.32.36' ,20 )
+```
+## Public utility methods
+```python
+# Factory method to get a cache instance.
+def get_cache( name: str | None=None ,callback: FunctionType = _default_callback ) -> PyCache:
+
+# Clear all the distributed caches.
+def clear_cache( name: str | None = None ,node: str | None = None ) -> None:
+
+# Get the maximum MTU between this and the another cluster member.
+def get_mtu( ip_add: str ) -> None:
+
+# Get the number of network hops between this and another cluster member.
+def get_hops( ip_add: str ,max_hops: int | None = 20 ) -> None:
+
+# Get the instance cache metrics from the current node.
+def get_local_metrics( name: str | None = None ) -> dict:
+
+# Get the instance cache checksum from the current node.
+def get_local_checksum( name: str | None = None ,key: str | None = None ) -> dict:
+
+# Request all members to output their metrics.
+def get_cluster_metrics( name: str | None = None ,node: str | None = None ) -> None:
+
+# Request all members to output their cache checksum.
+def get_cluster_checksum( name: str | None = None ,key: str | None = None ,node: str | None = None ) -> None:
+```
+
 ## Design
 * SEE: [Design gist](https://github.com/McCache/McCache-for-Python/blob/main/docs/DESIGN.md).
 

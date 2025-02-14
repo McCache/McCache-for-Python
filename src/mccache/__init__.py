@@ -91,8 +91,12 @@ from pycache import CallbackType
 # FOR:  from mccache import *
 __all__ = [ 'clear_cache',
             'get_cache',
+            'get_mtu',
+            'get_hops',
+            'get_local_metrics',
+            'get_local_checksum',
             'get_cluster_metrics',
-            'get_cache_checksum',
+            'get_cluster_checksum',
             'McCacheDebugLevel',
             'McCacheOption',
             'McCacheDebugLevel',
@@ -318,7 +322,7 @@ def _default_callback(ctx: dict) -> bool:
                                             ,msg=f"^   WRN {ctx['key']} got incoherent  within {ctx['elp']:6} sec in the background." )
     return  True
 
-def get_cache( name: str | None=None ,callback: FunctionType = _default_callback ) -> PyCache:
+def get_cache( name: str | None='mccache' ,callback: FunctionType = _default_callback ) -> PyCache:
     """Return a cache with the specified name ,creating it if necessary.
 
     If no name is provided, it shall be defaulted to `mccache`.
@@ -356,7 +360,7 @@ def get_cache( name: str | None=None ,callback: FunctionType = _default_callback
         _mcCache[ name ] = cache
     return cache
 
-def clear_cache( name: str | None = None ,node: str | None = None ) -> None:
+def clear_cache( name: str | None=None ,node: str | None = None ) -> None:
     """Clear all the distributed caches.
 
     Request all the members in the cluster to clear their cache without rebooting their instance.
@@ -376,6 +380,60 @@ def clear_cache( name: str | None = None ,node: str | None = None ) -> None:
 
     _mcOBQueue.put((OpCode.RST ,PyCache.tsm_version() ,name ,None ,None ,None ,node))
     _mcOBQueue.put((OpCode.INQ ,PyCache.tsm_version() ,name ,None ,None ,None ,node))
+
+def get_mtu( ip_add: str ) -> None:
+    """Depending on platform, return the minimum MTU size from here to the member destination.
+    """
+    cmd = []
+    if sys.platform.startswith("win"):
+        # ping -n 3 -l 1472 -f    142.250.189.174 | findstr /I "fragmented but DF"
+        cmd = ["ping" ,"-n" ,"2" ,"-l" ,"9000" ,"-f"       ,ip_add]
+    elif sys.platform.startswith("linux") or sys.platform.startswith("darwin"):
+        # ping -c 3 -s 1252 -M do 142.250.189.174 | grep    -i "message too long"
+        cmd = ["ping" ,"-c" ,"2" ,"-s" ,"9000" ,"-M" ,"do" ,ip_add]
+    else:
+        raise NotImplementedError("Unsupported OS")
+
+    print('Searching for the MTU size ...')
+    min_size = 100
+    max_size = 10000
+    while min_size < max_size:
+        mid = (min_size + max_size) // 2    # Binary search out the MTU.
+        cmd[4] = str( mid )
+
+        print(f'Min: {min_size:4}  Mid: {mid:4}  Max: {max_size:4}')
+        result = subprocess.run( args=cmd ,capture_output=True ,text=True )
+
+        if 'message too long'   in result.stderr or\
+           'fragmented but DF'  in result.stdout:
+            max_size = mid -1
+        else:
+            min_size = mid +1
+    print(f'MTU: {max_size:4}')
+
+def get_hops( ip_add: str ,max_hops: int | None = 20 ) -> None:
+    """Depending on platform, return the number of hops from here to the member destination.
+    """
+    cmd = []
+    if sys.platform.startswith("win"):
+        # tracert     -d -h 20  142.250.189.174 | findstr 142.250.189.174
+        cmd = ["tracert"    ,"-d" ,"-h" ,str(max_hops) ,ip_add]
+    elif sys.platform.startswith("linux") or sys.platform.startswith("darwin"):
+        # traceroute  -n -m 20  142.250.189.174 | grep    142.250.189.174
+        cmd = ["traceroute" ,"-n" ,"-m" ,str(max_hops) ,ip_add]
+    else:
+        raise NotImplementedError("Unsupported OS")
+
+    print('Tracing the hops. It will be slow ...')
+    result = subprocess.run( args=cmd ,capture_output=True ,text=True )
+
+    if  result.stdout.splitlines()[-3].find( ip_add ) >= 0:
+        # Extract the hop number from the output into a list.
+        hops = re.findall( r"^\s*(\d+)" ,result.stdout ,re.MULTILINE )
+
+        print(f'Hop: {int(hops[-1]):2}')    # Last hop count
+    else:
+        print(f'{ip_add} is NOT reachable!')
 
 def get_cluster_metrics( name: str | None = None ,node: str | None = None ) -> None:
     """Inquire the metrics for all the distributed caches.
@@ -401,7 +459,7 @@ def get_local_metrics( name: str | None = None ) -> dict:
     """
     return  _get_local_metrics( name )
 
-def get_cache_checksum( name: str | None = None ,key: str | None = None ,node: str | None = None ) -> None:
+def get_cluster_checksum( name: str | None = None ,key: str | None = None ,node: str | None = None ) -> None:
     """Inquire the checksum for all the distributed caches.
 
     Queue the `INQ` operation into the cluster.
@@ -434,63 +492,6 @@ def get_local_checksum( name: str | None = None ,key: str | None = None ) -> dic
     Inquire the local cache checksum.
     """
     return  _get_local_checksum( name ,key )
-
-def get_mtu( destination: str ) -> None:
-    """Depending on platform, return the minimum MTU size from here to the member destination.
-    """
-    cmd = []
-    if sys.platform.startswith("win"):
-        # ping -n 3 -l 1472 -f    142.250.189.174 | findstr /I "fragmented but DF set"
-        cmd = ["ping" ,"-n" ,"1" ,"-l" ,"9000" ,"-f"       ,destination]
-    elif sys.platform.startswith("linux"):
-        # ping -c 3 -s 1252 -M do 142.250.189.174 | grep    -i "error: message too long"
-        cmd = ["ping" ,"-c" ,"1" ,"-s" ,"9000" ,"-M" ,"do" ,destination]
-#   elif sys.platform.startswith("darwin"):
-    else:
-        raise NotImplementedError("Unsupported OS")
-
-    print('Searching for the MTU size ...')
-    min_size = 100
-    max_size = 10000
-    while min_size < max_size:
-        mid = (min_size + max_size) // 2    # Binary search out the MTU.
-        cmd[4] = str( mid )
-
-        print(f'Min: {min_size:4}  Mid: {mid:4}  Max: {max_size:4}')
-        result = subprocess.run( args=cmd ,capture_output=True ,text=True )
-
-        if 'message too long'       in result.stdout or\
-           'fragmented but DF set'  in result.stdout:
-            max_size = mid -1
-        else:
-            min_size = mid +1
-
-    print(f'MTU: {max_size:4}')
-
-def get_hops( destination: str ,max_hops: int = 20 ) -> None:
-    """Depending on platform, return the number of hops from here to the member destination.
-    """
-    cmd = []
-    if sys.platform.startswith("win"):
-        # tracert     -d -h 20  142.250.189.174 | findstr 142.250.189.174
-        cmd = ["tracert"    ,"-d" ,"-h" ,str(max_hops) ,destination]
-    elif sys.platform.startswith("linux"):
-        # traceroute  -n -m 20  142.250.189.174 | grep    142.250.189.174
-        cmd = ["traceroute" ,"-n" ,"-m" ,str(max_hops) ,destination]
-#   elif sys.platform.startswith("darwin"):
-    else:
-        raise NotImplementedError("Unsupported OS")
-
-    print('Tracing the hops. It will be slow ...')
-    result = subprocess.run( args=cmd ,capture_output=True ,text=True )
-
-    if  result.stdout.splitlines()[-3].find( destination ) >= 0:
-        # Extract the hop number from the output into a list.
-        hops = re.findall( r"^\s*(\d+)" ,result.stdout ,re.MULTILINE )
-
-        print(f'Hop: {int(hops[-1]):2}')    # Last hop count
-    else:
-        print(f'{destination} is NOT reachable!')
 
 # Private utilities methods.
 #
@@ -1095,6 +1096,7 @@ def _send_fragment( sock:socket.socket ,fragment: bytes ) -> None:
     The `TEST_MONKEY_TANTRUM` configuration greater than zero will enable the simulation of dropped packets.
 
     Args:
+        _mcConfig:  The McCache configuration.
         socket:     A configured socket to send a fragment out of.
         fragment:   A fragment of binary data.
     Return:
@@ -1647,7 +1649,6 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
     Return:
         None
     """
-    #pky: tuple  = key_t     # Pending key
     nms: str    = key_t[0]  # Namespace
     key: object = key_t[1]  # Key
     tsm: int    = key_t[2]  # Timestamp
@@ -1763,6 +1764,13 @@ def _multicaster() -> None:
     Return:
         None
     """
+    # Too many global data structures needed.  This is the entry point.
+    global _mcConfig
+    global _mcOBQueue
+    global _mcPending
+    global _mcMember
+    global _mcQueueStats
+
     sock: socket.socket = _get_socket( SocketWorker.SENDER )    # Get an UDP socket for multicasting.
 
     # Keep the format consistent to make it easy for the test to parse.
@@ -1876,6 +1884,14 @@ def _housekeeper() -> None:
     Return:
         None
     """
+    # Too many global data structures needed.  This is the entry point.
+    global _mySelf
+    global _mcConfig
+    global _mcCache
+    global _mcArrived
+    global _mcPending
+    global _mcMember
+
     # Keep the format consistent to make it easy for the test to parse.
     logger.debug('McCache housekeeper is ready.')
 
@@ -1911,9 +1927,18 @@ def _listener() -> None:
     The intend here is not to let the incoming packets overwritten before it get processed.
 
     Args:
+        _mcConfig:      McCacheConfig   Configuration settings.
     Return:
         None
     """
+    # Too many global data structures needed.  This is the entry point.
+    global _mySelf
+    global _mcConfig
+    global _mcCache
+    global _mcArrived
+    global _mcPending
+    global _mcMember
+
     pkt_b: bytes    # Binary packet
     sender: tuple
     sock: socket.socket = _get_socket( SocketWorker.LISTEN )
@@ -1936,6 +1961,14 @@ def  _processor() -> None:
     Return:
         None
     """
+    # Too many global data structures needed.  This is the entry point.
+    global _mySelf
+    global _mcConfig
+    global _mcCache
+    global _mcArrived
+    global _mcPending
+    global _mcMember
+
     pkt_b: bytes    # Binary packet
     key_t: tuple    # Key tuple of the message.
     val_o: object   # Value object of the message.
