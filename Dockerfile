@@ -20,11 +20,11 @@
 #RG         IMAGE_VERSION=3.9.19
 #RG         IMAGE_VERSION=3.10.14
 #RG         IMAGE_VERSION=3.11.9
-ARG         IMAGE_VERSION=3.12.5
+ARG         IMAGE_VERSION=3.12.9
 #RG         IMAGE_VERSION=latest
 #RG         IMAGE_VERSION=slim
 #FROM        python:${IMAGE_VERSION}    # Podman
-FROM        python:3.12.5
+FROM        python:3.12.9
 
 ENV         USRGRP=mccache
 ENV         LANG=C.UTF-8
