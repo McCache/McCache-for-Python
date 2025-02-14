@@ -23,7 +23,7 @@
 ARG         IMAGE_VERSION=3.12.9
 #RG         IMAGE_VERSION=latest
 #RG         IMAGE_VERSION=slim
-#FROM        python:${IMAGE_VERSION}    # Podman
+#ROM        python:${IMAGE_VERSION}    # Podman
 FROM        python:3.12.9
 
 ENV         USRGRP=mccache
@@ -33,6 +33,7 @@ ENV         LANG=C.UTF-8
 #
 RUN         apt-get update
 RUN         apt-get install -y  iputils-ping
+RUN         apt-get install -y  traceroute
 RUN         apt-get install -y  sudo
 RUN         apt-get install -y  vim
 
