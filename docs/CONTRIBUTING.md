@@ -19,6 +19,7 @@ pip    install     pipenv
 Once you have installed `pipenv`, the next step is to install all the project dependencies in the `Pipfile` using `pipenv`.  Use the following command to install all Python project dependencies:
 ```bash
 pipenv sync
+pipenv sync --dev
 pipenv graph
 ```
 It may take a few minutes to rebuild the `Pipenv.lock` file, so be a little patient.

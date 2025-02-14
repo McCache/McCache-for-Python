@@ -70,7 +70,7 @@ pp( mccache.get_local_metrics(  'demo' ))
 mccache.get_cluster_metrics()
 ```
 
-In the above example, there is **nothing** different in the usage of `McCache` from a regular Python dictionary.  However, the benefit is in a clustered environment where the other member's cache are kept coherent with the changes to your local cache.
+In the above example, there is **nothing** different in the usage of `McCache` from a regular Python dictionary.  However, the benefit is in a clustered environment where the other subscribed member's cache are kept coherent with the changes to your local cache.
 
 ## Guidelines
 The following are some loose guidelines to help you assess if the `McCache` library is right for your project.

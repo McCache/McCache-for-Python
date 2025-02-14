@@ -21,12 +21,42 @@ Four daemon threads are started when this package is initialized.  They are:
 3. **Processor**. &nbsp;Whose job is to process the incoming changes.
 4. **Housekeeper**. &nbsp;Whose job is manage the acknowledgement of the messages.
 
-UDP is unreliable.  We implemented a guaranteed message transfer protocol over UDP in `McCache`.
+UDP is an **unreliable** protocol.  We implemented a guaranteed message transfer protocol over UDP in `McCache`.
 The nature of `McCache` is to broadcast out changes and this align well with multicast service offered by UDP and we selected it.  Furthermore, `McCache` prioritize operation that mutates the cache and only acknowledged these operations.  We did consider TCP but will have to implement management of peer-to-peer connection manager.
 
-A message may be larger than the UDP payload size.  Regardless, we always chunk up the message into fragments plus a header that fully fit into the UDP payload.  Each UDP payload is made up of a fixed length header follow by a variable length message fragment.  The message is further broken up into the key and fragment section as depicted below:
+A message may be larger than the UDP payload size.  Regardless, we always chunk up the message into fragments plus a `McCache` chunk header that fully fit into the UDP payload.  Each UDP payload is made up of a fixed length header follow by a variable length message fragment.  The message fragment is further broken up into the key and value as depicted below:
+```mermaid
+---
+title: McCache message chunk in the UDP payload
+---
+packet-beta
+  0-0 : "M"
+  1-1 : "r"
+  2-2 : "S"
+  3-3 : "F"
+  4-5 : "K"
+  6-7 : "V"
+  8-15: "Timestamp"
+ 16-17: "Receiver"
+ 18-31: "Key + Value"
+```
+where:
+<small>
+  |Range                | |Description       |
+  |:-------------------:|-|:-----------------|
+  |<small> 0-0  </small>|M| <small>Magic ID</small>         |
+  |<small> 1-1  </small>|r| <small>Reserved</small>         |
+  |<small> 2-2  </small>|S| <small>Sequence number</small>  |
+  |<small> 3-3  </small>|F| <small>Fragment count</small>   |
+  |<small> 4-5  </small>|K| <small>Key data length</small>  |
+  |<small> 6-7  </small>|V| <small>Value data length</small>|
+  |<small> 8-15 </small>| | <small>Timestamp</small>        |
+  |<small>16-17 </small>| | <small>Receiver's octet</small> |
+  |<small>18-MTU</small>| | <small>Key + Value.  Value is optionally encrypted.</small> |
 
-Given the size of each field in the header, we have a limitation of a maximum 255 fragments per message.  The maximum size of your message shall be 255 multiple by the `packet_mtu` size set in the configuration.
+</small>
+
+Given the size of each field in the header, we have a limitation of a maximum 255 fragments per message.  The maximum size of your message shall be 255 multiple by the `packet_mtu` size set in the configuration minus 18 for `McCache` chunk header.
 
 The multicasting member will keep track of all the send fragments to all the member in the cluster.  Each member will re-assemble fragments back into a message.  Dropped fragment will be requested for a re-transmission.  Once each member have acknowledge receipt of all fragments, the message for that member is considered complete and be deleted from pending of acknowledgement.  Each member is always listening to traffic and maintaining its own members list.
 
@@ -40,7 +70,7 @@ Furthermore, we are experimenting with a lockless design.  Locks are needed when
 ## Concerns
 * Multicast could saturate the network.  We don't think this is a big issue, with a future outlook, for the following reasons:
   1. Modern network do **not** run in a bus topology.  Bus topology is exposed to more packet collisions that requires backoff and retransmit.  Modern network uses a star topology implemented with high speed switches.  This hardware reduces packet collision and are virtually point-to-point connection between nodes in the cluster.
-  2. Modern network can signal at a rate of **100** Gb, which is use for uplink aggregation.  Normal NIC rate is **10** Gb.  According to [this article](https://www.fmad.io/blog/what-is-10g-line-rate), the maximum theoretical limit to saturate a **10** Gb wire with **1500** byte packets is **820,209**.  If we reach this edge case in a spike, it will only for a very brief moment before the traffic volume ebbs away.
+  2. Modern network in a data center can signal, at least, at a rate of **100** Gb.  Normal NIC rate is **10** Gb.  According to [this article](https://www.fmad.io/blog/what-is-10g-line-rate), the maximum theoretical limit to saturate a **10** Gb wire with **1500** byte packets is **820,209**.  If we reach this edge case in a spike, it will only for a very brief moment before the traffic volume ebbs away.
 
 * Eventual consistent.  This is a tradeoff we made for a remote lockless implementation.  We address this issue as follows:
   1. With less network protocol overhead, messages arrive sooner to keep the cache fresh.
@@ -49,12 +79,13 @@ Furthermore, we are experimenting with a lockless design.  Locks are needed when
   4. Sync heart beat to check for cache consistency.  In an edge case, a race condition could result in a new inconsistent just after a sync up but the latest entry should have been multicast out tho the members in cluster.
 
 ## Limitation
+* `McCache` is a pure Python implementation and its performance is subjected to the some of the limitation of Python.  Maybe we can get better throughput if it is implemented in a lower system language.  However, Python is improving with each release especially with work done in Python `3.13`.
 * Even though the latency is low, it will **eventually** be consistent.  There is a very micro chance that an event can slip in just after the cache is read with the old value.  You have the option to pass in callback function to `McCache` for it to invoke if a change to the value of your cached object have changed within one second ago.  The other possibility is to perform a manual check.  The following is a code snippet that illustrate both approaches:
 
 ```python
 import mcache as mc
 
-def change(ctx: dict):
+def change( ctx: dict ):
     """Callback method to be informed of changes to your local cache from a remote update.
     """
     print('Cache got change 1 second ago.  Context "ctx" have more details.')
@@ -75,6 +106,8 @@ if 'k' in c.metadata:
 * The clocks in a distributed environment is never as accurate (due to clock drift) as we want it to be in a high update environment.  On a Local Area Network, the accuracy could go down to 1ms but 10ms is a safer assumption.  SEE: [NTP](https://timetoolsltd.com/ntp/ntp-timing-accuracy/) and [PTP](https://en.wikipedia.org/wiki/Precision_Time_Protocol)
 
 * The maximum size of your message shall be **255** multiple by the `packet_mtu` size set in the configuration.  e.g. 255 * 1472 = **375,360** bytes.  If your object to be cached span more than 255 fragments, it will be evicted from your local cache and the eviction shall be propagated to the rest of the members in the cluster.  Furthermore, if encryption is enabled, the object binary size will increase by at least 30%.  Given this constrain, do keep the size of the object to cache to less than **280,000** bytes.
+
+* Only Least Recently Used (LRU) eviction policy is implemented.
 
 ## Load balancer
 * We recommend to use sticky session load balancer.  Keep the context of your work within the same server.
