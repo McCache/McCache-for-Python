@@ -61,8 +61,10 @@ import os
 import pickle
 import queue
 import random
+import re
 import socket
 import struct
+import subprocess
 import sys
 import threading
 import time
@@ -104,6 +106,7 @@ ONE_MIB     = 1_048_576                 # 1 Mib
 ONE_NS_SEC  = 1_000_000_000             # One Nano second.
 MAGIC_BYTE  = 0b11111001                # 241 (Pattern + Version)
 HEADER_SIZE = 18                        # The fixed length header for each fragment packet.
+STRUCT_PACK = '@BBBBHHQH'               # The structure of the pickled header.
 SEASON_TIME = 1.00                      # Seasoning time to wait before considering a retry. Max of 3 second.  Work with backoff.
 HUNDRED     = 100                       # Hundred percent.
 UINT2       = 65535                     # Unsigned 2 bytes.
@@ -432,6 +435,62 @@ def get_local_checksum( name: str | None = None ,key: str | None = None ) -> dic
     """
     return  _get_local_checksum( name ,key )
 
+def get_mtu( destination: str ) -> None:
+    """Depending on platform, return the minimum MTU size from here to the member destination.
+    """
+    cmd = []
+    if sys.platform.startswith("win"):
+        # ping -n 3 -l 1472 -f    142.250.189.174 | findstr /I "fragmented but DF set"
+        cmd = ["ping" ,"-n" ,"1" ,"-l" ,"9000" ,"-f"       ,destination]
+    elif sys.platform.startswith("linux"):
+        # ping -c 3 -s 1252 -M do 142.250.189.174 | grep    -i "error: message too long"
+        cmd = ["ping" ,"-c" ,"1" ,"-s" ,"9000" ,"-M" ,"do" ,destination]
+#   elif sys.platform.startswith("darwin"):
+    else:
+        raise NotImplementedError("Unsupported OS")
+
+    print('Searching for the MTU size ...')
+    min_size = 100
+    max_size = 10000
+    while min_size < max_size:
+        mid = (min_size + max_size) // 2    # Binary search out the MTU.
+        cmd[4] = str( mid )
+
+        print(f'Min: {min_size:4}  Mid: {mid:4}  Max: {max_size:4}')
+        result = subprocess.run( args=cmd ,capture_output=True ,text=True )
+
+        if 'message too long'       in result.stdout or\
+           'fragmented but DF set'  in result.stdout:
+            max_size = mid -1
+        else:
+            min_size = mid +1
+
+    print(f'MTU: {max_size:4}')
+
+def get_hops( destination: str ,max_hops: int = 20 ) -> None:
+    """Depending on platform, return the number of hops from here to the member destination.
+    """
+    cmd = []
+    if sys.platform.startswith("win"):
+        # tracert     -d -h 20  142.250.189.174 | findstr 142.250.189.174
+        cmd = ["tracert"    ,"-d" ,"-h" ,str(max_hops) ,destination]
+    elif sys.platform.startswith("linux"):
+        # traceroute  -n -m 20  142.250.189.174 | grep    142.250.189.174
+        cmd = ["traceroute" ,"-n" ,"-m" ,str(max_hops) ,destination]
+#   elif sys.platform.startswith("darwin"):
+    else:
+        raise NotImplementedError("Unsupported OS")
+
+    print('Tracing the hops. It will be slow ...')
+    result = subprocess.run( args=cmd ,capture_output=True ,text=True )
+
+    if  result.stdout.splitlines()[-3].find( destination ) >= 0:
+        # Extract the hop number from the output into a list.
+        hops = re.findall( r"^\s*(\d+)" ,result.stdout ,re.MULTILINE )
+
+        print(f'Hop: {int(hops[-1]):2}')    # Last hop count
+    else:
+        print(f'{destination} is NOT reachable!')
 
 # Private utilities methods.
 #
@@ -904,7 +963,7 @@ def _make_pending_ack( key_t: tuple ,val_t: tuple ,members: dict | str ,frame_si
 
         try:
             # NOTE: 'HH' MUST come after 'BBBB' for it impact the length.
-            hdr_b =  struct.pack('@BBBBHHQH' ,MAGIC_BYTE ,0 ,seq ,frg_c ,key_s ,val_s ,tsm ,rcv)
+            hdr_b =  struct.pack( STRUCT_PACK ,MAGIC_BYTE ,0 ,seq ,frg_c ,key_s ,val_s ,tsm ,rcv)
             ack['message'][ seq ] = hdr_b + frg_b
         except struct.error as ex:
             raise(f"Failed to pack header for {key_t} due to {ex}. seq: {seq} ,frg_c: {frg_c} ,tsm: {tsm} ,rcv: {rcv} ,ack: {ack}")  from  ex
@@ -946,7 +1005,7 @@ def _collect_fragment( pkt_b: bytes ,sender: str ) -> tuple:
         return  False
 
     hdr_b = pkt_b[ 0 : HEADER_SIZE ]
-    mgc ,_ ,seq ,frg_c ,key_s ,_ ,tsm ,rcv = struct.unpack('@BBBBHHQH' ,hdr_b)    # Unpack the packet
+    mgc ,_ ,seq ,frg_c ,key_s ,_ ,tsm ,rcv = struct.unpack( STRUCT_PACK ,hdr_b)     # Unpack the packet
 
     if  mgc != MAGIC_BYTE:
         logger.warning(f"Received a foreign non McCache packet from {sender}.")
@@ -1002,7 +1061,7 @@ def _assemble_message( aky_t: tuple ) -> tuple[tuple ,object]:  # (tuple ,object
         bgn   = HEADER_SIZE
         frg_s = len( frg_b )
         hdr_b = frg_b[ 0 : HEADER_SIZE ]    # Fix size 16 bytes of packet header.
-        _ ,_ ,_ ,_ ,key_s ,val_s ,_ ,rcv = struct.unpack('@BBBBHHQH' ,hdr_b)    # Unpack the fragment header.
+        _ ,_ ,_ ,_ ,key_s ,val_s ,_ ,rcv = struct.unpack( STRUCT_PACK ,hdr_b)   # Unpack the fragment header.
 
         if  not key_t:
             key_bal: int = ( key_s - len( key_b ))      # The size of the incomplete key.
@@ -1416,7 +1475,6 @@ def _process_REQ( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str 
     """
     mcc: dict = get_cache( nms )
 
-    # TODO: Refactor this block into def process_REQ()
     if  val:
         # Pass the request over to outbound requesting a resend for the missing fragment.
         # TODO: Don't concatenate the sdr and val/seq.  We have the `sdr`.
@@ -1439,7 +1497,6 @@ def _process_REQ( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str 
 def _process_RST( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
     """Process RST message.
     """
-    # TODO: Refactor this block into def process_RST()
     for n in filter( lambda nk: nk == nms or nms is None ,_mcCache.keys() ):            # Namespace
         for k in filter( lambda kk: kk == key or key is None ,_mcCache[ n ].keys() ):   # Keys within namespace.
             _mcCache[ n ].__delitem__( k ,EnableMultiCast.NO )
@@ -1722,6 +1779,7 @@ def _multicaster() -> None:
                 if  qsz > _mcQueueStats['obq']['maxsize']:
                     _mcQueueStats['obq']['maxsize'] = qsz
 
+            # TODO: If configured network hops is zero, then don't send out the message.
             opc         = msg[0]    # Op Code
             tsm: int    = msg[1]    # Timestamp
             nms: str    = msg[2]    # Namespace
