@@ -163,8 +163,7 @@ The following was obtain by login into a container and `ping` the another.
     9 packets transmitted, 9 received, 0% packet loss, time 8357ms
     rtt min/avg/max/mdev = 0.049/0.082/0.186/0.044 ms
 ```
-* The average round trip for a packet is `0.082`ms or `0.041`ms latency for single packet one way transmission.
-* You need to take this into consideration interpreting the stress test result.
+* The average round trip for a packet is `0.082`ms or `0.041`ms latency for single packet one way transmission.  There isn't any significant network latency and the test can focus on the processing of cache changes.
 
 #### Results of basic stress test
 The results below are collected from testing output `result.txt` file and the `detail_xxx.log` files under the `.\log` sib-directory.
@@ -259,6 +258,7 @@ The following is a snapshot of the Docker containers running a stress test.  SEE
 * More detail logging will require more processing.  The tests disable logging with the `-L 0` CLI option.
 * The more nodes, the longer it takes to for the other nodes to receive message.  **5** nodes have about **8** seconds latency when tested with very high frequency updates (<= `0.005` ms snooze).
 * Anecdotally, it does **not** look like `time.sleep( 0.0001 )` can yield accurate precision for the stress test.
+* Minimize the running of back ground processes, such as virus scan, for it takes away processing from the running Python processes.
 * Python is not known for it performance and we should **not** expect `McCache` to out performance Python's inherent limitation.
 * `McCache` can handle heavy update/delete against it.
     * If you do **not** have an use case where the cache is pounded **less** than once every **10**ms, sustained for **10** minutes, `McCache` may be suitable for you.

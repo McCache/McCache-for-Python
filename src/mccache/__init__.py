@@ -424,10 +424,12 @@ def get_hops( ip_add: str ,max_hops: int | None = 20 ) -> None:
     else:
         raise NotImplementedError("Unsupported OS")
 
-    print('Tracing the hops. It will be slow ...')
+    print('Tracing the hops. It can be slow ...')
     result = subprocess.run( args=cmd ,capture_output=True ,text=True )
 
-    if  result.stdout.splitlines()[-3].find( ip_add ) >= 0:
+    # NOTE: 'Trace complete' is the output for Windows.
+    idx = -3 if result.stdout.find('Trace complete') >= 0 else -1
+    if  result.stdout.splitlines()[ idx ].find( ip_add ) >= 0:
         # Extract the hop number from the output into a list.
         hops = re.findall( r"^\s*(\d+)" ,result.stdout ,re.MULTILINE )
 
@@ -1764,13 +1766,6 @@ def _multicaster() -> None:
     Return:
         None
     """
-    # Too many global data structures needed.  This is the entry point.
-    global _mcConfig
-    global _mcOBQueue
-    global _mcPending
-    global _mcMember
-    global _mcQueueStats
-
     sock: socket.socket = _get_socket( SocketWorker.SENDER )    # Get an UDP socket for multicasting.
 
     # Keep the format consistent to make it easy for the test to parse.
@@ -1800,7 +1795,7 @@ def _multicaster() -> None:
             # TODO: Handle self targetting operation.  Check the "rcv" value for specifc MET operation.
             pky_t = (nms ,key ,tsm) # Key for this message pending acknowledgement.
             match opc:
-                case OpCode.RSD:    # Request (from house keeping) resend of entire message.
+                case OpCode.RSD:    # Request (from house keeping) resend of the entire message.
                     if  pky_t in _mcPending:
                         if  not val:
                             # Timeout request to retransmit the entire message to all members.
@@ -1884,14 +1879,6 @@ def _housekeeper() -> None:
     Return:
         None
     """
-    # Too many global data structures needed.  This is the entry point.
-    global _mySelf
-    global _mcConfig
-    global _mcCache
-    global _mcArrived
-    global _mcPending
-    global _mcMember
-
     # Keep the format consistent to make it easy for the test to parse.
     logger.debug('McCache housekeeper is ready.')
 
@@ -1931,14 +1918,6 @@ def _listener() -> None:
     Return:
         None
     """
-    # Too many global data structures needed.  This is the entry point.
-    global _mySelf
-    global _mcConfig
-    global _mcCache
-    global _mcArrived
-    global _mcPending
-    global _mcMember
-
     pkt_b: bytes    # Binary packet
     sender: tuple
     sock: socket.socket = _get_socket( SocketWorker.LISTEN )
@@ -1961,14 +1940,6 @@ def  _processor() -> None:
     Return:
         None
     """
-    # Too many global data structures needed.  This is the entry point.
-    global _mySelf
-    global _mcConfig
-    global _mcCache
-    global _mcArrived
-    global _mcPending
-    global _mcMember
-
     pkt_b: bytes    # Binary packet
     key_t: tuple    # Key tuple of the message.
     val_o: object   # Value object of the message.
