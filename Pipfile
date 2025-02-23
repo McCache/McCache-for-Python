@@ -27,11 +27,12 @@ oci = ">=2.104"
 #google-cloud-secret-manager = ">=2.16"
 #boto3 = ">=1.26"
 oci = ">=2.104"
+
+
 # Developement tools.
 # Install using:  pipenv install [package] --dev
-
+#
 [dev-packages]                  # As of 2023-09-04.
-#cachetools = ">=5.3.0"         # McCache is build from this library.
 pre-commit = ">=3.4.0"          # Git pre-commit hook.
 podman-compose = ">=1.0.6"      # Use podman to launch 'docker-compose.yml' file.
 bandit = ">=1.7.5"              # Security issues scanner.

@@ -36,6 +36,8 @@ pipenv  shell
 ```
 You should work from within the virtual environment at the root directory of the project.
 
+Get the PyPi API key from the primary maintainer.  You can add it into the your local `.env` file.
+
 ## Formatting Philosophy
 We are polyglot developers and we bring non-pythonic best practice to this project.
 We like [PEP8](https://peps.python.org/pep-0008/#a-foolish-consistency-is-the-hobgoblin-of-little-minds) as a starting guideline but will **not** adhere to it if it makes the code harder to read.  Explicitly called out in PEP8 is "**do not break backwards compatibility just to comply with this PEP!**".  The area where we will deviate the most are:

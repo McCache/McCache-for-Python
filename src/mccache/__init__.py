@@ -383,6 +383,10 @@ def clear_cache( name: str | None=None ,node: str | None = None ) -> None:
 
 def get_mtu( ip_add: str ) -> None:
     """Depending on platform, return the minimum MTU size from here to the member destination.
+
+    In a docker cluster, the MTU size can be different from the host machine
+    and it is usually not accurate for it can be much larger.
+    Use the MTU of the host machine to be on the safe side.
     """
     cmd = []
     if sys.platform.startswith("win"):
@@ -438,7 +442,7 @@ def get_hops( ip_add: str ,max_hops: int | None = 20 ) -> None:
         print(f'{ip_add} is NOT reachable!')
 
 def get_cluster_metrics( name: str | None = None ,node: str | None = None ) -> None:
-    """Inquire the metrics for all the distributed caches.
+    """Inquire the metrics for all the distributed caches into their log.
 
     Queue the `MET` operation into the cluster.
 
@@ -462,7 +466,7 @@ def get_local_metrics( name: str | None = None ) -> dict:
     return  _get_local_metrics( name )
 
 def get_cluster_checksum( name: str | None = None ,key: str | None = None ,node: str | None = None ) -> None:
-    """Inquire the checksum for all the distributed caches.
+    """Inquire the checksum for all the distributed caches into their log.
 
     Queue the `INQ` operation into the cluster.
 
@@ -1439,8 +1443,14 @@ def _process_DEL( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str 
 def _process_NEW( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ):    # noqa: N802
     """Process NEW message.
     """
-    if  sdr not in _mySelf and sdr not in _mcMember:
+    if  sdr not in _mySelf:
         _mcMember[ sdr ] = tsm   # Timestamp
+
+    nmss = _mcCache.keys()  # NOTE: NEW op should NOT have any namespace.
+    for nms in nmss:
+        val = get_cache( nms ).metadata.copy()
+        if  val:
+            _mcOBQueue.put((OpCode.SYC ,PyCache.tsm_version() ,nms ,None ,None ,val ,None))
 
 def _process_RAK( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str ,lcs: bytes ,val: object ,sdr: str ,aky_t: tuple ):  # noqa: N802
     """Process RAK message.
@@ -1657,18 +1667,20 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
     opc: str    = val_o[0]  # Op Code
     crc: str    = val_o[1]  # Checksum
     val: object = val_o[2]  # Value
-    mcc: dict   = get_cache( nms )
-
     lcs: bytes  = None      # Local checksum
     lts: int    = None      # Local timestamp
-    while key in mcc.metadata and (lcs is None or lts is None):
-        try:
-            # NOTE: PyCache can be setting a new instance after the previous instance was deleted.
-            #lvl =  mcc[ key ]
-            lcs =  mcc.metadata[ key ]['crc']
-            lts =  mcc.metadata[ key ]['tsm']
-        except  KeyError:
-            pass
+
+    if  nms: #  Not all ops have namespace such as SYC. 
+        mcc: dict   = get_cache( nms )
+
+        # TODO: Verify if the following is still needed.
+        while key in mcc.metadata and (lcs is None or lts is None):
+            try:
+                # NOTE: PyCache can be setting a new instance after the previous instance was deleted.
+                lcs =  mcc.metadata[ key ]['crc']
+                lts =  mcc.metadata[ key ]['tsm']
+            except  KeyError:
+                pass
 
     # TODO: Deal with the concurrent deletion of the house keeping dictionaries.
     match opc:
@@ -1686,10 +1698,10 @@ def _decode_message( aky_t: tuple ,key_t: tuple ,val_o: object ,sdr: str ) -> No
             pass    # TODO: How should we handle an error reported by the sender?
 
         case OpCode.INQ:    # Inquire.
-            val = _get_local_checksum(  nms ,key )
+            val = _get_local_checksum(nms ,key )
 
         case OpCode.MET:    # Metrics.
-            val = _get_local_metrics(   nms )
+            val = _get_local_metrics( nms )
 
         case OpCode.NEW:    # New member.
             _process_NEW(   nms ,key ,tsm ,lts ,opc ,crc ,lcs ,val ,sdr )
@@ -1822,14 +1834,14 @@ def _multicaster() -> None:
                                                         ,msg=f">   {pky_t} no longer exist in pending!" )
                 case _:
                     if  opc == OpCode.ACK and rcv is not None:  # TODO: Handle REQ from a spcific sender.
-                        mbrs = { rcv: None }    #   Unicast, simulated.
+                        mbrs = {rcv: None}  #   Unicast, simulated.
                     else:
-                        mbrs = _mcMember        #   Muticast.
-                    #                             key_t ,val_t
+                        mbrs = _mcMember    #   Muticast.
+                    #   ONLY for members.         key_t , val_t
                     ack: dict= _make_pending_ack( pky_t ,(opc ,crc ,val) ,mbrs ,_mcConfig.packet_mtu )
 
                     if  opc in {OpCode.DEL ,OpCode.INS ,OpCode.UPD}:
-                        if  pky_t not in _mcPending:
+                        if  pky_t not in _mcPending or  not _mcPending[ pky_t ]['members']:
                             # Acknowledgement is needed for Insert ,Update and Delete.
                             _mcPending[ pky_t ] = ack
                             frgs = _mcPending[ pky_t ]['message']
@@ -1881,6 +1893,9 @@ def _housekeeper() -> None:
     """
     # Keep the format consistent to make it easy for the test to parse.
     logger.debug('McCache housekeeper is ready.')
+
+    # Annouce myself to get the initial SYC.
+    _mcOBQueue.put((OpCode.NEW ,PyCache.tsm_version() ,None ,None ,None ,None ,None))
 
     while True:
         time.sleep( _mcConfig.daemon_sleep )

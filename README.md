@@ -22,7 +22,7 @@ The goals of this package are:
 1. Reduce complexity by **not** be dependent on any external caching service such as `memcached`, `redis` or the likes.  SEE: [Distributed Cache](https://en.wikipedia.org/wiki/Distributed_cache)
     * We are guided by the principal of first scaling up before scaling out.
 2. Keep the same Python programming experience.  It is the same Python's dictionary interface.  The distributed nature of the cache is transparent to you.
-    * This is an in process cache.
+    * This is an in-process cache that is cluster aware.
 3. Performant
     * Need to handle rapid updates that are 0.01sec (10 ms) or faster.
 4. Secure
@@ -38,8 +38,8 @@ pip  install  mccache
 ## Example
 ```python
 import  mccache
-from    datetime  import  datetime  as  dt
 from    datetime  import  UTC
+from    datetime  import  datetime  as  dt
 from    pprint    import  pprint    as  pp
 
 c = mccache.get_cache( 'demo' )
@@ -157,7 +157,7 @@ The following are environment variables you can tune to fit your production envi
   <tr>
     <td><sub>MCCACHE_PACKET_MTU</sub></td>
     <td>1472 bytes</td>
-    <td>The size of the smallest transfer unit of the network packet between all the network interfaces.<br>Generally, ethernet frame is <b>1500</b> without the static <b>20</b> bytes IP and <b>8</b> bytes ICMP headers.</td>
+    <td>The size of the smallest transfer unit of the network packet between all the network interfaces.<br>Generally, ethernet frame is <b>1500</b> without the static <b>20</b> bytes IP and <b>8</b> bytes ICMP headers.<br><b>SEE</b>: <code>mccache.get_mtu()</code></td>
   </tr>
   <tr>
     <td><sub>MCCACHE_MULTICAST_IP</sub></td>
@@ -168,7 +168,7 @@ The following are environment variables you can tune to fit your production envi
   <tr>
     <td><sub>MCCACHE_MULTICAST_HOPS</sub></td>
     <td>3 hops</td>
-    <td>The maximum network hops. 1 is just within the same switch/router. [>=1]</td>
+    <td>The maximum network hops. 1 is just within the same switch/router. [>=1]<br><b>SEE</b>: <code>mccache.get_hops()</code></td>
   </tr>
   <tr>
     <td><sub>MCCACHE_CALLBACK_WIN</sub></td>
@@ -271,6 +271,7 @@ mccache.get_mtu(  '142.251.32.36' )
 # Get the number of network hops between here to another cluster member.
 mccache.get_hops( '142.251.32.36' ,20 )
 ```
+
 ## Public utility methods
 ```python
 # Factory method to get a cache instance.
@@ -291,10 +292,10 @@ def get_local_metrics( name: str | None = None ) -> dict:
 # Get the instance cache checksum from the current node.
 def get_local_checksum( name: str | None = None ,key: str | None = None ) -> dict:
 
-# Request all members to output their metrics.
+# Request all members to output their metrics into their log.
 def get_cluster_metrics( name: str | None = None ,node: str | None = None ) -> None:
 
-# Request all members to output their cache checksum.
+# Request all members to output their cache checksum into their log..
 def get_cluster_checksum( name: str | None = None ,key: str | None = None ,node: str | None = None ) -> None:
 ```
 

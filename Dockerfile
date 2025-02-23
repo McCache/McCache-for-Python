@@ -40,6 +40,7 @@ RUN         apt-get install -y  vim
 # NOTE: If you get the following error, you don't have internet connection:
 #       WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x7f2aa8378c50>: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/pip
 RUN         pip     install -U  pip
+RUN         pip     install     pipenv
 
 # Setup mccache user workspace.
 #
@@ -70,6 +71,6 @@ RUN         pip     install -r  requirements.txt
 #
 ENV         PYTHONPATH=/home/${USRGRP}/src
 
-# Run the following comman on container start.
+# Run the following command on container start.
 #
 #MD         ["sleep" ,"5m"]

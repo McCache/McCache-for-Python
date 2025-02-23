@@ -1,0 +1,66 @@
+services:
+  node01:
+    build: ..
+    image: mccache-img
+    container_name: mcdemo01
+    privileged: true
+    environment:
+      - KEY0=n1_k0
+      - KEY1=n1_k1
+      - KEY2=n1_k2
+      - KEY3=n1_k3
+      - KEY4=n1_k4
+      - KEY5=n1_k5
+#     - TEST_DEBUG_LEVEL=5
+#     - MCCACHE_CACHE_PULSE=5
+#     - MCCACHE_LOG_FORMAT=%(message)s
+#     - MCCACHE_LOG_FILENAME=/home/mccache/log/mccache_debug01.log
+    volumes:
+      - ../log:/home/mccache/log
+      - ../src:/home/mccache/src
+    command: ["sleep" ,"2h"]
+    # docker exec -it mcdemo01 bash
+
+  node02:
+    build: ..
+    image: mccache-img
+    container_name: mcdemo02
+    privileged: true
+    environment:
+      - KEY0=n2_k0
+      - KEY1=n2_k1
+      - KEY2=n2_k2
+      - KEY3=n2_k3
+      - KEY4=n2_k4
+      - KEY5=n2_k5
+#     - TEST_DEBUG_LEVEL=5
+#     - MCCACHE_CACHE_PULSE=5
+#     - MCCACHE_LOG_FORMAT=%(message)s
+#     - MCCACHE_LOG_FILENAME=/home/mccache/log/mccache_debug02.log
+    volumes:
+      - ../log:/home/mccache/log
+      - ../src:/home/mccache/src
+    command: ["sleep" ,"2h"]
+    # docker exec -it mcdemo02 bash
+
+  node03:
+    build: ..
+    image: mccache-img
+    container_name: mcdemo03
+    privileged: true
+    environment:
+      - KEY0=n3_k0
+      - KEY1=n3_k1
+      - KEY2=n3_k2
+      - KEY3=n3_k3
+      - KEY4=n3_k4
+      - KEY5=n3_k5
+#     - TEST_DEBUG_LEVEL=5
+#     - MCCACHE_CACHE_PULSE=5
+#     - MCCACHE_LOG_FORMAT=%(message)s
+#     - MCCACHE_LOG_FILENAME=/home/mccache/log/mccache_debug03.log
+    volumes:
+      - ../log:/home/mccache/log
+      - ../src:/home/mccache/src
+    command: ["sleep" ,"2h"]
+    # docker exec -it mcdemo03 bash

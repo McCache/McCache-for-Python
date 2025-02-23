@@ -3,26 +3,27 @@
 The following are the operation code that are send between nodes to communicate their intent with each other.
 |Op Code|Description|
 |:------|:----------|
-|ACK    |Acknowledgement of a received message.|
+|ACK    |Member acknowledgement of a received message fragment.|
 |BYE    |Member announcing it is leaving the group.|
 |DEL    |Member requesting the group to evict the cache entry.|
 |ERR    |Member announcing an error to the group.|
 |INQ    |Member inquiring about a cache entry from the group.|
+|INS    |Member inserted a new cache entry.|
 |MET    |Member inquiring about the cache metrics from the group.|
-|NEW    |New member annoucement to join the group.|
+|NEW    |Member announcement to join the cluster/group.|
 |NAK    |Negative acknowledgement.  Didn't receive the key/value.|
-|NOP    |No operation.|
-|RAK    |Request acknowledgment for a key.|
+|RAK    |Member request acknowledgment for a message fragment.|
 |REQ    |Member requesting resend message fragment.|
 |RST    |Member requesting reset of the cache.|
-|UPD    |Update an existing cache entry (Insert/Update).|
+|SYC    |Member submitting a heart beat sync.|
+|UPD    |Member update an existing cache entry.|
 
 only `DEL` and `UPD` will require acknowledgment from the receiving node(s).
 
 ## Joining and leaving the cluster.
 ```mermaid
 ---
-title: McCache protocol to join and leave the cluster.
+title: McCache protocol to join the cluster.
 ---
 sequenceDiagram
     box MintCream   Machine 1
@@ -34,8 +35,27 @@ sequenceDiagram
     participant HR  as Housekeeper
     end
     S -) R: NEW
+    R -) S: SYC
+    S -) R: REQ
+    R -) S: UPD
+```
+
+```mermaid
+---
+title: McCache protocol to leave the cluster.
+---
+sequenceDiagram
+    box MintCream   Machine 1
+    participant HS  as Housekeeper
+    participant S   as Sender
+    end
+    box Azure  Machine 2
+    participant R   as Receiver
+    participant HR  as Housekeeper
+    end
     S -) R: BYE
 ```
+
 
 ## Insert/Update a value in the cache.
 ```mermaid
