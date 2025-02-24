@@ -167,7 +167,7 @@ The following are environment variables you can tune to fit your production envi
   </tr>
   <tr>
     <td><sub>MCCACHE_MULTICAST_HOPS</sub></td>
-    <td>3 hops</td>
+    <td>1 hops</td>
     <td>The maximum network hops. 1 is just within the same switch/router. [>=1]<br><b>SEE</b>: <code>mccache.get_hops()</code></td>
   </tr>
   <tr>
@@ -177,7 +177,7 @@ The following are environment variables you can tune to fit your production envi
   </tr>
   <tr>
     <td><sub>MCCACHE_DAEMON_SLEEP</sub></td>
-    <td>1 sec</td>
+    <td>2 sec</td>
     <td>The snooze duration for the daemon housekeeper before waking up to check the state of the cache.</td>
   </tr>
   <tr>
@@ -245,31 +245,29 @@ Specifying tuning parameters via `pyproject.toml` file.
 [tool.mccache]
 cache_ttl = 900
 packet_mtu = 1472
+multicast_hops = 3
 ```
 ### Environment variables
 Specifying tuning parameters via environment variables.
 ```bash
 #  Unix
-export MCCACHE_TTL=900
-export MCCACHE_MTU=1472
+export MCCACHE_CACHE_TTL=900
+export MCCACHE_PACKET_MTU=1472
+export MCCACHE_MULTICAST_HOPS=3
 ```
 ```bat
 ::  Windows
-SET MCCACHE_TTL=900
-SET MCCACHE_MTU=1472
+SET MCCACHE_CACHE_TTL=900
+SET MCCACHE_PACKET_MTU=1472
+SET MCCACHE_MULTICAST_HOPS=3
 ```
-Environment variables supersede the setting in the `pyproject.toml` file.
+Environment variables supersede the static setting in the `pyproject.toml` file.
 
-## Environment check
+### Network check
 Two utility methods are provided to assist you to determined the size of the MTU in your network and the number of network hops to the other members in the cluster.  The following is an example to invoke these methods:
-```python
-import  mccache
-
-# Get the maximum MTU between here to another cluster member.
-mccache.get_mtu(  '142.251.32.36' )
-
-# Get the number of network hops between here to another cluster member.
-mccache.get_hops( '142.251.32.36' ,20 )
+```bash
+python -c "import mccache; mccache.get_mtu( '142.250.189.174')"
+python -c "import mccache; mccache.get_hops('142.250.189.174')"
 ```
 
 ## Public utility methods

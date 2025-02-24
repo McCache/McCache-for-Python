@@ -1,7 +1,6 @@
 #  pipenv   sync
 #  pipenv   install mccache
-#  pipenv   shell
-#  clear;   python
+#  pipenv   run     python
 
 import  os
 from    datetime  import  UTC

@@ -111,7 +111,7 @@ ONE_NS_SEC  = 1_000_000_000             # One Nano second.
 MAGIC_BYTE  = 0b11111001                # 241 (Pattern + Version)
 HEADER_SIZE = 18                        # The fixed length header for each fragment packet.
 STRUCT_PACK = '@BBBBHHQH'               # The structure of the pickled header.
-SEASON_TIME = 1.00                      # Seasoning time to wait before considering a retry. Max of 3 second.  Work with backoff.
+SEASON_TIME = 2.00                      # Seasoning time to wait before considering a retry. Max of 3 second.  Work with backoff.
 HUNDRED     = 100                       # Hundred percent.
 UINT2       = 65535                     # Unsigned 2 bytes.
 RETRIES     = 3                         # Number of retries before giving up.
@@ -240,7 +240,7 @@ class McCacheConfig:
 #   quorum_member: int  = 0             # A flag to designate if this node is a member of the quorum.  Quorum member have extra duty.
     multicast_ip: str   ='224.0.0.3'    # Unassigned multi-cast IP.
     multicast_port: int = 4000          # Unofficial port.  Was for Diablo II game.
-    multicast_hops: int = 3             # 1 is only local subnet on the same switch/router.
+    multicast_hops: int = 1             # 1 is only local subnet on the same switch/router.
 #   queue_ib_size: int  = 65536         # Internal  in-bound queue size to prevent run away memory consumption.  Set it large but no infinite.
 #   queue_ob_size: int  = 65536         # Internal out-bound queue size to prevent run away memory consumption.  Set it large but no infinite.
     callback_win: int   = 5             # Change callback window size seconds (1-999).
@@ -1306,8 +1306,8 @@ def _check_sync_metadata() -> None:
         while i <= RETRIES:
             try:
                 for nms in _mcCache:    # NOTE: Loop to give the receiver in between namespace break to process other request.
-                    # TODO: Send out metadata that have been updated since two sync ago instead of everything.
                     val = get_cache( nms ).metadata.copy()
+                    # TODO: Send out metadata that have been updated since two sync ago instead of everything.
                     if  val:
                         _mcOBQueue.put((OpCode.SYC ,PyCache.tsm_version() ,nms ,None ,None ,val ,None))
                 _mcConfig.cache_sync_on = now
@@ -1445,6 +1445,9 @@ def _process_NEW( nms: str ,key: object ,tsm: int ,lts: int ,opc: str ,crc: str 
     """
     if  sdr not in _mySelf:
         _mcMember[ sdr ] = tsm   # Timestamp
+
+    # Stagger the processing of the NEW opc among the members to reduce the stampeed of REQ/UPD.
+    time.sleep( random.uniform( 0.0 ,0.5 ))
 
     nmss = _mcCache.keys()  # NOTE: NEW op should NOT have any namespace.
     for nms in nmss:
