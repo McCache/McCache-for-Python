@@ -318,7 +318,7 @@ Issues and feature request can be posted [here](https://github.com/McCache/McCac
 You can reach our administrator at `elau1004@netscape.net`.
 
 ## Support
-For any inquiries, bug reports, or feature requests, please open an issue in the [GitHub repository](https://github.com/McCache/McCache-for-Python/issues).
+For any inquiries, bug reports, or feature requests, please open an issue in the [GitHub repository](https://github.com/McCache/McCache-for-Python/issues).  You can discuss and ask question at our [Discord server](https://discord.gg/u7NZVGF4)
 
 ## Miscellaneous
 * SEE: [Latency Numbers](https://gist.github.com/hellerbarde/2843375)
