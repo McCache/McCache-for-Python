@@ -146,16 +146,10 @@ The CLI parameters are:
 
 #### Container network latency
 The following was obtain by login into a container and `ping` the another.
-```
+```bash
     root@843420eb1cf8:/home/mccache#  ping  172.18.0.4  -c 9
     PING 172.18.0.4 (172.18.0.4) 56(84) bytes of data.
-    64 bytes from 172.18.0.4: icmp_seq=1 ttl=64 time=0.066 ms
-    64 bytes from 172.18.0.4: icmp_seq=2 ttl=64 time=0.086 ms
-    64 bytes from 172.18.0.4: icmp_seq=3 ttl=64 time=0.049 ms
-    64 bytes from 172.18.0.4: icmp_seq=4 ttl=64 time=0.133 ms
-    64 bytes from 172.18.0.4: icmp_seq=5 ttl=64 time=0.052 ms
-    64 bytes from 172.18.0.4: icmp_seq=6 ttl=64 time=0.067 ms
-    64 bytes from 172.18.0.4: icmp_seq=7 ttl=64 time=0.186 ms
+    :
     64 bytes from 172.18.0.4: icmp_seq=8 ttl=64 time=0.053 ms
     64 bytes from 172.18.0.4: icmp_seq=9 ttl=64 time=0.054 ms
 
@@ -251,7 +245,7 @@ The following is a snapshot of the Docker containers running a stress test.  SEE
 ```
 
 ### Observations
-* As more stress is applied to the cache, the outbound queue starts to back up.  This is by designed as long as it is not too deep and only you can decided how deep is acceptable.
+* As more stress is applied to the cache, the 2 queues starts to back up.  This is by designed as long as it is not too deep and only you can decided how deep is acceptable.
     * Stress is generated from the increased number of nodes plus a higher update frequency (aperture < **0.01** seconds, **10** ms).
     * The local outbound queue starts backing up as we pound the local cache at a frequency with an aperture of < **0.005** seconds or **5** ms.  Anecdotally, this suggested that the current implementation or Python is not able to keep.
 * The larger the object to cache, the higher the latency to sync the other members in the cluster.  Many more packets need to be transmitted plus the processing overhead.
@@ -264,5 +258,56 @@ The following is a snapshot of the Docker containers running a stress test.  SEE
     * If you do **not** have an use case where the cache is pounded **less** than once every **10**ms, sustained for **10** minutes, `McCache` may be suitable for you.
 
 
-### Cloud VM
-TBD
+### Working with Cloud VM
+#### Statistics
+The following command was used to output the number of hops between my local machine and a VM in the cloud.
+```bash
+    $ python -c "import mccache; mccache.get_hops('35.226.199.218')"
+    Tracing the hops. It can be slow ...
+    Hop:  7
+```
+
+We also ascertain that the size of MTU used between my local machine and a VM in the cloud is smaller, instead of **1472**.
+```bash
+    $ python -c "import mccache; mccache.get_mtu( '35.226.199.218')"
+    Searching for the MTU size ...
+    :
+    Min: 1433  Mid: 1436  Max: 1440
+    Min: 1433  Mid: 1434  Max: 1435
+    MTU: 1433
+```
+We need to research into how to change the the MTU size with our cloud provider.
+
+#### Cloud network latency
+The following was obtain by login into a VM in the cloud and `ping` the another node using its **public** IP address.
+```bash
+  $ ping 34.42.27.219
+    PING 34.42.27.219 (34.42.27.219) 56(84) bytes of data.
+    :
+    64 bytes from 34.42.27.219: icmp_seq=7 ttl=61 time=0.601 ms
+    64 bytes from 34.42.27.219: icmp_seq=8 ttl=61 time=0.695 ms
+    --- 34.42.27.219 ping statistics ---
+    8 packets transmitted, 8 received, 0% packet loss, time 7152ms
+    rtt min/avg/max/mdev = 0.601/1.094/4.034/1.111 ms
+```
+* The average round trip for a packet is `1.094`ms or `0.547`ms latency for single packet one way transmission.  This is approximately **13** times slower that running inside a local container network.
+
+We were not able to determine the number of hops to the other VM in the cloud via its public IP address.
+```bash
+    $ python -c "import mccache; mccache.get_hops('35.226.199.218')"
+    Tracing the hops. It can be slow ...
+    35.226.199.218 is NOT reachable!
+
+    $ traceroute  -n -m 20  35.226.199.218
+    traceroute to 35.226.199.218 (35.226.199.218), 20 hops max, 60 byte packets
+     1  * * *
+     :  * * *
+    19  * * *
+    20  * * *
+```
+but using the internal IP address we were able ascertain that the number of hops is **1**.
+```bash
+    $ python -c "import mccache; mccache.get_hops('10.128.0.7')"
+    Tracing the hops. It can be slow ...
+    Hop:  1
+```
