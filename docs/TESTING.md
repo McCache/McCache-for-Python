@@ -98,7 +98,7 @@ The above have been manually formatted for readability.  For stress testing purp
 This stress test is intended to find the breaking point for `McCache` on a given class of machine.  This is an edge case where in a normal usage the probability of two or more nodes updating the same key/value at the very same time is extremely low.
 
 The test script run for a certain duration pausing a faction of a second in each iteration in a loop.  The sleep aperture is the centerpoint where a range of random value is generated around it.
-e.g. If the aperture value is `0.01`s (`10`ms),  the snooze value shall be between `0.0065`s (`6.5`ms) and `0.0135`s (`13.5`ms).
+e.g. If the aperture value is `0.01`s (`10`<small>ms</small>),  the snooze value shall be between `0.0065`s (`6.5`<small>ms</small>) and `0.0135`s (`13.5`<small>ms</small>).
 Next, a random operation, lookup, insert, update and delete, to be applied to the cache.  Currently, the distributions are:
 * 55% are lookups.
 * 05% are deletes.
@@ -157,7 +157,7 @@ The following was obtain by login into a container and `ping` the another.
     9 packets transmitted, 9 received, 0% packet loss, time 8357ms
     rtt min/avg/max/mdev = 0.049/0.082/0.186/0.044 ms
 ```
-* The average round trip for a packet is `0.082`ms or `0.041`ms latency for single packet one way transmission.  There isn't any significant network latency and the test can focus on the processing of cache changes.
+* The average round trip for a packet is `0.082`<small>ms</small> or `0.041`<small>ms</small> latency for single packet one way transmission.  There isn't any significant network latency and the test can focus on the processing of cache changes.
 
 #### Results of basic stress test
 The results below are collected from testing output `result.txt` file and the `detail_xxx.log` files under the `.\log` sib-directory.
@@ -290,7 +290,7 @@ The following was obtain by login into a VM in the cloud and `ping` the another 
     8 packets transmitted, 8 received, 0% packet loss, time 7152ms
     rtt min/avg/max/mdev = 0.601/1.094/4.034/1.111 ms
 ```
-* The average round trip for a packet is `1.094`ms or `0.547`ms latency for single packet one way transmission.  This is approximately **13** times slower that running inside a local container network.
+* The average round trip for a packet is `1.094`<small>ms</small> or `0.547`<small>ms</small> latency for single packet one way transmission.  This is approximately **13** times slower that running inside a local container network.
 
 We were not able to determine the number of hops to the other VM in the cloud via its public IP address.
 ```bash
@@ -308,6 +308,60 @@ We were not able to determine the number of hops to the other VM in the cloud vi
 but using the internal IP address we were able ascertain that the number of hops is **1**.
 ```bash
     $ python -c "import mccache; mccache.get_hops('10.128.0.7')"
+    Tracing the hops. It can be slow ...
+    Hop:  1
+```
+
+The following was obtain by login into a VM in the cloud and `ping` the another node that reside in a **same** zone using its **internal** IP address.
+```bash
+  $ ping 10.128.0.9
+    PING 10.128.0.9 (10.128.0.9) 56(84) bytes of data.
+    :
+    64 bytes from 10.128.0.9: icmp_seq=9 ttl=64 time=0.207 ms
+    64 bytes from 10.128.0.9: icmp_seq=10 ttl=64 time=0.222 ms
+    --- 10.128.0.9 ping statistics ---
+    10 packets transmitted, 10 received, 0% packet loss, time 10212ms
+    rtt min/avg/max/mdev = 0.181/0.284/0.909/0.198 ms
+```
+* The average round trip for a packet is `0.284`<small>ms</small> or `0.142`<small>ms</small> latency for single packet one way transmission.  This is approximately **3.5** times slower that running inside a local container network.
+
+We also ascertain that the size of MTU used between the two cloud VMs is smaller, instead of **1472**.
+```bash
+    $ python -c "import mccache; mccache.get_mtu('10.128.0.9')"
+    Searching for the MTU size ...
+    :
+    Min: 1433  Mid: 1436  Max: 1440
+    Min: 1433  Mid: 1434  Max: 1435
+    MTU: 1433
+```
+
+#### Cloud network latency across zones
+
+The following was obtain by login into a VM in the cloud and `ping` the another node that reside in a **different** zone using its **internal** IP address.
+```bash
+  $ ping 10.128.0.10
+    PING 10.128.0.10 (10.128.0.10) 56(84) bytes of data.
+    :
+    64 bytes from 10.128.0.10: icmp_seq=9 ttl=64 time=0.872 ms
+    64 bytes from 10.128.0.10: icmp_seq=10 ttl=64 time=0.886 ms
+    --- 10.128.0.10 ping statistics ---
+    10 packets transmitted, 10 received, 0% packet loss, time 9067ms
+    rtt min/avg/max/mdev = 0.790/1.130/2.407/0.454 ms
+```
+* The average round trip for a packet is `1.130`<small>ms</small> or `0.565`<small>ms</small> latency for single packet one way transmission.  This is approximately **4** times slower that running inside a same zone.
+
+We also ascertain that the size of MTU used between the two cloud VMs, regardless of zones they reside in, is the same.
+```bash
+    $ python -c "import mccache; mccache.get_mtu('10.128.0.10')"
+    Searching for the MTU size ...
+    :
+    Min: 1433  Mid: 1436  Max: 1440
+    Min: 1433  Mid: 1434  Max: 1435
+    MTU: 1433
+```
+but we were surprise by the number of hops remained at **1**.  This does not correlate with the `ping` latency numbers.
+```bash
+    $ python -c "import mccache; mccache.get_hops('10.128.0.10')"
     Tracing the hops. It can be slow ...
     Hop:  1
 ```
