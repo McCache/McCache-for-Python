@@ -1,12 +1,17 @@
 # How to contribute
+First you need to download and install [VS Code](https://code.visualstudio.com/download) and [Git](https://git-scm.com/downloads).  When installing Git, remember to opt-in to install the Unix utilities.  THis is a requirement.  You also need either [docker](https://www.docker.com/get-started/) or [podman](https://podman-desktop.io/downloads) to be installed for stress testing.
 
-First you need to clone this project down to your local drive with the following command:
+Then you need to clone this project down to your local drive with the following command:
 ```bash
 git    clone  https://github.com/McCache/McCache-for-Python.git
 ```
-Next, make a copy of `pyproject.toml.sample` to `pyproject.toml`.  You may add additional configuration into  `pyproject.toml` to suite your needs.
+Once you have cloned the project down, run the following command:
+```bash
+dos2unix  McCache-for-Python/tests/*.sh
+dos2unix  McCache-for-Python/tests/run_test
+```
 
-You need either `podman` or `docker` to be installed for stress testing.
+Next, make a copy of `pyproject.toml.sample` to `pyproject.toml`.  You may add additional configuration into  `pyproject.toml` to suite your needs.
 
 We use `pipenv` to manage the [dependencies](https://realpython.com/pipenv-guide/).  It is a slow resolving dependencies but we hope it is a one time activity that you as a developer have to perform.  `pipenv` can load your local `.env` file to set your custom environment variables.  We are considering other tools like `hatch` or `uv` in the future.
 If you don't have `pipenv` installed, you should install it with the following command outside of your virtual environment:
@@ -79,7 +84,7 @@ vulture ./src/mccache/*.py  # Dead code scanner.
 ```
 
 ### Tests
-You can run the following command to **unit** test `PyCache`.
+You can run the following command to **unit** test `PyCache` and `McCache`.
 ```bash
 pytest  ./tests/unit/test_pycache.py
 pytest  ./tests/unit/test_mccache.py
@@ -94,7 +99,7 @@ coverage  report  --skip-empty --include                __init__.py
 coverage  report  --skip-empty --include --show-missing __init__.py
  ```
 
-You may need to set your `PYTHONPATH` to pick up the packages to test.  `.env` should be loaded by `pipenv` on invocation.  If not try setting it as follows:
+You may need to set your `PYTHONPATH` to pick up the packages to test.  `.env` is loaded by `pipenv` on invocation.  If not try setting it as follows:
 ```bash
 PYTHONPATH="Path/to/your/source/root/directory"
 ```
