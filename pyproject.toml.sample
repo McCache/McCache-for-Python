@@ -10,7 +10,7 @@ maintainers = [
 ]
 description = "McCache is a, write through cluster aware, local in-memory caching library."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = "MIT"
 keywords = [
   "cache",
@@ -37,6 +37,7 @@ classifiers = [  #! Update me
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
@@ -116,7 +117,8 @@ python = [
   "3.10",
   "3.11",
   "3.12",
-  "3.13"
+  "3.13",
+  "3.14"
 ]
 
 [tool.hatch.envs.lint]
@@ -189,7 +191,7 @@ testpaths = [
 ]
 
 [tool.ruff]
-target-version = "py310"
+target-version = ">=py312"
 line-length = 160
 select = [
   "A",    # flake8-builtins

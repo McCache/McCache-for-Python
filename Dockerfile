@@ -20,16 +20,17 @@
 #RG         IMAGE_VERSION=3.9.19
 #RG         IMAGE_VERSION=3.10.14
 #RG         IMAGE_VERSION=3.11.9
-ARG         IMAGE_VERSION=3.12.9
+#RG         IMAGE_VERSION=3.12.9
+ARG         IMAGE_VERSION=3.14.0
 #RG         IMAGE_VERSION=latest
 #RG         IMAGE_VERSION=slim
 #ROM        python:${IMAGE_VERSION}    # Podman
-FROM        python:3.12.9
+FROM        python:3.14.0
 
 ENV         USRGRP=mccache
 ENV         LANG=C.UTF-8
 
-# Dont need the following if you are using the latest image.
+# Don't need the following if you are using the latest image.
 #
 RUN         apt-get update
 RUN         apt-get install -y  iputils-ping

@@ -1,19 +1,53 @@
 # How to contribute
 First you need to download and install [VS Code](https://code.visualstudio.com/download) and [Git](https://git-scm.com/downloads).  When installing Git, remember to opt-in to install the Unix utilities.  THis is a requirement.  You also need either [docker](https://www.docker.com/get-started/) or [podman](https://podman-desktop.io/downloads) to be installed for stress testing.
 
+The following instructions should be executed in aterminal.  If Windows is your development environment, you should launch the terminal as an **administrator**.
+
 Then you need to clone this project down to your local drive with the following command:
 ```bash
-git    clone  https://github.com/McCache/McCache-for-Python.git
+  git    clone  https://github.com/McCache/McCache-for-Python.git
 ```
-Once you have cloned the project down, run the following command:
+If you are developing under Unix, once you have cloned the project down, run the following command to convert the Window's `CRLF` to `LF` end of line format:
 ```bash
-dos2unix  McCache-for-Python/tests/*.sh
-dos2unix  McCache-for-Python/tests/run_test
+  dos2unix  McCache-for-Python/tests/*.sh
+  dos2unix  McCache-for-Python/tests/run_test
 ```
 
 Next, make a copy of `pyproject.toml.sample` to `pyproject.toml`.  You may add additional configuration into  `pyproject.toml` to suite your needs.
 
-We use `pipenv` to manage the [dependencies](https://realpython.com/pipenv-guide/).  It is a slow resolving dependencies but we hope it is a one time activity that you as a developer have to perform.  `pipenv` can load your local `.env` file to set your custom environment variables.  We are considering other tools like `hatch` or `uv` in the future.
+Install the package and virtual environment manager of your choice.  We recommend `uv` but we have kept `pipenv` for backward compatibility.
+
+<details open><summary><b><font size="4">uv</font></b></summary>
+We use `uv`, a very fast package manager, to manage the [dependencies](https://docs.astral.sh/uv/). `uv` does **not** autoload your local `.env` file to set your custom environment variables.  You need to use the `--env-file` CLI parameter to point to your `.env` file or via the environment variable `UV_ENV_FILE`.
+
+If you don't have `uv` installed, you should install it with the following command outside of your virtual environment:
+```bash
+  pip install -U  pip
+  pip install     wheel
+  pip install     uv
+```
+Once you have installed `uv`, the next step is to create a virtual environment with the following command:
+
+Windows:
+```windows
+  uv  venv
+  uv  run  cmd
+```
+Bash:
+```bash
+  uv  venv
+  uv  run bash
+```
+
+Install all the project dependencies in the `pyproject.toml` using `uv`.  Use the following command to install all Python project dependencies:
+```bash
+  uv  sync
+  uv  tree
+```
+</details>
+<details><summary><b><font size="4">pipenv</font></b></summary>
+We used to use `pipenv` to manage the [dependencies](https://realpython.com/pipenv-guide/).  It is a slow resolving dependencies but we hope it is a one time activity that you as a developer have to perform.  `pipenv` can load your local `.env` file to set your custom environment variables.  We are left this documentation here for some backward compatibility.
+
 If you don't have `pipenv` installed, you should install it with the following command outside of your virtual environment:
 ```bash
 pip    install -U  pip
@@ -28,17 +62,33 @@ pipenv sync --dev
 pipenv graph
 ```
 It may take a few minutes to rebuild the `Pipenv.lock` file, so be a little patient.
+</details>
+<br>
 
 Install `pre-commit` to with the following command:
 ```bash
-pre-commit install
+  pre-commit install
 ```
 `pre-commit` hook into `git` to auto check for your code for project requirements before it is committed into your local `git` repo.
 
 To activate your `virtualenv` run the following command:
+<details open><summary><b><font size="4">uv</font></b></summary>
+
 ```bash
-pipenv  shell
+  ::  Windows
+  uv  run cmd
+
+  #   Unix
+  uv  run bash
 ```
+</details>
+<details><summary><b><font size="4">pipenv</font></b></summary>
+
+```bash
+  pipenv  shell
+```
+</details>
+<br>
 You should work from within the virtual environment at the root directory of the project.
 
 Get the PyPi API key from the primary maintainer.  You can add it into the your local `.env` file.
@@ -53,11 +103,11 @@ We like [PEP8](https://peps.python.org/pep-0008/#a-foolish-consistency-is-the-ho
   * We love it for we believe it makes the code more readable and we do not live in the 90s with small monitors.  Characters that are butted together is harder to read.
 * Commas:
   * This is **not** English literature writing.  A comma is use to introduce the next term.  Therefore we have a space before the comma but no space after the comma.  If there is no next term, you will not need a comma to separate the terms as depicted by the following railroad diagram:
-    * WIP: Waiting for [`mermaid`](https://mermaid.js.org/intro/) railroad diagram support.
+    * WIP: Waiting for [`mermaid`](https://github.com/mermaid-js/mermaid/issues/4252) railroad diagram support.
 * Vertical alignment:
   * We believe that vertical align make it easier on the eyes to pick out deltas.  A multi jagged lines require the eyes and brain to perform a lot of scans and processing creating mental fatigue.
 
-For this project, do use follow the project precedence.  We expect you to run your changes through the `ruff` linter before you commit your changes.  The `ruff` configurations are in the `pyproject.toml` file under the `[tool.ruff]` section.
+For this project, do follow the project precedence.  We expect you to run your changes through the `ruff` linter before you commit your changes.  The `ruff` configurations are in the `pyproject.toml` file under the `[tool.ruff]` section.
 
 ## Entrypoint
 We recommend that you read the script [`start_mccache.py`](https://github.com/McCache/McCache-for-Python/blob/main/tests/unit/start_mccache.py) to see how this library is used.  This script is used in the test harness to generate random cache activities in all the member in the test cluster.
@@ -67,46 +117,69 @@ The following sub-sections are tasks you need to perform manually before you com
 ## Codestyle
 You can run the following command to check the code for PEP8 formatting compliance.
 ```bash
-ruff  check  ./src/mccache/*.py
+  ::  Windows
+  ruff  check  .\src\mccache\*.py
+
+  #   Unix
+  ruff  check  ./src/mccache/*.py
 ```
 `ruff` documentation mentioned that it be used to replace `Flake8`, `isort`, `pydocstyle`, `yesqa`, `eradicate`, `pyupgrade`, and `autoflake`.
 Execute the following command to display all the `ruff` supported linters:
 ```bash
-ruff  linter
+  ruff  linter
 ```
 
 ### Checks
 You can run the following command to further check the code.  `bandit` and `vulture` are automatic when you commit your code.
 ```bash
-mypy  --disable-error-code "arg-type"  ./src/mccache/*.py  # Static type checker for Python.
-bandit  ./src/mccache/*.py  # Security issues scanner.
-vulture ./src/mccache/*.py  # Dead code scanner.
+  ::  Windows
+  mypy  --disable-error-code "arg-type"  .\src\mccache\   # Static type checker.
+  bandit -r .\src\mccache\    # Security issues scanner.
+  vulture   .\src\mccache\    # Dead code scanner.
+  
+  #   Unix
+  mypy  --disable-error-code "arg-type"  ./src/mccache/   # Static type checker.
+  bandit -r ./src/mccache/    # Security issues scanner.
+  vulture   ./src/mccache/    # Dead code scanner.
 ```
 
 ### Tests
 You can run the following command to **unit** test `PyCache` and `McCache`.
 ```bash
-pytest  ./tests/unit/test_pycache.py
-pytest  ./tests/unit/test_mccache.py
+  ::  Windows
+  pytest  .\tests\unit\test_pycache.py
+  pytest  .\tests\unit\test_mccache.py
+
+  #   Unix
+  pytest  ./tests/unit/test_pycache.py
+  pytest  ./tests/unit/test_mccache.py
 ```
 
 ### Coverage
 You can run the following command to the coverage of `PyCache`.
 ```
-coverage  erase
-coverage  run -m  pytest  ./tests/unit/test_pycache.py
-coverage  report  --skip-empty --include                __init__.py
-coverage  report  --skip-empty --include --show-missing __init__.py
+  coverage  erase
+  coverage  run -m  pytest  ./tests/unit/test_pycache.py
+  coverage  report  --skip-empty --include                __init__.py
+  coverage  report  --skip-empty --include --show-missing __init__.py
  ```
 
 You may need to set your `PYTHONPATH` to pick up the packages to test.  `.env` is loaded by `pipenv` on invocation.  If not try setting it as follows:
 ```bash
-PYTHONPATH="Path/to/your/source/root/directory"
+  ::  Windows
+  SET PYTHONPATH="Path\to\your\source\root\directory"
+
+  #   Unix
+  PYTHONPATH="Path/to/your/source/root/directory"
 ```
 
 You can run the following script to **stress** test `McCache`.
 ```bash
-./tests/run_test
+  ::  Windows
+  .\tests\run_test
+
+  #   Unix
+  ./tests/run_test
 ```
 
 ### Before submitting
@@ -115,20 +188,20 @@ Before submitting your code please do the following steps:
 1. Add any changes you want.
 1. Add tests for the new changes.
 1. Edit documentation if you have changed something significant.
-1. Run the steps outline above from the **`Codestyle`** section to format your changes.
-1. Run the steps outline above from the **`Checks`** section to ensure that types, security and docstrings are okay.
-1. Run the steps outline above from the **`Tests`** section to ensure that we did not break functionality.
+1. Run the steps outline above from the **[Codestyle](#Codestyle)** section to format your changes.
+1. Run the steps outline above from the **[Checks](#Checks)** section to ensure that types, security and docstrings are okay.
+1. Run the steps outline above from the **[Tests](#Tests)** section to ensure that we did not break functionality.
 
 ## Deployment
 Once the code is tested, you can install `McCache` into your local environment with the following command:
 ```bash
-pip uninstall  mccache
-pip   install -e  .
+  pip uninstall  mccache
+  pip   install -e  .
 ```
 
 Check the local installation with the following command:
 ```bash
-pip list | grep -iE "McCache|Version"
+  pip list | grep -iE "McCache|Version"
 ```
 You should get an output similar to the following:
 ```
