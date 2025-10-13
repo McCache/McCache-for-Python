@@ -28,13 +28,12 @@ If you don't have `uv` installed, you should install it with the following comma
 ```
 Once you have installed `uv`, the next step is to create a virtual environment with the following command:
 
-Windows:
-```windows
+```bash
+  ::  Windows
   uv  venv
   uv  run  cmd
-```
-Bash:
-```bash
+  
+  #   Unix
   uv  venv
   uv  run bash
 ```
