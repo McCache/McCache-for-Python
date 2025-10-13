@@ -18,6 +18,7 @@ Next, make a copy of `pyproject.toml.sample` to `pyproject.toml`.  You may add a
 Install the package and virtual environment manager of your choice.  We recommend `uv` but we have kept `pipenv` for backward compatibility.
 
 <details open><summary><b><font size="4">uv</font></b></summary>
+
 We use `uv`, a very fast package manager, to manage the [dependencies](https://docs.astral.sh/uv/). `uv` does **not** autoload your local `.env` file to set your custom environment variables.  You need to use the `--env-file` CLI parameter to point to your `.env` file or via the environment variable `UV_ENV_FILE`.
 
 If you don't have `uv` installed, you should install it with the following command outside of your virtual environment:
@@ -30,10 +31,12 @@ Once you have installed `uv`, the next step is to create a virtual environment w
 
 ```bash
   ::  Windows
+  set UV_ENV_FILE=.env  ::  Should set this permanently to referencing .env in project root directory.
   uv  venv
   uv  run  cmd
   
   #   Unix
+  UV_ENV_FILE=.env      #   Should set this permanently to referencing .env in project root directory.
   uv  venv
   uv  run bash
 ```
@@ -163,7 +166,7 @@ You can run the following command to the coverage of `PyCache`.
   coverage  report  --skip-empty --include --show-missing __init__.py
  ```
 
-You may need to set your `PYTHONPATH` to pick up the packages to test.  `.env` is loaded by `pipenv` on invocation.  If not try setting it as follows:
+You may need to set your `PYTHONPATH` to pick up the packages to test.  `.env` is loaded by `pipenv` on invocation but not by `uv`.  If not try setting it as follows:
 ```bash
   ::  Windows
   SET PYTHONPATH="Path\to\your\source\root\directory"
@@ -209,44 +212,48 @@ McCache           0.0.0       C:\Work\Dev\McCache-for-Python
 ```
 
 We use `hatch` to build and publish this package to [PyPi](https://pypi.org).  For each publish to the repository, you **must** increment the version number in the `src/mccache/__about__.py` file. Run the following command from the root directory of the `McCache` project:
+
+<details open><summary><b><font size="4">uv</font></b></summary>
+
 ```bash
-hatch   env   show      # Show your environment(s) to build for.
-hatch   clean           # Clean out the content  in the ./dist folder.
-hatch   build -t wheel  # Build the wheel file into the ./dist folder.
+  ::  Windows
+  del   dist/*
+
+  #   Unix
+  rm    dist/*
+
+  uv    build
 ```
+</details>
+<details><summary><b><font size="4">hatch</font></b></summary>
+
+```bash
+  hatch env       show    # Show your environment(s) to build for.
+  hatch clean             # Clean out the content  in the ./dist folder.
+  hatch build  -t wheel   # Build the wheel file into the ./dist folder.
+```
+</details>
+
 The above will create a sub-directory named `dist` under the project root directory.  Check the build with the following commands:
 ```bash
-# Test the wheel file using Twine.
-twine   check   dist/mccache*.whl
-ls -sh  dist            # Show the build artifacts in the ./dist folder.
+  #   Test the wheel file using Twine.
+  twine   check   dist/mccache*.whl
+
+  dir     dist          # Show the build artifacts in the ./dist folder.
 ```
 You should get an output similar to the following:
 ```
-total 48K
-48K mccache-0.0.0-py3-none-any.whl
+  total 48K
+  48K mccache-0.0.0-py3-none-any.whl
 ```
 
 Once everything is checked out, you can manually deploy this `McCache` package to the `PyPi` repository.  First you should test the deploy to `TestPyPi` before you deploy it to the main `PyPi`.  Run the following command to publish the package.
-
-Using **Twine** to publish `McCache` to the repository.
 ```bash
-# Publish ONLY the wheel file to TestPypi using Twine.
-twine  upload  -r testpypi  dist/mccache*.whl
-
-# Publish ONLY the wheel file to Pypi using Twine.
-twine  upload  -r pypi      dist/mccache*.whl
+  uv    publish
 ```
-Using **Hatch** to publish `McCache` to the repository.
-```bash
-# Publish ONLY the wheel file to TestPypi using Hatch.
-hatch  publish -r test   dist/
 
-# Publish ONLY the wheel file to Pypi using Hatch.
-hatch  publish -r main   dist/
-```
 Make sure you do **ONLY** publish the `wheel` file up to the repository.
 
-SEE: https://hatch.pypa.io/1.9/publish/
 
 ## TODOs
 * We need to automate the unit test using the `pre-commit` hook.
