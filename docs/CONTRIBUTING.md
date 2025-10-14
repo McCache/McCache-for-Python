@@ -1,7 +1,7 @@
 # How to contribute
 First you need to download and install [VS Code](https://code.visualstudio.com/download) and [Git](https://git-scm.com/downloads).  When installing Git, remember to opt-in to install the Unix utilities.  THis is a requirement.  You also need either [docker](https://www.docker.com/get-started/) or [podman](https://podman-desktop.io/downloads) to be installed for stress testing.
 
-The following instructions should be executed in aterminal.  If Windows is your development environment, you should launch the terminal as an **administrator**.
+The following instructions should be executed in a terminal.  If Windows is your development environment, you should launch the terminal as an **administrator**.
 
 Then you need to clone this project down to your local drive with the following command:
 ```bash
@@ -13,7 +13,7 @@ If you are developing under Unix, once you have cloned the project down, run the
   dos2unix  McCache-for-Python/tests/run_test
 ```
 
-Next, make a copy of `pyproject.toml.sample` to `pyproject.toml`.  You may add additional configuration into  `pyproject.toml` to suite your needs.
+Next, make a copy of `pyproject.toml.sample` to `pyproject.toml`.  You may add additional configuration into s`pyproject.toml` to suite your needs.
 
 Install the package and virtual environment manager of your choice.  We recommend `uv` but we have kept `pipenv` for backward compatibility.
 
@@ -27,6 +27,8 @@ If you don't have `uv` installed, you should install it with the following comma
   pip install     wheel
   pip install     uv
 ```
+
+### Virtual Environment
 Once you have installed `uv`, the next step is to create a virtual environment with the following command:
 
 ```bash
@@ -38,15 +40,17 @@ Once you have installed `uv`, the next step is to create a virtual environment w
 The follow command is only needed to be executed once.
 ```bash
   ::  Windows
-  setx  UV_ENV_FILE=.env
+  setx  UV_ENV_FILE .env
 
   #   Unix
   echo "UV_ENV_FILE=.env" >> ~/.bashrc
 ```
+
 > [!IMPORTANT]
-> Restart your terminal.
+> Restart your terminal or source in the update `.env` file.
 
 To activate your `virtualenv` with environment variable set from the `.env` file, run the following command:
+
 <details open><summary><b><font size="4">uv</font></b></summary>
 
 ```bash
