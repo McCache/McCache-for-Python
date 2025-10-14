@@ -17,8 +17,9 @@ Next, make a copy of `pyproject.toml.sample` to `pyproject.toml`.  You may add a
 
 Install the package and virtual environment manager of your choice.  We recommend `uv` but we have kept `pipenv` for backward compatibility.
 
-<details open><summary><b><font size="">uv</font></b></summary>
+<details open><summary><font size="3" color="cyan">uv</font></summary>
 
+### Virtual Environment and Package Manager
 We use [`uv`](https://docs.astral.sh/uv/), a very fast package manager, to manage the dependencies.
 
 If you don't have `uv` installed, you should install it with the following command outside of your virtual environment:
@@ -28,7 +29,6 @@ If you don't have `uv` installed, you should install it with the following comma
   pip install     uv
 ```
 
-### Virtual Environment
 Once you have installed `uv`, the next step is to create a virtual environment with the following command:
 
 ```bash
@@ -51,7 +51,7 @@ The follow command is only needed to be executed once.
 
 To activate your `virtualenv` with environment variable set from the `.env` file, run the following command:
 
-<details open><summary><b><font size="4">uv</font></b></summary>
+<details open><summary><font size="3" color="cyan">uv</font></summary>
 
 ```bash
   ::  Windows
@@ -62,7 +62,7 @@ To activate your `virtualenv` with environment variable set from the `.env` file
 ```
 </details>
 
-<details><summary><b><font size="4">pipenv</font></b></summary>
+<details><summary><font size="3" color="cyan">pipenv</font></summary>
 
 ```bash
   pipenv  shell
@@ -78,7 +78,7 @@ Install all the project dependencies in the `pyproject.toml` using `uv`.  Use th
   uv  tree
 ```
 
-<details><summary><b><font size="4">pipenv</font></b></summary>
+<details><summary><font size="3" color="cyan">pipenv</font></summary>
 
 We used to use [`pipenv`](https://realpython.com/pipenv-guide/) to manage the dependencies.  It is a slow resolving dependencies but we hope it is a one time activity that you as a developer have to perform.  `pipenv` can load your local `.env` file to set your custom environment variables.  We are left this documentation here for some backward compatibility.
 
@@ -224,7 +224,7 @@ McCache           0.0.0       C:\Work\Dev\McCache-for-Python
 
 We use `hatch` to build and publish this package to [PyPi](https://pypi.org).  For each publish to the repository, you **must** increment the version number in the `src/mccache/__about__.py` file. Run the following command from the root directory of the `McCache` project:
 
-<details open><summary><b><font size="4">uv</font></b></summary>
+<details open><summary><font size="3">uv</font></summary>
 
 ```bash
   ::  Windows
@@ -236,7 +236,7 @@ We use `hatch` to build and publish this package to [PyPi](https://pypi.org).  F
   uv    build
 ```
 </details>
-<details><summary><b><font size="4">hatch</font></b></summary>
+<details><summary><font size="3">hatch</font></summary>
 
 ```bash
   hatch env       show    # Show your environment(s) to build for.
