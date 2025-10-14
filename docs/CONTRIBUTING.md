@@ -17,9 +17,9 @@ Next, make a copy of `pyproject.toml.sample` to `pyproject.toml`.  You may add a
 
 Install the package and virtual environment manager of your choice.  We recommend `uv` but we have kept `pipenv` for backward compatibility.
 
-<details open><summary><b><font size="4">uv</font></b></summary>
+<details open><summary><b><font size="">uv</font></b></summary>
 
-We use `uv`, a very fast package manager, to manage the [dependencies](https://docs.astral.sh/uv/). `uv` does **not** autoload your local `.env` file to set your custom environment variables.  You need to use the `--env-file` CLI parameter to point to your `.env` file or via the environment variable `UV_ENV_FILE`.
+We use [`uv`](https://docs.astral.sh/uv/), a very fast package manager, to manage the dependencies.
 
 If you don't have `uv` installed, you should install it with the following command outside of your virtual environment:
 ```bash
@@ -30,25 +30,53 @@ If you don't have `uv` installed, you should install it with the following comma
 Once you have installed `uv`, the next step is to create a virtual environment with the following command:
 
 ```bash
+  uv  venv
+```
+
+`uv` does **not** autoload your local `.env` file to set your custom environment variables.  You need to use the `--env-file` CLI parameter to point to your `.env` file or via the environment variable `UV_ENV_FILE`.  We are going to permanently set the `UV_ENV_FILE` environment variable to point to any `.env` file the current directory.
+
+The follow command is only needed to be executed once.
+```bash
   ::  Windows
-  set UV_ENV_FILE=.env  ::  Should set this permanently to referencing .env in project root directory.
-  uv  venv
-  uv  run  cmd
-  
+  setx  UV_ENV_FILE=.env
+
   #   Unix
-  UV_ENV_FILE=.env      #   Should set this permanently to referencing .env in project root directory.
-  uv  venv
+  echo "UV_ENV_FILE=.env" >> ~/.bashrc
+```
+> [!IMPORTANT]
+> Restart your terminal.
+
+To activate your `virtualenv` with environment variable set from the `.env` file, run the following command:
+<details open><summary><b><font size="4">uv</font></b></summary>
+
+```bash
+  ::  Windows
+  uv  run cmd
+
+  #   Unix
   uv  run bash
 ```
+</details>
+
+<details><summary><b><font size="4">pipenv</font></b></summary>
+
+```bash
+  pipenv  shell
+```
+</details>
+
+> [!IMPORTANT]
+> You should work from within the virtual environment at the root directory of the project.
 
 Install all the project dependencies in the `pyproject.toml` using `uv`.  Use the following command to install all Python project dependencies:
 ```bash
   uv  sync
   uv  tree
 ```
-</details>
+
 <details><summary><b><font size="4">pipenv</font></b></summary>
-We used to use `pipenv` to manage the [dependencies](https://realpython.com/pipenv-guide/).  It is a slow resolving dependencies but we hope it is a one time activity that you as a developer have to perform.  `pipenv` can load your local `.env` file to set your custom environment variables.  We are left this documentation here for some backward compatibility.
+
+We used to use [`pipenv`](https://realpython.com/pipenv-guide/) to manage the dependencies.  It is a slow resolving dependencies but we hope it is a one time activity that you as a developer have to perform.  `pipenv` can load your local `.env` file to set your custom environment variables.  We are left this documentation here for some backward compatibility.
 
 If you don't have `pipenv` installed, you should install it with the following command outside of your virtual environment:
 ```bash
@@ -65,33 +93,12 @@ pipenv graph
 ```
 It may take a few minutes to rebuild the `Pipenv.lock` file, so be a little patient.
 </details>
-<br>
 
-Install `pre-commit` to with the following command:
+Install `pre-commit` into you github local repo with the following command:
 ```bash
   pre-commit install
 ```
 `pre-commit` hook into `git` to auto check for your code for project requirements before it is committed into your local `git` repo.
-
-To activate your `virtualenv` run the following command:
-<details open><summary><b><font size="4">uv</font></b></summary>
-
-```bash
-  ::  Windows
-  uv  run cmd
-
-  #   Unix
-  uv  run bash
-```
-</details>
-<details><summary><b><font size="4">pipenv</font></b></summary>
-
-```bash
-  pipenv  shell
-```
-</details>
-<br>
-You should work from within the virtual environment at the root directory of the project.
 
 Get the PyPi API key from the primary maintainer.  You can add it into the your local `.env` file.
 
