@@ -80,16 +80,16 @@ We used to use [`pipenv`](https://realpython.com/pipenv-guide/) to manage the de
 
 If you don't have `pipenv` installed, you should install it with the following command outside of your virtual environment:
 ```bash
-pip    install -U  pip
-pip    install     wheel
-pip    install     pipenv
+  pip    install -U  pip
+  pip    install     wheel
+  pip    install     pipenv
 ```
 
 Once you have installed `pipenv`, the next step is to install all the project dependencies in the `Pipfile` using `pipenv`.  Use the following command to install all Python project dependencies:
 ```bash
-pipenv sync
-pipenv sync --dev
-pipenv graph
+  pipenv sync
+  pipenv sync --dev
+  pipenv graph
 ```
 It may take a few minutes to rebuild the `Pipenv.lock` file, so be a little patient.
 </details>

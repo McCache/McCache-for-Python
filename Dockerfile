@@ -1,6 +1,6 @@
 #   Steps to build and run this container.  You can either use podman or docker.
 #
-#S  podman  machine init --disk-size 48         # deafult: 16.5Gb
+#$  podman  machine init --disk-size 48         # deafult: 16.5Gb
 #$  podman  build   -t          mccache-img     .
 #S  podman  system  df
 #$  podman  run  -d --rm --name mccache-test    mccache-img
@@ -24,7 +24,7 @@
 ARG         IMAGE_VERSION=3.14.0
 #RG         IMAGE_VERSION=latest
 #RG         IMAGE_VERSION=slim
-#ROM        python:${IMAGE_VERSION}    # Podman
+#ROM        python:${IMAGE_VERSION}     # Podman
 FROM        python:3.14.0
 
 ENV         USRGRP=mccache
