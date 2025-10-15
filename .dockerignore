@@ -1,5 +1,6 @@
 log/
 Dockerfile
 docker-compose*
+.venv
 .dockerignore
 .gitignore

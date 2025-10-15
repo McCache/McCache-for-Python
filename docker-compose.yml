@@ -39,11 +39,6 @@ services:
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     entrypoint: ["/bin/sh", "-c"]
-#   command: >
-#       /home/mccache/tests/set_network_buffer.sh  &&
-#       python tests/unit/start_mccache.py
-#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
-#   command: python tests/unit/start_mccache.py ;exit
     command: tests/start_mccache.sh
 
   node02:
@@ -78,11 +73,6 @@ services:
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     entrypoint: ["/bin/sh", "-c"]
-#   command: >
-#       /home/mccache/tests/set_network_buffer.sh  &&
-#       python tests/unit/start_mccache.py
-#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
-#   command: python tests/unit/start_mccache.py ;exit
     command: tests/start_mccache.sh
 
   node03:
@@ -117,11 +107,6 @@ services:
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     entrypoint: ["/bin/sh", "-c"]
-#   command: >
-#       /home/mccache/tests/set_network_buffer.sh  &&
-#       python tests/unit/start_mccache.py
-#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
-#   command: python tests/unit/start_mccache.py ;exit
     command: tests/start_mccache.sh
 
   node04:
@@ -156,11 +141,6 @@ services:
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     entrypoint: ["/bin/sh", "-c"]
-#   command: >
-#       /home/mccache/tests/set_network_buffer.sh  &&
-#       python tests/unit/start_mccache.py
-#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
-#   command: python tests/unit/start_mccache.py ;exit
     command: tests/start_mccache.sh
 
   node05:
@@ -195,11 +175,6 @@ services:
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     entrypoint: ["/bin/sh", "-c"]
-#   command: >
-#       /home/mccache/tests/set_network_buffer.sh  &&
-#       python tests/unit/start_mccache.py
-#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
-#   command: python tests/unit/start_mccache.py ;exit
     command: tests/start_mccache.sh
 
   node06:
@@ -234,11 +209,6 @@ services:
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     entrypoint: ["/bin/sh", "-c"]
-#   command: >
-#       /home/mccache/tests/set_network_buffer.sh  &&
-#       python tests/unit/start_mccache.py
-#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
-#   command: python tests/unit/start_mccache.py ;exit
     command: tests/start_mccache.sh
 
   node07:
@@ -273,11 +243,6 @@ services:
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     entrypoint: ["/bin/sh", "-c"]
-#   command: >
-#       /home/mccache/tests/set_network_buffer.sh  &&
-#       python tests/unit/start_mccache.py
-#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
-#   command: python tests/unit/start_mccache.py ;exit
     command: tests/start_mccache.sh
 
   node08:
@@ -312,11 +277,6 @@ services:
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     entrypoint: ["/bin/sh", "-c"]
-#   command: >
-#       /home/mccache/tests/set_network_buffer.sh  &&
-#       python tests/unit/start_mccache.py
-#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
-#   command: python tests/unit/start_mccache.py ;exit
     command: tests/start_mccache.sh
 
   node09:
@@ -351,9 +311,4 @@ services:
       - ./src:/home/mccache/src
       - ./tests:/home/mccache/tests
     entrypoint: ["/bin/sh", "-c"]
-#   command: >
-#       /home/mccache/tests/set_network_buffer.sh  &&
-#       python tests/unit/start_mccache.py
-#   command: /home/mccache/tests/set_network_buffer.sh  ;python tests/unit/start_mccache.py ;exit
-#   command: python tests/unit/start_mccache.py ;exit
     command: tests/start_mccache.sh

@@ -538,6 +538,9 @@ dev = [
     { name = "twine" },
     { name = "vulture" },
 ]
+test = [
+    { name = "faker" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -562,6 +565,7 @@ dev = [
     { name = "twine", specifier = ">=6.2.0" },
     { name = "vulture", specifier = ">=2.14" },
 ]
+test = [{ name = "faker", specifier = ">=37.11.0" }]
 
 [[package]]
 name = "mdurl"

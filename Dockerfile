@@ -42,6 +42,7 @@ RUN         apt-get install -y  vim
 #       WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x7f2aa8378c50>: Failed to establish a new connection: [Errno -3] Temporary failure in name resolution')': /simple/pip
 RUN         pip     install -U  pip
 RUN         pip     install     pipenv
+RUN         pip     install     uv
 
 # Setup mccache user workspace.
 #
@@ -64,9 +65,11 @@ RUN         mkdir   -p  /home/${USRGRP}/log \
 #
 #SER        ${USRGRP}
 
-# Install runtime dependencies.
+# Install test and runtime dependencies.
 #
-RUN         pip     install -r  requirements.txt
+RUN         pip     install     faker>=37.11.0
+RUN         pip     install     psutil>=7.1.0
+RUN         pip     install     cryptography>=46.0.2
 
 # Pickup the McCache project from the source directory.
 #

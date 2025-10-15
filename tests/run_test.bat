@@ -251,7 +251,7 @@ FOR /L %%v  IN ( 1 ,1 ,%TEST_CLUSTER_SIZE% )  DO  SET NODE0%%v=node0%%v
 :: Bring up the cluster of containers and wait until we are done exercising the cache.
 ::
 ECHO Starting the test cluster with %TEST_CLUSTER_SIZE% nodes.
-:: Keep in foregound with the maximum of 9 nodes as specified in "docker-compose.yml"
+:: Keep in foreground with the maximum of 9 nodes as specified in "docker-compose.yml"
 %CONTAINER_EXE% up  %NODE01% %NODE02% %NODE03% %NODE04% %NODE05% %NODE06% %NODE07% %NODE08% %NODE09%
 
 :: Wait for the test run to be completed in the cluster and test the output log.
@@ -261,8 +261,8 @@ ECHO Run test using the output log from the cluster.
 :: NOTE: There is a embedded TAB character in the search string.
 cat     log/*debug0*.log |grep -E "	INQ	|process|Done|Exiting" |grep -Ev "Fr:|Out going|Delete" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "/[0-9]'}}$/s/},/}\n/g" |sed "s/'}}/'}}\n/"    |sed "s/}, /}, \n/g" > log/result.txt
 
-:: Validate the stress test rsults.
-pytest  tests\stress\test_stress.py log/result.txt
+:: Validate the stress test results.
+uv run  pytest  tests\stress\test_stress.py log/result.txt
 
 :: Sort the logs in chronological order.
 sort    log/*debug0*.log >log/chronological.txt > NUL 2>&1
