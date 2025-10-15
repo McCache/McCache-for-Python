@@ -175,6 +175,8 @@ The results below are collected from testing output `result.txt` file and the `d
 |Avg Deletes      |The average deletes performed in the test.|
 
 ### Frequency Stress Test Result
+<details open><summary><font size="3" color="cyan">Python 3.12</font></summary>
+
 |<sub><br>Run</sub>|<sub>-C #<br>Nodes</sub>|<sub>-K #<br>Keys</sub>|<sub>-A #<br>Aperture</sub>|<sub>-R #<br>Duration</sub>|<sub><br>Result</sub>|<sub>Avg<br>Snooze</sub>|<sub>Avg<br>SpikeHits</sub>|<sub>Avg<br>SpikeInt</sub>|<sub>Avg&nbsp;InQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg&nbsp;OutQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg<br>LookUps</sub>|<sub>Avg<br>Inserts</sub>|<sub>Avg<br>Updates</sub>|<sub>Avg<br>Deletes</sub>|<sub>Avg<br>Evicts</sub>|<sub><br>Comment</sub>|
 |:------|---:|---:|-----:|---:|:----------------------------:|-----:|-----:|-----:|:-----------:|:-----------:|------:|------:|------:|------:|---:|:--|
 |3.1    |   3| 100|   0.1|  10|<font color="cyan">Pass</font>|0.1419|  2802|0.2142|    1 / 2    |   1 / 2     |   5154|    607|   1758|    437|   0|   |
@@ -206,15 +208,27 @@ The results below are collected from testing output `result.txt` file and the `d
 |9.3.2  |   9| 100|0.0001|  10|<font color="cyan">Pass</font>|0.0012|424483|0.0014|62875 / 65536|  262 / 35467| 680510| 162123| 100481| 159182|2706|Took an average of `17.0` minutes to dequeue after the testing have stop.|
 |       |    |    |      |    |                              |      |      |      |             |             |       |       |       |       |    |   |
 * 9 nodes are more than the 8 cores on the test machine.
+</details>
 
 ### Duration Stress Test Result
 ```bash
 $ tests/run_test  -t 7200 -L 0 -C 9 -K 100 -A 0.01 -R 480 -T 4 -s 1048576
 ```
+<details><summary><font size="3" color="cyan">Python 3.12</font></summary>
+
 |<sub><br>Run</sub>|<sub>-C #<br>Nodes</sub>|<sub>-K #<br>Keys</sub>|<sub>-A #<br>Aperture</sub>|<sub>-R #<br>Duration</sub>|<sub><br>Result</sub>|<sub>Avg<br>Snooze</sub>|<sub>Avg<br>SpikeHits</sub>|<sub>Avg<br>SpikeInt</sub>|<sub>Avg&nbsp;InQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg&nbsp;OutQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg<br>LookUps</sub>|<sub>Avg<br>Inserts</sub>|<sub>Avg<br>Updates</sub>|<sub>Avg<br>Deletes</sub>|<sub>Avg<br>Evicts</sub>|<sub><br>Comment</sub>|
 |:------|---:|---:| ----:|---:|:----------------------------:|-----:|------:|-----:|:---------:|:---------:|--------:|----------:|----------:|----------:|---:|:-|
 |9.2.1  |   9| 100|  0.01| 480|<font color="cyan">Pass</font>|0.0145| 5700951|0.0051| 4 / 653  |  12 / 2621|  6783081|    2482802|     735515|    2477708|4981|Took an average of `17.0` minutes to dequeue after the testing have stop.|
 |9.2.2  |   9| 100|  0.01|1440|<font color="cyan">Pass</font>|0.0155|17089517|0.0047| 4 / 802  |   8 / 322 | 19551763|    8010656|    1068399|    8005235|5350|  |
+</details>
+
+<details open><summary><font size="3" color="cyan">Python 3.14</font></summary>
+
+|<sub><br>Run</sub>|<sub>-C #<br>Nodes</sub>|<sub>-K #<br>Keys</sub>|<sub>-A #<br>Aperture</sub>|<sub>-R #<br>Duration</sub>|<sub><br>Result</sub>|<sub>Avg<br>Snooze</sub>|<sub>Avg<br>SpikeHits</sub>|<sub>Avg<br>SpikeInt</sub>|<sub>Avg&nbsp;InQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg&nbsp;OutQ<br>avg&nbsp;/&nbsp;max</sub>|<sub>Avg<br>LookUps</sub>|<sub>Avg<br>Inserts</sub>|<sub>Avg<br>Updates</sub>|<sub>Avg<br>Deletes</sub>|<sub>Avg<br>Evicts</sub>|<sub><br>Comment</sub>|
+|:------|---:|---:| ----:|---:|:----------------------------:|-----:|------:|-----:|:---------:|:---------:|--------:|----------:|----------:|----------:|---:|:-|
+|9.2.1  |   9| 100|  0.01| 480|<font color="cyan">Pass</font>|0.0145| 5700951|0.0051| 4 / 653  |  12 / 2621|  6783081|    2482802|     735515|    2477708|4981|Took an average of `17.0` minutes to dequeue after the testing have stop.|
+|9.2.2  |   9| 100|  0.01|1440|<font color="cyan">Pass</font>|0.0155|17089517|0.0047| 4 / 802  |   8 / 322 | 19551763|    8010656|    1068399|    8005235|5350|  |
+</details>
 
 * Interpreting the results.
     1. Watch the average snooze (pause plus processing) time per iteration.  This number is an indicator of the latency between cache updates.

@@ -265,7 +265,7 @@ cat     log/*debug0*.log |grep -E "	INQ	|process|Done|Exiting" |grep -Ev "Fr:|Ou
 uv run  pytest  tests\stress\test_stress.py log/result.txt
 
 :: Sort the logs in chronological order.
-sort    log/*debug0*.log >log/chronological.txt > NUL 2>&1
+sort    log/*debug0*.log >log/chronological.txt 2>&1
 
 IF %ERRORLEVEL% EQU 0 GOTO :EOF_CHRONOLOGICAL
 ::  Use the Windows sort.
