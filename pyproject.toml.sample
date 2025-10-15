@@ -10,7 +10,7 @@ maintainers = [
 ]
 description = "McCache is a, write through cluster aware, local in-memory caching library."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 license = "MIT"
 keywords = [
   "cache",
@@ -27,21 +27,41 @@ keywords = [
   "udp",
 ]
 classifiers = [  #! Update me
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
   "Topic :: Software Development :: Libraries :: Python Modules",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
-  "psutil>=5.9.5"
+    "psutil>=7.1.0",
+    "cryptography>=46.0.2",
+]
+[dependency-groups]
+test = [
+    "faker>=37.11.0",         # Test data faker.
+]
+dev = [ # As of 2025-10-13.
+    "pre-commit>=4.3.0",      # Git pre-commit hook.
+    "podman-compose>=1.5.0",  # Use podman to launch 'docker-compose.yml' file.
+    "bandit>=1.8.6",          # Security issues scanner.
+#   "pyupgrade">=3.10.1",     # Upgrade to modern Python syntax.
+#   "darglint>=1.8.1",        # Docstring linter expect docstring formatted suing Google Python Style Guide.
+    "mypy>=1.18.2",           # Static type checker for Python.
+    "ruff>=0.14.0",           # Extremely fast Python linter.  Use this as the default.
+    "vulture>=2.14",          # Dead code scanner.
+    "faker>=37.11.0",         # Test data faker.
+    "pytest>=8.4.2",          # Unit testing framework.
+    "pytest-bdd>=8.1.0",      # Subset of Gherkin language for Behavioral Driven Development.
+    "pytest-docker>=3.2.3",   # Docker based image testing.
+    "py-spy>=0.4.1",          # Sampling profiler for Python programs.
+    "coverage>=7.10.7",       # Measure code coverage.
+    "hatch>=1.14.2",          # The build tool with dynamic versioning.
+    "twine>=6.2.0",           # Package uploader for PyPI/TestPyPi.
 ]
 [project.urls]
 Homepage = "https://github.com/McCache/McCache-for-Python"
@@ -61,7 +81,7 @@ path = "src/mccache/__about__.py"
 
 [tool.hatch.envs.types]
 extra-dependencies = [
-  "mypy>=1.0.0",
+  "mypy>=1.18.2",
 ]
 
 [tool.hatch.envs.types.scripts]
@@ -114,8 +134,6 @@ testpypi= { url="https://test.pypi.org/legacy/"   ,username="__token__" ,passwor
 
 [[tool.hatch.envs.all.matrix]]
 python = [
-  "3.10",
-  "3.11",
   "3.12",
   "3.13",
   "3.14"
@@ -126,7 +144,7 @@ detached = true
 dependencies = [
 # "black>=23.1.0",
 # "blue>=0.9.1",
-  "mypy>=1.12.1",
+  "mypy>=1.18.2",
   "ruff>=0.0.287",
 ]
 
@@ -179,7 +197,7 @@ exclude_lines = [
 skips = ["B101" ,"B301" ,"B311" ,"B324" ,"B403"]
 
 [tool.black]
-target-version = ["py310"]
+target-version = ["py314"]
 line-length = 160   # But you should exercise good judgement and keep it as short as possible.
 skip-string-normalization = true
 
@@ -191,7 +209,7 @@ testpaths = [
 ]
 
 [tool.ruff]
-target-version = ">=py312"
+target-version = "py314"
 line-length = 160
 select = [
   "A",    # flake8-builtins
