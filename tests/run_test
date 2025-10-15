@@ -237,7 +237,7 @@ echo Run test using the output log from the cluster.
 # NOTE: There is a embedded TAB character in the search string.
 cat     log/*debug0*.log |grep -E "	INQ	|	MET	|Done|Exiting" |grep -Ev "Fr:|Out going|Delete" |sed "/Exiting/a}" |sed "s/{/\n /" |sed "s/},/}\n/g" |sed "s/}}/}\n/"   > log/result.txt
 
-# Validate the stress test rsults.
+# Validate the stress test results.
 uv run  pytest  tests/stress/test_stress.py log/result.txt
 
 # Sort the logs in chronological order.
